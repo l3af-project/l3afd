@@ -12,8 +12,10 @@ import (
 var (
 	NFStartCount *prometheus.CounterVec
 	NFStopCount  *prometheus.CounterVec
+	NFUpdateCount  *prometheus.CounterVec
 	NFRunning    *prometheus.GaugeVec
 	NFStartTime	 *prometheus.GaugeVec
+	NFMointorMap *prometheus.GaugeVec
 )
 
 func SetupMetrics(hostname, daemonName, metricsAddr string) {
@@ -40,6 +42,17 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 
 	NFStopCount = nfStopCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
 
+	nfUpdateCountVec := promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: daemonName,
+			Name:      "NFUpdateCount",
+			Help:      "The count of network functions updated",
+		},
+		[]string{"host", "network_function", "direction"},
+	)
+
+	NFUpdateCount = nfUpdateCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
+
 	nfRunningVec := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: daemonName,
@@ -65,6 +78,19 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 	logs.IfWarningLogf(prometheus.Register(nfStartTimeVec), "Failed to register NFStartTime metrics")
 
 	NFStartTime = nfStartTimeVec.MustCurryWith(prometheus.Labels{"host": hostname})
+
+	nfMonitorMapVec := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: daemonName,
+			Name:      "NFMonitorMap",
+			Help:      "This value indicates network function monitor counters",
+		},
+		[]string{"host", "network_function", "map_name"},
+	)
+
+	logs.IfWarningLogf(prometheus.Register(nfMonitorMapVec), "Failed to register NFMonitorMap metrics")
+
+	NFMointorMap = nfMonitorMapVec.MustCurryWith(prometheus.Labels{"host": hostname})
 
 	// Prometheus handler
 	metricsHandler := promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{})
@@ -95,6 +121,17 @@ func Set(value float64, gaugeVec *prometheus.GaugeVec, networkFunction, directio
 		return
 	}
 	if nfGauge, err := gaugeVec.GetMetricWithLabelValues(networkFunction, direction); err == nil {
+		nfGauge.Set(value)
+	}
+}
+
+func SetValue(value float64, gaugeVec *prometheus.GaugeVec, networkFunction, mapName string) {
+
+	if gaugeVec == nil {
+		logs.Warningf("Metrics: gauge vector is nil and needs to be initialized")
+		return
+	}
+	if nfGauge, err := gaugeVec.GetMetricWithLabelValues(networkFunction, mapName); err == nil {
 		nfGauge.Set(value)
 	}
 }

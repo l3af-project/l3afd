@@ -1,15 +1,17 @@
-package db
+package kf
 
 import (
 	"container/list"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestNewpCheck(t *testing.T) {
 	type args struct {
 		rc int
 		chain bool
+		interval time.Duration
 	}
 	tests := []struct {
 		name    string
@@ -19,20 +21,20 @@ func TestNewpCheck(t *testing.T) {
 	}{
 		{
 			name:    "EmptypCheck",
-			args:    args{rc: 0, chain: false},
+			args:    args{rc: 0, chain: false, interval: 0},
 			want:    &pCheck{MaxRetryCount: 0},
 			wantErr: false,
 		},
 		{
 			name:    "ValidpCheck",
-			args:    args{rc: 3, chain: true},
+			args:    args{rc: 3, chain: true, interval: 10},
 			want:    &pCheck{MaxRetryCount: 3},
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewpCheck(tt.args.rc, false)
+			got := NewpCheck(tt.args.rc, false, 0)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewpCheck() = %v, want %v", got, tt.want)
 			}

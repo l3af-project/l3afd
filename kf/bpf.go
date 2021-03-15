@@ -1,5 +1,5 @@
-// Package db provides primitives for BPF programs / Network Functions.
-package db
+// Package nf provides primitives for BPF programs / Network Functions.
+package kf
 
 import (
 	"archive/tar"
@@ -25,8 +25,9 @@ import (
 	"tbd/go-shared/logs"
 	"tbd/sys/unix"
 
-	"tbd/l3afd/config"
-	"tbd/l3afd/stats"
+	"tbd/Torbit/l3afd/config"
+	"tbd/Torbit/l3afd/stats"
+	"github.com/cilium/ebpf"
 	ps "github.com/mitchellh/go-ps"
 )
 
@@ -38,6 +39,7 @@ var (
 const executePerm uint32 = 0111
 const bpfStatus string = "RUNNING"
 
+
 // BPF defines run time details for BPFProgram.
 type BPF struct {
 	Program      models.BPFProgram
@@ -46,9 +48,11 @@ type BPF struct {
 	RestartCount int    // To track restart count
 	LogDir       string // Log dir for the BPF program
 	PrevMapName  string // Map name to link
+	ProgFD       int    // eBPF Program FD stored in PrevMapName to link
 	// Handle race conditions in the event of restarting entire chain
 	// This is to indicate processCheck monitor to avoid starting the program while this flag is set to false.
 	Monitor      bool
+	BpfMaps 	 map[string]BPFMap // Map name is Key
 }
 
 func NewBpfProgram(program models.BPFProgram, logDir string) *BPF {
@@ -59,6 +63,7 @@ func NewBpfProgram(program models.BPFProgram, logDir string) *BPF {
 		FilePath:     "",
 		LogDir:       logDir,
 		Monitor:      false,
+		BpfMaps: make(map[string]BPFMap, 0),
 	}
 	return bpf
 }
@@ -154,7 +159,7 @@ func LinuxDistribution() (string, error) {
 	linuxDistrib.Stdout = &out
 
 	if err := linuxDistrib.Run(); err != nil {
-		return "", fmt.Errorf("l3afd/db : Failed to run command with error: %w", err)
+		return "", fmt.Errorf("l3afd/nf : Failed to run command with error: %w", err)
 	}
 
 	return strings.TrimSpace(string(out.Bytes())), nil
@@ -204,6 +209,15 @@ func (b *BPF) Stop(ifaceName, direction string) error {
 	// Disable monitor
 	b.Monitor = false
 
+	// Removing maps
+	for key, val := range b.BpfMaps {
+		logs.Debugf("removing BPF maps %s value map %#v", key, val)
+		delete(b.BpfMaps, key)
+	}
+
+	// Reset ProgFD
+	b.ProgFD = 0
+
 	stats.Incr(stats.NFStopCount, b.Program.Name, direction)
 
 	// Setting NFRunning to 0, indicates not running
@@ -236,7 +250,7 @@ func (b *BPF) Stop(ifaceName, direction string) error {
 
 	logs.Infof("bpf program stop command : %s %v", cmd, args)
 	prog := execCommand(cmd, args...)
-	logs.IfWarningLogf(prog.Run(), "l3afd/db : Failed to stop the program %s", b.Program.CmdStop)
+	logs.IfWarningLogf(prog.Run(), "l3afd/nf : Failed to stop the program %s", b.Program.CmdStop)
 	b.Cmd = nil
 
 	return nil
@@ -252,6 +266,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		return fmt.Errorf("failed to stop external instance of the program %s with error : %w", b.Program.CmdStart, err)
 	}
 
+	//b.BpfMaps = make(map[string]BPFMap,0)
 	cmd := filepath.Join(b.FilePath, b.Program.CmdStart)
 	// Validate
 	if err := assertExecutable(cmd); err != nil {
@@ -286,6 +301,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	logs.Infof("BPF Program start command : %s %v", cmd, args)
 	b.Cmd = execCommand(cmd, args...)
 	if err := b.Cmd.Start(); err != nil {
+		logs.Infof("user mode BPF program failed - %s %v", b.Program.Name, err)
 		return fmt.Errorf("failed to start : %s %v", cmd, args)
 	}
 	if !b.Program.IsUserProgram {
@@ -302,7 +318,22 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 
 	isRunning, err := b.isRunning()
 	if isRunning == false {
+		logs.Errorf("eBPF program is failed to start : %v ", err)
 		return fmt.Errorf("bpf program %s failed to start %w", b.Program.Name, err)
+	}
+
+	// waiting for maps gets updated
+	time.Sleep(2 * time.Second)
+
+	b.ProgFD, err = b.GetProgFD()
+	if err != nil {
+		return fmt.Errorf("failed to fetch network functions program FD %w", err)
+	}
+
+	if len(b.Program.MapArgs) > 0 {
+		if err := b.Update(direction); err != nil {
+			return fmt.Errorf("failed to update network functions BPF maps %w", err)
+		}
 	}
 
 	logs.IfWarningLogf(b.SetPrLimits(), "failed to set resource limits")
@@ -312,9 +343,31 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	// Enable monitor
 	b.Monitor = true
 
-	logs.Infof("BPF program - %s started Process id %d", b.Program.Name, b.Cmd.Process.Pid)
+	logs.Infof("BPF program - %s started Process id %d Program FD %d", b.Program.Name, b.Cmd.Process.Pid, b.ProgFD)
 	return nil
 }
+
+
+// Updates the config maps
+func (b *BPF) Update(direction string) error {
+	for _, val := range b.Program.MapArgs {
+		logs.Debugf("element of map args %s", val)
+		// fetch the key in
+		bpfMap, ok := b.BpfMaps[val.Key]
+		if !ok {
+			if err := b.AddBPFMap(val.Key); err != nil {
+				return err
+			}
+			bpfMap, _ = b.BpfMaps[val.Key]
+		}
+
+		bpfMap.Update(val.Value)
+	}
+
+	stats.Incr(stats.NFUpdateCount, b.Program.Name, direction)
+	return nil
+}
+
 
 // Status of user program is running
 func (b *BPF) isRunning() (bool, error) {
@@ -339,14 +392,14 @@ func (b *BPF) isRunning() (bool, error) {
 		var out bytes.Buffer
 		prog.Stdout = &out
 		prog.Stderr = &out
-		logs.IfWarningLogf(prog.Run(), "l3afd/db : Failed to execute %s", b.Program.CmdStatus)
+		logs.IfWarningLogf(prog.Run(), "l3afd/nf : Failed to execute %s", b.Program.CmdStatus)
 
 		outStr, errStr := string(out.Bytes()), string(out.Bytes())
 		if strings.EqualFold(outStr, bpfStatus) {
 			return true, nil
 		}
 
-		return false, fmt.Errorf("l3afd/db : BPF Program not running %s", errStr)
+		return false, fmt.Errorf("l3afd/nf : BPF Program not running %s", errStr)
 	}
 
 	if b.Cmd == nil {
@@ -542,4 +595,142 @@ func fileExists(filename string) bool {
 		return false
 	}
 	return !info.IsDir()
+}
+
+// Add eBPF map into BPFMaps list
+func (b *BPF) AddBPFMap(mapName string)  error {
+
+	// TC maps are pinned by default
+	if b.Program.EBPFType == models.TCType {
+		ebpfMap,err := ebpf.LoadPinnedMap(mapName)
+		if err != nil {
+			return fmt.Errorf("ebpf LoadPinnedMap failed %v",err)
+		}
+		defer ebpfMap.Close()
+
+		tempMapID, err := ebpfMap.ID()
+		if err != nil {
+			return fmt.Errorf("fetching map id failed %v",err)
+		}
+
+		ebpfInfo, err := ebpfMap.Info()
+		if err != nil {
+			return fmt.Errorf("fetching map info failed %v",err)
+		}
+
+		tmpBPFMap := BPFMap{
+			Name: ebpfInfo.Name,
+			MapID: tempMapID ,
+			Type: ebpfInfo.Type,
+		}
+		logs.Infof("added mapID %d Name %s Type %s",tmpBPFMap.MapID, tmpBPFMap.Name, tmpBPFMap.Type)
+		b.BpfMaps[mapName] = tmpBPFMap
+		return nil
+	}
+
+	// XDP maps
+	// map names are truncated to 15 chars
+	mpName := mapName
+	if len(mapName) > 15 {
+		mpName = mapName[:15]
+	}
+	var mpId ebpf.MapID = 0
+
+	for {
+		tmpMapId, err := ebpf.MapGetNextID(mpId)
+
+		if err != nil {
+			fmt.Println("error : AddBPFMap - MapGetNextID %w", err)
+			return err
+		}
+
+		ebpfMap, err := ebpf.NewMapFromID(tmpMapId)
+		if err != nil {
+			return err
+		}
+		defer ebpfMap.Close()
+
+		ebpfInfo, err := ebpfMap.Info()
+		if err != nil {
+			fmt.Println("error : AddBPFMap - info %w", err)
+			return err
+		}
+
+		if ebpfInfo.Name == mpName {
+			tmpBPFMap := BPFMap{
+				Name: ebpfInfo.Name,
+				MapID: tmpMapId,
+				Type: ebpfInfo.Type,
+			}
+			b.BpfMaps[mapName] = tmpBPFMap
+			break
+		}
+		mpId = tmpMapId
+	}
+	return nil
+}
+
+// This method to fetch values from bpf maps and publish to metrics
+func (b *BPF) MonitorMaps() error {
+	for _, element := range b.Program.MonitorMaps {
+		logs.Debugf("monitor maps element %s ", element)
+		bpfMap, ok := b.BpfMaps[element]
+		if !ok {
+			if err := b.AddBPFMap(element); err != nil {
+				return err
+			}
+		}
+		bpfMap, _ = b.BpfMaps[element]
+		stats.SetValue(float64(bpfMap.GetValue()), stats.NFMointorMap, b.Program.Name,element)
+	}
+	return nil
+}
+
+
+func (b *BPF) GetProgFDofNext() (int, error){
+	ebpfMap, err := ebpf.LoadPinnedMap(b.Program.MapName)
+	if err != nil {
+		return 0, fmt.Errorf("unable to access pinned next prog map %s %v",b.Program.MapName, err)
+	}
+	defer ebpfMap.Close()
+
+	var value int
+	key := 0
+	if err := ebpfMap.Lookup(unsafe.Pointer(&key), unsafe.Pointer(&value)); err != nil {
+		if strings.Contains(fmt.Sprint(err), "key does not exist") {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("unable to lookup next prog map %s %v",b.Program.MapName, err)
+	}
+	return value, nil
+}
+
+// Updating next program FD
+func (b *BPF) PutProgFDofNext(progFD int) error{
+	ebpfMap, err := ebpf.LoadPinnedMap(b.Program.MapName)
+	if err != nil {
+		return fmt.Errorf("unable to access pinned next prog map %s %v", b.Program.MapName, err)
+	}
+	defer ebpfMap.Close()
+	key := 0
+	if err = ebpfMap.Update(unsafe.Pointer(&key), unsafe.Pointer(&progFD),0); err != nil {
+		return fmt.Errorf("unable to update prog next map %s %v", b.Program.MapName, err)
+	}
+	return nil
+}
+
+// Getting program fd from chained map
+func (b *BPF) GetProgFD() (int, error){
+	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapName)
+	if err != nil {
+		return 0, fmt.Errorf("unable to access pinned prog map %s %v", b.PrevMapName, err )
+	}
+	defer ebpfMap.Close()
+	var value int
+	key := 0
+
+	if err = ebpfMap.Lookup(unsafe.Pointer(&key), unsafe.Pointer(&value)); err != nil {
+		return 0, fmt.Errorf("unable to lookup prog map %v", err)
+	}
+	return value, nil
 }

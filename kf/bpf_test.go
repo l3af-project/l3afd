@@ -1,4 +1,4 @@
-package db
+package kf
 
 import (
 	"os"
@@ -54,6 +54,7 @@ func TestNewBpfProgram(t *testing.T) {
 					CmdStop:       "",
 					Version:       "1.0",
 					IsUserProgram: true,
+					IsPluginable: false,
 					AdminStatus:   "enabled",
 				},
 				logDir: "",
@@ -68,11 +69,13 @@ func TestNewBpfProgram(t *testing.T) {
 					CmdStop:       "",
 					Version:       "1.0",
 					IsUserProgram: true,
+					IsPluginable: false,
 					AdminStatus:   "enabled",
 				},
 				Cmd:      nil,
 				FilePath: "",
 				LogDir:   "",
+				BpfMaps: make(map[string]BPFMap,0),
 			},
 		},
 		{name: "EmptyBPFProgram",
@@ -84,13 +87,14 @@ func TestNewBpfProgram(t *testing.T) {
 				Program:  models.BPFProgram{},
 				Cmd:      nil,
 				FilePath: "",
+				BpfMaps: make(map[string]BPFMap,0),
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := NewBpfProgram(tt.args.program, tt.args.logDir); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewBpfProgram() = %v, want %v", got, tt.want)
+				t.Errorf("NewBpfProgram() = %#v, want %#v", got, tt.want)
 			}
 		})
 	}
@@ -141,7 +145,7 @@ func TestBPF_Stop(t *testing.T) {
 				FilePath:     "/tmp/dummy",
 				RestartCount: 3,
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{name: "WithStopCmd",
 			fields: fields{
@@ -229,7 +233,7 @@ func TestBPF_Start(t *testing.T) {
 				FilePath:     "/bin",
 				RestartCount: 0,
 			},
-			wantErr: false,
+			wantErr: true,
 		},
 		{name: "UserProgramFalse",
 			fields: fields{
@@ -263,7 +267,7 @@ func TestBPF_Start(t *testing.T) {
 				FilePath:     "/bin",
 				RestartCount: 0,
 			},
-			wantErr: false,
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {

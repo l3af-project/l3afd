@@ -1,5 +1,5 @@
-// Package db provides primitives for CDB helpers.
-package db
+// Package kf provides primitives for CDB helpers.
+package kf
 
 import (
 	"context"

@@ -1,5 +1,5 @@
-// Package db provides primitives for l3afd's network function configs.
-package db
+// Package kf provides primitives for l3afd's network function configs.
+package kf
 
 import (
 	"container/list"
@@ -9,17 +9,15 @@ import (
 	"reflect"
 	"strings"
 	"syscall"
-
 	"sync"
 	"time"
 
-	"tbd/admind/models"
-	"tbd/cfgdist/kvstores"
-	"tbd/cfgdist/kvstores/emitter"
-	"tbd/go-shared/logs"
-	"tbd/net/context"
-
-	"tbd/l3afd/config"
+	"tbd/Torbit/admind/models"
+	"tbd/Torbit/cfgdist/kvstores"
+	"tbd/Torbit/cfgdist/kvstores/emitter"
+	"tbd/Torbit/go-shared/logs"
+	"tbd/Torbit/net/context"
+	"tbd/Torbit/l3afd/config"
 )
 
 type NFConfigs struct {
@@ -100,7 +98,7 @@ func (c *NFConfigs) HandleUpdated(key, val []byte) error {
 								return fmt.Errorf("failed to update BPF Program: %w", err)
 							}
 						}
-					} else if err := c.VerifyNUpdateXDPBPFProgram(&bpfProg, ifaceName); err != nil {
+					} else if err := c.VerifyNUpdateBPFProgram(&bpfProg, ifaceName, direction); err != nil {
 						return fmt.Errorf("failed to update xdp BPF Program: %w", err)
 					}
 				case models.IngressType:
@@ -163,11 +161,9 @@ func (c *NFConfigs) Close(ctx context.Context) error {
 		go func() {
 			defer wg.Done()
 			for ifaceName, _ := range c.IngressXDPBpfs {
-				if err := c.StopAllXDPBPFPrograms(ifaceName); err != nil {
+				if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.XDPIngressType, models.XDPType); err != nil {
 					logs.Warningf("failed to Close Ingress XDP BPF Program ", err)
 				}
-
-				c.RemoveAllXDPBPFPrograms(ifaceName)
 				delete(c.IngressXDPBpfs, ifaceName)
 			}
 		}()
@@ -309,12 +305,14 @@ func (c *NFConfigs) DownloadAndStartBPFProgram(element *list.Element, ifaceName,
 	return nil
 }
 
-// Stopping all TC programs in reverse order
+// Stopping all programs in reverse order
 func (c *NFConfigs) StopNRemoveAllBPFPrograms(ifaceName, direction, ebpfType string) error {
 
 	var bpfList *list.List
 
 	switch direction {
+	case models.XDPIngressType:
+		bpfList = c.IngressXDPBpfs[ifaceName]
 	case models.IngressType:
 		bpfList = c.IngressTCBpfs[ifaceName]
 	case models.EgressType:
@@ -324,7 +322,7 @@ func (c *NFConfigs) StopNRemoveAllBPFPrograms(ifaceName, direction, ebpfType str
 	}
 
 	if bpfList == nil {
-		logs.Warningf("no tc %s programs to stop", direction)
+		logs.Warningf("no %s ebpf programs to stop", direction)
 		return nil
 	}
 
@@ -339,70 +337,6 @@ func (c *NFConfigs) StopNRemoveAllBPFPrograms(ifaceName, direction, ebpfType str
 	}
 
 	return nil
-}
-
-// Stopping all XDP programs in order
-func (c *NFConfigs) StopAllXDPBPFPrograms(ifaceName string) error {
-	logs.Debugf("Stopping all xdp network functions")
-
-	bpfList := c.IngressXDPBpfs[ifaceName]
-	if bpfList == nil {
-		logs.Warningf("no xdp programs to stop")
-		return nil
-	}
-
-	for e := bpfList.Front(); e != nil; {
-		data := e.Value.(*BPF)
-		if data.Monitor {
-			if err := data.Stop(ifaceName, models.XDPIngressType); err != nil {
-				return fmt.Errorf("failed to stop xdp network function %s error %w", data.Program.Name, err)
-			}
-		}
-		e = e.Next()
-	}
-
-	return nil
-}
-
-// Starting all XDP programs in order
-func (c *NFConfigs) StartAllXDPBPFPrograms(ifaceName string) error {
-	logs.Debugf("Starting all xdp network functions")
-	bpfList := c.IngressXDPBpfs[ifaceName]
-
-	if bpfList == nil {
-		logs.Warningf("no xdp programs to start")
-		return nil
-	}
-	for e := bpfList.Front(); e != nil; {
-		data := e.Value.(*BPF)
-		logs.Infof("Starting network function %s on iface %s", data.Program.Name, ifaceName )
-		if err := data.Start(ifaceName, models.XDPIngressType, c.hostConfig.BpfChainingEnabled); err != nil {
-			return fmt.Errorf("failed to start xdp network function %s", data.Program.Name)
-		}
-		e = e.Next()
-	}
-
-	return nil
-}
-
-// List clean up
-func (c *NFConfigs) RemoveAllXDPBPFPrograms(ifaceName string) {
-
-	bpfList := c.IngressXDPBpfs[ifaceName]
-
-	if bpfList == nil {
-		logs.Warningf("no xdp programs to remove")
-		return
-	}
-
-	for e := bpfList.Front(); e != nil; {
-		nextBPF := e.Next()
-		bpfList.Remove(e)
-		e = nextBPF
-	}
-
-	c.IngressXDPBpfs[ifaceName] = nil
-	return
 }
 
 // This method checks the following conditions
@@ -446,6 +380,12 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 		// Admin status change - disabled
 		if data.Program.AdminStatus != bpfProg.AdminStatus {
 			logs.Infof("verifyNUpdateBPFProgram :admin_status change detected - disabling the program %s", data.Program.Name)
+			// get the program fd of next program from the map
+			nextProgFD, err := data.GetProgFDofNext()
+			if err != nil {
+				return fmt.Errorf("failed to fetch next program FD from the bpf map %#v", err)
+			}
+
 			if err := data.Stop(ifaceName, direction); err != nil {
 				return fmt.Errorf("failed to stop to on admin_status change BPF %s iface %s direction %s admin_status %s", bpfProg.Name, ifaceName, direction, bpfProg.AdminStatus)
 			}
@@ -455,17 +395,14 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 			bpfList.Remove(e)
 			if tmpNextBPF != nil { // relink the next element and restart
 				tmpPrevbpf := tmpNextBPF.Prev().Value.(*BPF)
-				if err := tmpNextBPF.Value.(*BPF).Stop(ifaceName, direction); err != nil {
-					return fmt.Errorf("failed to stop to on admin_status change BPF %s iface %s direction %s admin_status %s", bpfProg.Name, ifaceName, direction, bpfProg.AdminStatus)
-				}
 				tmpNextBPF.Value.(*BPF).PrevMapName = tmpPrevbpf.Program.MapName
-				if err := tmpNextBPF.Value.(*BPF).Start(ifaceName, direction, c.hostConfig.BpfChainingEnabled); err != nil {
-					return fmt.Errorf("failed to start to on admin_status change BPF %s iface %s direction %s admin_status %s", bpfProg.Name, ifaceName, direction, bpfProg.AdminStatus)
+				if err := tmpNextBPF.Value.(*BPF).PutProgFDofNext(nextProgFD); err != nil {
+					return fmt.Errorf("failed to update program fd of next program %s", bpfProg.Name)
 				}
 			}
-
 			// Check if list contains root program only then stop the root program.
 			if tmpPreviousBPF.Prev() == nil && tmpPreviousBPF.Next() == nil {
+				logs.Infof("no network functions are running, stopping root program")
 				if c.hostConfig.BpfChainingEnabled {
 					if err := c.StopRootProgram(ifaceName, direction); err != nil {
 						return fmt.Errorf("failed to stop to root program  %s iface %s direction %s", bpfProg.Name, ifaceName, direction)
@@ -474,47 +411,67 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 			}
 			return nil
 		}
-		// Seq ID change
-		if data.Program.SeqID != bpfProg.SeqID {
-			logs.Infof("VerifyNUpdateBPFProgram : seq id change detected current seq id %d new seq id %d", data.Program.SeqID, bpfProg.SeqID)
-			data.Program = *bpfProg
-			tmpBPF := e
-			tmpPrevBPF := e.Prev()
-			if tmpBPF.Value.(*BPF).PrevMapName != tmpPrevBPF.Value.(*BPF).Program.MapName {
-				if err := c.MoveToLocation(e, ifaceName, direction); err != nil {
-					return fmt.Errorf("failed to move to new position in the chain BPF %s version %s iface %s direction %s", bpfProg.Name, bpfProg.Version, ifaceName, direction)
+
+		if data.Program.CfgVersion != bpfProg.CfgVersion {
+
+			// Update CfgVersion
+			data.Program.CfgVersion = bpfProg.CfgVersion
+
+			// Seq ID Change
+			if data.Program.SeqID != bpfProg.SeqID {
+				logs.Infof("VerifyNUpdateBPFProgram : seq id change detected current seq id %d new seq id %d", data.Program.SeqID, bpfProg.SeqID)
+				tmpBPF := e
+				tmpPrevBPF := e.Prev()
+
+				// Update seq id
+				data.Program.SeqID = bpfProg.SeqID
+
+				if tmpBPF.Value.(*BPF).PrevMapName != tmpPrevBPF.Value.(*BPF).Program.MapName {
+					if err := c.MoveToLocation(e, ifaceName, direction); err != nil {
+						return fmt.Errorf("failed to move to new position in the chain BPF %s version %s iface %s direction %s", bpfProg.Name, bpfProg.Version, ifaceName, direction)
+					}
+					if tmpBPF.Next() != nil {
+						if tmpBPF.Value.(*BPF).Program.MapName != tmpBPF.Next().Value.(*BPF).PrevMapName {
+							tmpBPF.Next().Value.(*BPF).PrevMapName = tmpBPF.Value.(*BPF).Program.MapName
+							if err := tmpBPF.Value.(*BPF).PutProgFDofNext(tmpBPF.Next().Value.(*BPF).ProgFD); err != nil {
+								return fmt.Errorf("Update of ProgFD on seq change failed %w", err)
+							}
+						}
+					}
 				}
+			}
+
+			// monitor maps change
+			if reflect.DeepEqual(data.Program.MonitorMaps, bpfProg.MonitorMaps) != true {
+				logs.Infof("monitor map list is mismatched")
+				copy(data.Program.MonitorMaps, bpfProg.MonitorMaps)
+			}
+
+			// monitor maps change
+			if reflect.DeepEqual(data.Program.MapArgs, bpfProg.MapArgs) != true {
+				logs.Infof("maps_args are mismatched")
+				copy(data.Program.MapArgs, bpfProg.MapArgs)
+				data.Update(direction)
+			}
+			// Version Change
+			if data.Program.Version != bpfProg.Version || reflect.DeepEqual(data.Program.StartArgs, bpfProg.StartArgs) != true {
+				logs.Infof("VerifyNUpdateBPFProgram : version update initiated - current version %s new version %s", data.Program.Version, bpfProg.Version)
+
+				nextProgFD, err := data.GetProgFDofNext()
+				if err != nil {
+					return fmt.Errorf("failed to fetch next program FD from the bpf map")
+				}
+				if err := data.Stop(ifaceName, direction); err != nil {
+					return fmt.Errorf("failed to stop older version of network function BPF %s iface %s direction %s version %s", bpfProg.Name, ifaceName, direction, bpfProg.Version)
+				}
+				data.Program = *bpfProg
+				//logs.Infof("sleeping 30 seconds")
+				//time.Sleep(30 * time.Second)
 				if err := c.DownloadAndStartBPFProgram(e, ifaceName, direction); err != nil {
-					return fmt.Errorf("failed to download and start at new postion in the chain BPF %s version %s iface %s direction %s", bpfProg.Name, bpfProg.Version, ifaceName, direction)
+					return fmt.Errorf("failed to download and start newer version of network function BPF %s version %s iface %s direction %s", bpfProg.Name, bpfProg.Version, ifaceName, direction)
 				}
-				// Restart the next program
-				tmpNextBPF := tmpBPF.Next()
-				if tmpNextBPF == nil {
-					return nil
-				}
-				if tmpNextBPF.Prev().Value.(*BPF).Program.MapName != tmpNextBPF.Value.(*BPF).PrevMapName {
-					if err := tmpNextBPF.Value.(*BPF).Stop(ifaceName, direction); err != nil {
-						return fmt.Errorf("failed to stop next network function in the chain BPF %s version %s iface %s direction %s", bpfProg.Name, bpfProg.Version, ifaceName, direction)
-					}
-					if err := c.DownloadAndStartBPFProgram(tmpNextBPF, ifaceName, direction); err != nil {
-						return fmt.Errorf("failed to download and start next network function in the chain BPF %s version %s iface %s direction %s", bpfProg.Name, bpfProg.Version, ifaceName, direction)
-					}
-				}
+				data.PutProgFDofNext(nextProgFD)
 			}
-			return nil
-		}
-
-		// version change
-		if data.Program.Version != bpfProg.Version || data.Program.CfgVersion != bpfProg.CfgVersion { // version change
-			logs.Infof("VerifyNUpdateBPFProgram : version update initiated - current version %s new version %s", data.Program.Version, bpfProg.Version)
-			if err := data.Stop(ifaceName, direction); err != nil {
-				return fmt.Errorf("failed to stop older version of network function BPF %s iface %s direction %s version %s", bpfProg.Name, ifaceName, direction, bpfProg.Version)
-			}
-			data.Program = *bpfProg
-			if err := c.DownloadAndStartBPFProgram(e, ifaceName, direction); err != nil {
-				return fmt.Errorf("failed to download and start newer version of network function BPF %s version %s iface %s direction %s", bpfProg.Name, bpfProg.Version, ifaceName, direction)
-			}
-
 			return nil
 		}
 	}
@@ -526,155 +483,6 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 
 	return nil
 }
-
-// VerifyNUpdateXDPBPFProgram - XDP programs needs a different approach than TC
-// any changes to the xdp program in the chain needs to unlink the chain from the interface and
-// stop all the programs. Update the programs based on the conditions below.
-// Once all changes are made to the program then start all programs in the chain from root.
-//
-// 1. BPF Program already running with no change
-// 2. BPF Program running but needs to stop (admin_status == disabled)
-// 3. BPF Program running but needs version update
-// 4. BPF Program running but position change (seq_id change)
-// 5. BPF Program not running but needs to start.
-
-func (c *NFConfigs) VerifyNUpdateXDPBPFProgram(bpfProg *models.BPFProgram, ifaceName string) (error) {
-
-	if bpfProg == nil {
-		return nil
-	}
-
-	bpfList := c.IngressXDPBpfs[ifaceName]
-
-	if bpfList == nil {
-		logs.Warningf("no xdp programs in the list")
-		return nil
-	}
-
-	for e := bpfList.Front(); e != nil; e = e.Next() {
-		data := e.Value.(*BPF)
-
-		if strings.Compare(data.Program.Name, bpfProg.Name) != 0 {
-			continue
-		}
-		if reflect.DeepEqual(data.Program, *bpfProg) == true {
-			logs.Debugf("VerifyNUpdateXDPBPFProgram : DeepEqual Matched Name %s ", data.Program.Name)
-			// Nothing to do
-			return nil;
-		}
-
-		// Admin status change - disabled
-		if data.Program.AdminStatus != bpfProg.AdminStatus {
-			logs.Infof("verifyNUpdateXDPBPFProgram : admin_status change detected - disabling the program %s", data.Program.Name)
-			if err := c.StopAllXDPBPFPrograms(ifaceName) ; err != nil {
-				return fmt.Errorf("failed to stop all xdp network functions on admin_status change BPF %s iface %s admin_status %s", bpfProg.Name, ifaceName, bpfProg.AdminStatus)
-			}
-
-			tmpNextBPF := e.Next()
-			tmpPreviousBPF := e.Prev()
-			bpfList.Remove(e)
-			if tmpNextBPF != nil { // relink the next element
-				tmpPrevbpf := tmpNextBPF.Prev().Value.(*BPF)
-				tmpNextBPF.Value.(*BPF).PrevMapName = tmpPrevbpf.Program.MapName
-			}
-
-			// Check if list contains root program only then remove the root program and return
-			if tmpPreviousBPF.Prev() == nil && tmpPreviousBPF.Next() == nil {
-				if c.hostConfig.BpfChainingEnabled {
-					c.IngressXDPBpfs[ifaceName].Remove(c.IngressXDPBpfs[ifaceName].Front())
-					c.IngressXDPBpfs[ifaceName] = nil
-					return nil
-				}
-			}
-
-			logs.Infof("Sleeping for %ds to release all xdp in-memory maps", c.hostConfig.BpfDelayTime)
-			time.Sleep(time.Duration(c.hostConfig.BpfDelayTime) * time.Second)
-
-			if err := c.StartAllXDPBPFPrograms(ifaceName) ; err != nil {
-				return fmt.Errorf("failed to start all xdp network functions on program version change BPF %s iface %s admin_status %s", bpfProg.Name, ifaceName, bpfProg.AdminStatus)
-			}
-			return nil;
-		}
-		// Seq ID change
-		if data.Program.SeqID != bpfProg.SeqID {
-			logs.Infof("verifyNUpdateXDPBPFProgram : seq id change detected current seq id %d new seq id %d", data.Program.SeqID, bpfProg.SeqID)
-			if err := c.StopAllXDPBPFPrograms(ifaceName) ; err != nil {
-				return fmt.Errorf("failed to stop all xdp network functions on admin_status change BPF %s iface %s admin_status %s", bpfProg.Name, ifaceName, bpfProg.AdminStatus)
-			}
-			data.Program = *bpfProg
-			tmpBPF := e
-			tmpPrevBPF := e.Prev()
-			if tmpBPF.Value.(*BPF).PrevMapName != tmpPrevBPF.Value.(*BPF).Program.MapName {
-				if err := c.MoveToLocation(e, ifaceName, models.XDPIngressType); err != nil {
-					return fmt.Errorf("failed to move to new position in the chain BPF %s version %s iface %s", bpfProg.Name, bpfProg.Version, ifaceName)
-				}
-
-				if e.Prev() != nil {
-					data.PrevMapName = e.Prev().Value.(*BPF).Program.MapName
-				}
-
-				if err := data.VerifyAndGetArtifacts(c.hostConfig); err != nil {
-					return fmt.Errorf("failed to get artifacts %s with error: %w", data.Program.Artifact, err)
-				}
-
-				// Update the previous map name to maintain the chain
-				tmpNextBPF := tmpBPF.Next()
-				if tmpNextBPF != nil {
-					tmpNextBPF.Value.(*BPF).PrevMapName = tmpNextBPF.Prev().Value.(*BPF).Program.MapName
-				}
-			}
-			logs.Infof("Sleeping for %ds to release all the xdp in-memory maps", c.hostConfig.BpfDelayTime)
-			time.Sleep(time.Duration(c.hostConfig.BpfDelayTime) * time.Second)
-			if err := c.StartAllXDPBPFPrograms(ifaceName) ; err != nil {
-				return fmt.Errorf("failed to start all xdp network functions on seq id change BPF %s iface %s admin_status %s", bpfProg.Name, ifaceName, bpfProg.AdminStatus)
-			}
-			return nil;
-		}
-
-		// version change
-		if data.Program.Version != bpfProg.Version || data.Program.CfgVersion != bpfProg.CfgVersion { // version change
-			logs.Infof("VerifyNUpdateBPFProgram : version update initiated - current version %s new version %s", data.Program.Version, bpfProg.Version)
-			if err := c.StopAllXDPBPFPrograms(ifaceName) ; err != nil {
-				return fmt.Errorf("failed to stop all xdp network functions on version change BPF %s iface %s admin_status %s", bpfProg.Name, ifaceName, bpfProg.AdminStatus)
-			}
-			data.Program = *bpfProg
-
-			if e.Prev() != nil {
-				data.PrevMapName =  e.Prev().Value.(*BPF).Program.MapName
-			}
-
-			if err := data.VerifyAndGetArtifacts(c.hostConfig); err != nil {
-				return fmt.Errorf("failed to get artifacts %s with error: %w", data.Program.Artifact, err)
-			}
-			logs.Infof("Sleeping for %ds to release all xdp in-memory maps", c.hostConfig.BpfDelayTime)
-			time.Sleep(time.Duration(c.hostConfig.BpfDelayTime) * time.Second)
-			if err := c.StartAllXDPBPFPrograms(ifaceName) ; err != nil {
-				return fmt.Errorf("failed to start all xdp network functions on version change BPF %s iface %s admin_status %s", bpfProg.Name, ifaceName, bpfProg.AdminStatus)
-			}
-			return nil;
-		}
-	}
-
-	logs.Infof("new program to the list name %s iface %s seq id %d", bpfProg.Name, ifaceName, bpfProg.SeqID)
-
-	// if not found in the list insert at the given seq_id location
-	if err := c.StopAllXDPBPFPrograms(ifaceName) ; err != nil {
-		return fmt.Errorf("failed to stop all xdp network functions for new program in the list BPF %s iface %s admin_status %s error %w", bpfProg.Name, ifaceName, bpfProg.AdminStatus, err)
-	}
-	if err := c.InsertXDPBPFProgram(bpfProg, ifaceName); err != nil {
-		return fmt.Errorf("failed to insert xdp BPFProgram to new location BPF %s version %s iface %s seq id %d", bpfProg.Name, bpfProg.Version, ifaceName, bpfProg.SeqID)
-	}
-
-	logs.Infof("Sleeping for %ds to release all xdp in-memory maps", c.hostConfig.BpfDelayTime)
-	time.Sleep(time.Duration(c.hostConfig.BpfDelayTime) * time.Second)
-
-	if err := c.StartAllXDPBPFPrograms(ifaceName) ; err != nil {
-		return fmt.Errorf("failed to start all xdp network functions for new program in the list BPF %s iface %s admin_status %s", bpfProg.Name, ifaceName, bpfProg.AdminStatus)
-	}
-
-	return nil
-}
-
 
 func (c *NFConfigs) MoveToLocation(element *list.Element, ifaceName, direction string) (error) {
 
@@ -727,6 +535,8 @@ func (c *NFConfigs) InsertAndStartBPFProgram(bpfProg *models.BPFProgram, ifaceNa
 	bpf := NewBpfProgram(*bpfProg, c.hostConfig.BPFLogDir)
 
 	switch direction {
+	case models.XDPIngressType:
+		bpfList = c.IngressXDPBpfs[ifaceName]
 	case models.IngressType:
 		bpfList = c.IngressTCBpfs[ifaceName]
 	case models.EgressType:
@@ -736,7 +546,7 @@ func (c *NFConfigs) InsertAndStartBPFProgram(bpfProg *models.BPFProgram, ifaceNa
 	}
 
 	if bpfList == nil {
-		logs.Warningf("tc %s program list is empty", direction)
+		logs.Warningf("%s program list is empty", direction)
 		return nil
 	}
 
@@ -748,19 +558,15 @@ func (c *NFConfigs) InsertAndStartBPFProgram(bpfProg *models.BPFProgram, ifaceNa
 				return fmt.Errorf("failed to download and start network function %s version %s iface %s direction %s", bpfProg.Name, bpfProg.Version, ifaceName, direction)
 			}
 
-			tmpNextBPF := tmpBPF.Next()
-			if tmpNextBPF == nil {
-				return nil
-			}
-			// Restart the next program in case to update the program fd
-			if tmpNextBPF.Prev().Value.(*BPF).Program.MapName != tmpNextBPF.Value.(*BPF).PrevMapName {
-				if err := tmpNextBPF.Value.(*BPF).Stop(ifaceName, direction); err != nil {
-					return fmt.Errorf("failed to stop next network function in the chain %s version %s iface %s direction %s", bpfProg.Name, bpfProg.Version, ifaceName, direction)
-				}
-				if err := c.DownloadAndStartBPFProgram(tmpNextBPF, ifaceName, direction); err != nil {
-					return fmt.Errorf("failed to download and start next network function in the chain %s version %s iface %s direction %s", bpfProg.Name, bpfProg.Version, ifaceName, direction)
+			if tmpBPF.Next() != nil {
+				if tmpBPF.Value.(*BPF).Program.MapName != tmpBPF.Next().Value.(*BPF).PrevMapName {
+					tmpBPF.Next().Value.(*BPF).PrevMapName = tmpBPF.Value.(*BPF).Program.MapName
+					if err := tmpBPF.Value.(*BPF).PutProgFDofNext(tmpBPF.Next().Value.(*BPF).ProgFD); err != nil {
+						return fmt.Errorf("Update of ProgFD on seq change failed %w", err)
+					}
 				}
 			}
+
 			return nil
 		}
 	}
@@ -768,57 +574,6 @@ func (c *NFConfigs) InsertAndStartBPFProgram(bpfProg *models.BPFProgram, ifaceNa
 	// insert at the end
 	if err := c.PushBackAndStartBPF(bpfProg, ifaceName, direction); err != nil {
 		return fmt.Errorf("failed to push back and start network function %s version %s iface %s direction %s", bpfProg.Name, bpfProg.Version, ifaceName, direction)
-	}
-
-	return nil
-}
-
-
-// InsertXDPBPFProgram inserts the bpf program node at the end of the list
-func (c *NFConfigs) InsertXDPBPFProgram(bpfProg *models.BPFProgram, ifaceName string) (error) {
-
-	if bpfProg == nil {
-		return fmt.Errorf("insert XDP network function - bpf program is nil")
-	}
-
-	if bpfProg.AdminStatus == models.Disabled {
-		return nil
-	}
-
-	bpf := NewBpfProgram(*bpfProg, c.hostConfig.BPFLogDir)
-
-	if err := bpf.VerifyAndGetArtifacts(c.hostConfig); err != nil {
-		return fmt.Errorf("failed to get artifacts %s with error: %w", bpf.Program.Artifact, err)
-	}
-
-	bpfList := c.IngressXDPBpfs[ifaceName]
-
-	if bpfList == nil {
-		logs.Warningf("xdp program list is empty")
-		return nil
-	}
-
-	for e := bpfList.Front(); e != nil; e = e.Next() {
-		data := e.Value.(*BPF)
-		if data.Program.SeqID >= bpfProg.SeqID {
-			logs.Infof("Insert xdp BPFProgram data seq id %d bpf prog %d", data.Program.SeqID, bpfProg.SeqID)
-			tmpBPF := bpfList.InsertBefore(bpf, e)
-			if tmpBPF.Prev() != nil {
-				tmpBPF.Value.(*BPF).PrevMapName = tmpBPF.Prev().Value.(*BPF).Program.MapName
-			}
-			tmpNextBPF := tmpBPF.Next()
-			if tmpNextBPF != nil {
-				tmpNextBPF.Value.(*BPF).PrevMapName = tmpNextBPF.Prev().Value.(*BPF).Program.MapName
-			}
-			return nil
-		}
-	}
-
-	logs.Infof("inserting new xdp network function in the end of the list %s", bpfProg.Name)
-	// insert at the end
-	lastElement := bpfList.PushBack(bpf)
-	if lastElement.Prev() != nil {
-		lastElement.Value.(*BPF).PrevMapName = lastElement.Prev().Value.(*BPF).Program.MapName
 	}
 
 	return nil

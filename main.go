@@ -13,17 +13,17 @@ import (
 	"strings"
 	"time"
 
-	"tbd/admind-sdks/go/admindapi"
-	"tbd/admind/models"
-	"tbd/cfgdist/kvstores/emitter"
-	"tbd/go-shared/logs"
-	"tbd/go-shared/nsqbatch"
-	"tbd/go-shared/pidfile"
-	version "tbd/go-version"
+	"tbd/Torbit/admind-sdks/go/admindapi"
+	"tbd/Torbit/admind/models"
+	"tbd/Torbit/cfgdist/kvstores/emitter"
+	"tbd/Torbit/go-shared/logs"
+	"tbd/Torbit/go-shared/nsqbatch"
+	"tbd/Torbit/go-shared/pidfile"
+	version "tbd/Torbit/go-version"
 
-	"tbd/l3afd/config"
-	"tbd/l3afd/db"
-	"tbd/l3afd/stats"
+	"tbd/Torbit/l3afd/config"
+	"tbd/Torbit/l3afd/kf"
+	"tbd/Torbit/l3afd/stats"
 )
 
 const daemonName = "l3afd"
@@ -56,7 +56,7 @@ func main() {
 	select {}
 }
 
-func NFConfigsFromCDB(ctx context.Context, conf *config.Config) (*db.NFConfigs, error) {
+func NFConfigsFromCDB(ctx context.Context, conf *config.Config) (*kf.NFConfigs, error) {
 	// Get Hostname
 	machineHostname, err := os.Hostname()
 	logs.IfErrorLogf(err, "Could not get hostname from OS")
@@ -73,14 +73,14 @@ func NFConfigsFromCDB(ctx context.Context, conf *config.Config) (*db.NFConfigs, 
 		}
 	}
 	netNamespace := os.Getenv("TBNETNAMESPACE")
-	cdbKVStore, err := db.VersionAnnouncerFromCDB(ctx, machineHostname,
+	cdbKVStore, err := kf.VersionAnnouncerFromCDB(ctx, machineHostname,
 		daemonName, netNamespace, conf.CDBFilename, conf.DataCenter, "", false, false, producer)
 	if err != nil {
 		return nil, fmt.Errorf("error in version announcer: %v", err)
 	}
 	emit := emitter.NewKVStoreChangeEmitter(cdbKVStore)
-	pMon := db.NewpCheck(conf.MaxNFReStartCount, conf.BpfChainingEnabled)
-	nfConfigs, err := db.NewNFConfigs(emit, machineHostname, conf, pMon)
+	pMon := kf.NewpCheck(conf.MaxNFReStartCount, conf.BpfChainingEnabled, conf.PollInterval)
+	nfConfigs, err := kf.NewNFConfigs(emit, machineHostname, conf, pMon)
 
 	pidfile.SetupGracefulShutdown(func() error {
 		if len(nfConfigs.IngressXDPBpfs) > 0 || len(nfConfigs.IngressTCBpfs) > 0 || len(nfConfigs.EgressTCBpfs) > 0 {

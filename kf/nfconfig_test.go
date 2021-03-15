@@ -1,4 +1,4 @@
-package db
+package kf
 
 import (
 	"container/list"
@@ -58,7 +58,7 @@ func setupDBTest() {
 	machineHostname, _ = os.Hostname()
 	var pairs [][2]string
 	emit = newMockEventEmitter(pairs)
-	pMon = NewpCheck(3, true)
+	pMon = NewpCheck(3, true, 10)
 
 	ingressXDPBpfs = make(map[string]*list.List)
 	ingressTCBpfs = make(map[string]*list.List)
