@@ -465,8 +465,7 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 					return fmt.Errorf("failed to stop older version of network function BPF %s iface %s direction %s version %s", bpfProg.Name, ifaceName, direction, bpfProg.Version)
 				}
 				data.Program = *bpfProg
-				//logs.Infof("sleeping 30 seconds")
-				//time.Sleep(30 * time.Second)
+
 				if err := c.DownloadAndStartBPFProgram(e, ifaceName, direction); err != nil {
 					return fmt.Errorf("failed to download and start newer version of network function BPF %s version %s iface %s direction %s", bpfProg.Name, bpfProg.Version, ifaceName, direction)
 				}
