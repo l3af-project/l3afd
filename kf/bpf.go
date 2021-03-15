@@ -675,11 +675,11 @@ func (b *BPF) MonitorMaps() error {
 		bpfMap, ok := b.BpfMaps[element]
 		if !ok {
 			if err := b.AddBPFMap(element); err != nil {
-				return err
+				return fmt.Errorf("not able to fetch map %s", element)
 			}
 		}
 		bpfMap, _ = b.BpfMaps[element]
-		stats.SetValue(float64(bpfMap.GetValue()), stats.NFMointorMap, b.Program.Name,element)
+		stats.SetValue(float64(bpfMap.GetValue()), stats.NFMointorMap, b.Program.Name, element)
 	}
 	return nil
 }
