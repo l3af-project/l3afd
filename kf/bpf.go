@@ -640,20 +640,18 @@ func (b *BPF) AddBPFMap(mapName string)  error {
 		tmpMapId, err := ebpf.MapGetNextID(mpId)
 
 		if err != nil {
-			fmt.Println("error : AddBPFMap - MapGetNextID %w", err)
-			return err
+			return fmt.Errorf("failed to fetch the map object %v", err)
 		}
 
 		ebpfMap, err := ebpf.NewMapFromID(tmpMapId)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get NewMapFromID %v", err)
 		}
 		defer ebpfMap.Close()
 
 		ebpfInfo, err := ebpfMap.Info()
 		if err != nil {
-			fmt.Println("error : AddBPFMap - info %w", err)
-			return err
+			return fmt.Errorf("failed to fetch ebpfinfo %v", err)
 		}
 
 		if ebpfInfo.Name == mpName {
