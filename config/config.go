@@ -31,6 +31,7 @@ type Config struct {
 	// stats
 	// Prometheus endpoint for pull/scrape the metrics.
 	MetricsAddr string
+	PollInterval time.Duration
 
 	ShutdownTimeout time.Duration
 
@@ -81,6 +82,7 @@ func ReadConfig(configPath string) (*Config, error) {
 		BpfChainingEnabled:          util.LoadOptionalConfigBool(confReader, "l3afd", "bpf-chaining-enabled", true),
 		BpfDelayTime:                util.LoadOptionalConfigInt(confReader, "l3afd", "bpf-delay-time", 5),
 		MetricsAddr:                 util.LoadConfigString(confReader, "web", "metrics-addr"),
+		PollInterval:                util.LoadConfigDuration(confReader, "web", "poll-interval"),
 		ShutdownTimeout:             util.LoadConfigDuration(confReader, "l3afd", "shutdown-timeout"),
 		AdmindHost:                  util.LoadConfigString(confReader, "admind", "host"),
 		AdmindUsername:              util.LoadConfigString(confReader, "admind", "username"),
