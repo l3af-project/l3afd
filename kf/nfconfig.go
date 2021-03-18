@@ -389,17 +389,17 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 			if err := data.Stop(ifaceName, direction); err != nil {
 				return fmt.Errorf("failed to stop to on admin_status change BPF %s iface %s direction %s admin_status %s", bpfProg.Name, ifaceName, direction, bpfProg.AdminStatus)
 			}
-
 			tmpNextBPF := e.Next()
 			tmpPreviousBPF := e.Prev()
 			bpfList.Remove(e)
 			if tmpNextBPF != nil { // relink the next element and restart
 				tmpPrevbpf := tmpNextBPF.Prev().Value.(*BPF)
 				tmpNextBPF.Value.(*BPF).PrevMapName = tmpPrevbpf.Program.MapName
-				if err := tmpNextBPF.Value.(*BPF).PutProgFDofNext(nextProgFD); err != nil {
+				if err := tmpPrevbpf.PutProgFDofNext(nextProgFD); err != nil {
 					return fmt.Errorf("failed to update program fd of next program %s", bpfProg.Name)
 				}
 			}
+
 			// Check if list contains root program only then stop the root program.
 			if tmpPreviousBPF.Prev() == nil && tmpPreviousBPF.Next() == nil {
 				logs.Infof("no network functions are running, stopping root program")

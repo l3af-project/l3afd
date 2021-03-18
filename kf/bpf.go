@@ -686,6 +686,10 @@ func (b *BPF) MonitorMaps() error {
 
 
 func (b *BPF) GetProgFDofNext() (int, error){
+	if len(b.Program.MapName) == 0 {
+		// no chaining map
+		return 0, nil
+	}
 	ebpfMap, err := ebpf.LoadPinnedMap(b.Program.MapName)
 	if err != nil {
 		return 0, fmt.Errorf("unable to access pinned next prog map %s %v",b.Program.MapName, err)
@@ -705,13 +709,25 @@ func (b *BPF) GetProgFDofNext() (int, error){
 
 // Updating next program FD
 func (b *BPF) PutProgFDofNext(progFD int) error{
+
+	if len(b.Program.MapName) == 0 {
+		// no chaining map
+		return nil
+	}
+
 	ebpfMap, err := ebpf.LoadPinnedMap(b.Program.MapName)
 	if err != nil {
 		return fmt.Errorf("unable to access pinned next prog map %s %v", b.Program.MapName, err)
 	}
 	defer ebpfMap.Close()
 	key := 0
-	if err = ebpfMap.Update(unsafe.Pointer(&key), unsafe.Pointer(&progFD),0); err != nil {
+
+	bpfProg, err := ebpf.NewProgramFromID(ebpf.ProgramID(progFD))
+	if err != nil {
+		return fmt.Errorf("failed to get prog FD from ID for map %s %v",b.Program.MapName, err)
+	}
+
+	if err = ebpfMap.Put(unsafe.Pointer(&key), uint32(bpfProg.FD())); err != nil {
 		return fmt.Errorf("unable to update prog next map %s %v", b.Program.MapName, err)
 	}
 	return nil
@@ -719,6 +735,10 @@ func (b *BPF) PutProgFDofNext(progFD int) error{
 
 // Getting program fd from chained map
 func (b *BPF) GetProgFD() (int, error){
+	if len(b.Program.MapName) == 0 {
+		// no chaining map
+		return 0, nil
+	}
 	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapName)
 	if err != nil {
 		return 0, fmt.Errorf("unable to access pinned prog map %s %v", b.PrevMapName, err )
