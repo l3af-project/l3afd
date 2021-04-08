@@ -44,6 +44,9 @@ func (c *pCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string
 				if c.Chain && bpf.Program.SeqID == 0 { // do not monitor root program
 					continue
 				}
+				if bpf.Program.AdminStatus == models.Disabled || !bpf.Monitor {
+					continue
+				}
 				isRunning, _ := bpf.isRunning()
 				if isRunning == true {
 					stats.Set(1.0, stats.NFRunning, bpf.Program.Name, direction)
@@ -51,9 +54,7 @@ func (c *pCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string
 					logs.IfErrorLogf(bpf.MonitorMaps(), "pMonitor monitor maps failed - %s", bpf.Program.Name)
 					continue
 				}
-				if bpf.Program.AdminStatus == models.Disabled || !bpf.Monitor {
-					continue
-				}
+				// Not running trying to restart
 				if bpf.RestartCount < c.MaxRetryCount {
 					bpf.RestartCount++
 					logs.Warningf("pMonitor BPF Program is not running - restart attempt %d -  program name - %s on iface %s",

@@ -82,7 +82,7 @@ func ReadConfig(configPath string) (*Config, error) {
 		BpfChainingEnabled:          util.LoadOptionalConfigBool(confReader, "l3afd", "bpf-chaining-enabled", true),
 		BpfDelayTime:                util.LoadOptionalConfigInt(confReader, "l3afd", "bpf-delay-time", 5),
 		MetricsAddr:                 util.LoadConfigString(confReader, "web", "metrics-addr"),
-		PollInterval:                util.LoadConfigDuration(confReader, "web", "poll-interval"),
+		PollInterval:                util.LoadOptionalConfigDuration(confReader, "web", "poll-interval", 10),
 		ShutdownTimeout:             util.LoadConfigDuration(confReader, "l3afd", "shutdown-timeout"),
 		AdmindHost:                  util.LoadConfigString(confReader, "admind", "host"),
 		AdmindUsername:              util.LoadConfigString(confReader, "admind", "username"),

@@ -48,7 +48,7 @@ type BPF struct {
 	RestartCount int    // To track restart count
 	LogDir       string // Log dir for the BPF program
 	PrevMapName  string // Map name to link
-	ProgFD       int    // eBPF Program FD stored in PrevMapName to link
+	ProgID       int    // eBPF Program ID
 	// Handle race conditions in the event of restarting entire chain
 	// This is to indicate processCheck monitor to avoid starting the program while this flag is set to false.
 	Monitor      bool
@@ -215,8 +215,8 @@ func (b *BPF) Stop(ifaceName, direction string) error {
 		delete(b.BpfMaps, key)
 	}
 
-	// Reset ProgFD
-	b.ProgFD = 0
+	// Reset ProgID
+	b.ProgID = 0
 
 	stats.Incr(stats.NFStopCount, b.Program.Name, direction)
 
@@ -266,7 +266,6 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		return fmt.Errorf("failed to stop external instance of the program %s with error : %w", b.Program.CmdStart, err)
 	}
 
-	//b.BpfMaps = make(map[string]BPFMap,0)
 	cmd := filepath.Join(b.FilePath, b.Program.CmdStart)
 	// Validate
 	if err := assertExecutable(cmd); err != nil {
@@ -322,10 +321,10 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		return fmt.Errorf("bpf program %s failed to start %w", b.Program.Name, err)
 	}
 
-	// waiting for maps gets updated
+	// waiting for maps to populate
 	time.Sleep(2 * time.Second)
 
-	b.ProgFD, err = b.GetProgFD()
+	b.ProgID, err = b.GetProgID()
 	if err != nil {
 		return fmt.Errorf("failed to fetch network functions program FD %w", err)
 	}
@@ -343,7 +342,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	// Enable monitor
 	b.Monitor = true
 
-	logs.Infof("BPF program - %s started Process id %d Program FD %d", b.Program.Name, b.Cmd.Process.Pid, b.ProgFD)
+	logs.Infof("BPF program - %s started Process id %d Program ID %d", b.Program.Name, b.Cmd.Process.Pid, b.ProgID)
 	return nil
 }
 
@@ -685,7 +684,7 @@ func (b *BPF) MonitorMaps() error {
 }
 
 
-func (b *BPF) GetProgFDofNext() (int, error){
+func (b *BPF) GetNextProgID() (int, error){
 	if len(b.Program.MapName) == 0 {
 		// no chaining map
 		return 0, nil
@@ -704,11 +703,12 @@ func (b *BPF) GetProgFDofNext() (int, error){
 		}
 		return 0, fmt.Errorf("unable to lookup next prog map %s %v",b.Program.MapName, err)
 	}
+
 	return value, nil
 }
 
-// Updating next program FD
-func (b *BPF) PutProgFDofNext(progFD int) error{
+// Updating next program FD from program ID
+func (b *BPF) PutNextProgFDFromID(progID int) error{
 
 	if len(b.Program.MapName) == 0 {
 		// no chaining map
@@ -720,23 +720,22 @@ func (b *BPF) PutProgFDofNext(progFD int) error{
 		return fmt.Errorf("unable to access pinned next prog map %s %v", b.Program.MapName, err)
 	}
 	defer ebpfMap.Close()
-	key := 0
 
-	bpfProg, err := ebpf.NewProgramFromID(ebpf.ProgramID(progFD))
+	bpfProg, err := ebpf.NewProgramFromID(ebpf.ProgramID(progID))
 	if err != nil {
-		return fmt.Errorf("failed to get prog FD from ID for map %s %v",b.Program.MapName, err)
+		return fmt.Errorf("failed to get next prog FD from ID for program %s %v",b.Program.Name, err)
 	}
-
+	key := 0
 	if err = ebpfMap.Put(unsafe.Pointer(&key), uint32(bpfProg.FD())); err != nil {
 		return fmt.Errorf("unable to update prog next map %s %v", b.Program.MapName, err)
 	}
 	return nil
 }
 
-// Getting program fd from chained map
-func (b *BPF) GetProgFD() (int, error){
-	if len(b.Program.MapName) == 0 {
-		// no chaining map
+// This returns ID of the bpf program
+func (b *BPF) GetProgID() (int, error){
+	if len(b.PrevMapName) == 0 {
+		// no chaining map in case of root programs
 		return 0, nil
 	}
 	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapName)
@@ -750,5 +749,26 @@ func (b *BPF) GetProgFD() (int, error){
 	if err = ebpfMap.Lookup(unsafe.Pointer(&key), unsafe.Pointer(&value)); err != nil {
 		return 0, fmt.Errorf("unable to lookup prog map %v", err)
 	}
+
+	logs.Infof("GetProgID - Name %s PrevMapName %s ID %d", b.Program.Name, b.PrevMapName, value)
 	return value, nil
+}
+
+// Delete the entry if the last element
+func (b *BPF) RemoveNextProgFD() error {
+	if len(b.Program.MapName) == 0 {
+		// no chaining map in case of root programs
+		return nil
+	}
+	ebpfMap, err := ebpf.LoadPinnedMap(b.Program.MapName)
+	if err != nil {
+		return fmt.Errorf("unable to access pinned next prog map %s %v", b.Program.MapName, err )
+	}
+	defer ebpfMap.Close()
+	key := 0
+
+	if err := ebpfMap.Delete(unsafe.Pointer(&key)); err != nil {
+		return fmt.Errorf( "failed to delete prog fd entry" )
+	}
+	return nil
 }

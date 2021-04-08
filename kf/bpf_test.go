@@ -54,7 +54,7 @@ func TestNewBpfProgram(t *testing.T) {
 					CmdStop:       "",
 					Version:       "1.0",
 					IsUserProgram: true,
-					IsPluginable: false,
+					IsPluggable: false,
 					AdminStatus:   "enabled",
 				},
 				logDir: "",
@@ -69,7 +69,7 @@ func TestNewBpfProgram(t *testing.T) {
 					CmdStop:       "",
 					Version:       "1.0",
 					IsUserProgram: true,
-					IsPluginable: false,
+					IsPluggable: false,
 					AdminStatus:   "enabled",
 				},
 				Cmd:      nil,
@@ -233,7 +233,7 @@ func TestBPF_Start(t *testing.T) {
 				FilePath:     "/bin",
 				RestartCount: 0,
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{name: "UserProgramFalse",
 			fields: fields{
@@ -267,7 +267,7 @@ func TestBPF_Start(t *testing.T) {
 				FilePath:     "/bin",
 				RestartCount: 0,
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
