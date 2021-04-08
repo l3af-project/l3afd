@@ -55,7 +55,7 @@ func (c *pCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string
 					continue
 				}
 				// Not running trying to restart
-				if bpf.RestartCount < c.MaxRetryCount {
+				if bpf.RestartCount < c.MaxRetryCount && bpf.Program.AdminStatus == models.Enabled {
 					bpf.RestartCount++
 					logs.Warningf("pMonitor BPF Program is not running - restart attempt %d -  program name - %s on iface %s",
 						bpf.RestartCount, bpf.Program.Name, ifaceName)

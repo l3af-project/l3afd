@@ -735,7 +735,7 @@ func (b *BPF) PutNextProgFDFromID(progID int) error{
 // This returns ID of the bpf program
 func (b *BPF) GetProgID() (int, error){
 	if len(b.PrevMapName) == 0 {
-		// no chaining map in case of root programs
+		// no chaining map to be updated in case of root or last program
 		return 0, nil
 	}
 	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapName)
