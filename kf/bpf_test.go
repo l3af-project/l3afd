@@ -33,9 +33,9 @@ func TestHelperProcess(t *testing.T) {
 
 func TestNewBpfProgram(t *testing.T) {
 	type args struct {
-		program models.BPFProgram
-		logDir  string
-		chain bool
+		program   models.BPFProgram
+		logDir    string
+		chain     bool
 		direction string
 	}
 	execCommand = fakeExecCommand
@@ -54,11 +54,11 @@ func TestNewBpfProgram(t *testing.T) {
 					CmdStop:       "",
 					Version:       "1.0",
 					IsUserProgram: true,
-					IsPluggable: false,
+					IsPluggable:   false,
 					AdminStatus:   "enabled",
 				},
-				logDir: "",
-				chain: false,
+				logDir:    "",
+				chain:     false,
 				direction: "ingress",
 			},
 			want: &BPF{
@@ -69,13 +69,13 @@ func TestNewBpfProgram(t *testing.T) {
 					CmdStop:       "",
 					Version:       "1.0",
 					IsUserProgram: true,
-					IsPluggable: false,
+					IsPluggable:   false,
 					AdminStatus:   "enabled",
 				},
 				Cmd:      nil,
 				FilePath: "",
 				LogDir:   "",
-				BpfMaps: make(map[string]BPFMap,0),
+				BpfMaps:  make(map[string]BPFMap, 0),
 			},
 		},
 		{name: "EmptyBPFProgram",
@@ -87,7 +87,7 @@ func TestNewBpfProgram(t *testing.T) {
 				Program:  models.BPFProgram{},
 				Cmd:      nil,
 				FilePath: "",
-				BpfMaps: make(map[string]BPFMap,0),
+				BpfMaps:  make(map[string]BPFMap, 0),
 			},
 		},
 	}
@@ -106,7 +106,7 @@ func TestBPF_Stop(t *testing.T) {
 		Cmd          *exec.Cmd
 		FilePath     string
 		RestartCount int
-		Direction string
+		Direction    string
 	}
 	tests := []struct {
 		name    string

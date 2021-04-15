@@ -9,8 +9,8 @@ import (
 
 func TestNewpCheck(t *testing.T) {
 	type args struct {
-		rc int
-		chain bool
+		rc       int
+		chain    bool
 		interval time.Duration
 	}
 	tests := []struct {

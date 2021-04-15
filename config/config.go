@@ -26,11 +26,11 @@ type Config struct {
 	BpfChainingEnabled bool
 
 	// Delay added in seconds between stop and start xdp programs so that all the in-memory maps are released
-	BpfDelayTime       int
+	BpfDelayTime int
 
 	// stats
 	// Prometheus endpoint for pull/scrape the metrics.
-	MetricsAddr string
+	MetricsAddr  string
 	PollInterval time.Duration
 
 	ShutdownTimeout time.Duration
@@ -58,6 +58,10 @@ type Config struct {
 	TCRootProgramCommand        string
 	TCRootProgramVersion        string
 	TCRootProgramIsUserProgram  bool
+
+	// ebpf chain details
+	EBPFChainDebugAddr    string
+	EBPFChainDebugEnabled bool
 }
 
 //Initializes configuration from file
@@ -88,7 +92,7 @@ func ReadConfig(configPath string) (*Config, error) {
 		AdmindUsername:              util.LoadConfigString(confReader, "admind", "username"),
 		AdmindApiKey:                util.LoadConfigString(confReader, "admind", "api-key"),
 		AdmindGroupID:               util.LoadConfigInt(confReader, "admind", "group-id"),
-		AdmindApiEnabled:            util.LoadOptionalConfigBool(confReader, "admind", "api-enabled",true),
+		AdmindApiEnabled:            util.LoadOptionalConfigBool(confReader, "admind", "api-enabled", true),
 		XDPRootProgramName:          util.LoadOptionalConfigString(confReader, "xdp-root-program", "name", "xdp_root"),
 		XDPRootProgramArtifact:      util.LoadOptionalConfigString(confReader, "xdp-root-program", "artifact", "l3af_xdp_root.tar.gz"),
 		XDPRootProgramMapName:       util.LoadOptionalConfigString(confReader, "xdp-root-program", "ingress-map-name", "/sys/fs/bpf/xdp_root_array"),
@@ -102,5 +106,7 @@ func ReadConfig(configPath string) (*Config, error) {
 		TCRootProgramCommand:        util.LoadOptionalConfigString(confReader, "tc-root-program", "command", "tc_root"),
 		TCRootProgramVersion:        util.LoadOptionalConfigString(confReader, "tc-root-program", "version", "1.0"),
 		TCRootProgramIsUserProgram:  util.LoadOptionalConfigBool(confReader, "tc-root-program", "is-user-program", false),
+		EBPFChainDebugAddr:          util.LoadOptionalConfigString(confReader, "ebpf-chain-debug", "addr", "0.0.0.0:8899"),
+		EBPFChainDebugEnabled:       util.LoadOptionalConfigBool(confReader, "ebpf-chain-debug", "enabled", false),
 	}, nil
 }

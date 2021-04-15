@@ -10,12 +10,12 @@ import (
 )
 
 var (
-	NFStartCount *prometheus.CounterVec
-	NFStopCount  *prometheus.CounterVec
-	NFUpdateCount  *prometheus.CounterVec
-	NFRunning    *prometheus.GaugeVec
-	NFStartTime	 *prometheus.GaugeVec
-	NFMointorMap *prometheus.GaugeVec
+	NFStartCount  *prometheus.CounterVec
+	NFStopCount   *prometheus.CounterVec
+	NFUpdateCount *prometheus.CounterVec
+	NFRunning     *prometheus.GaugeVec
+	NFStartTime   *prometheus.GaugeVec
+	NFMointorMap  *prometheus.GaugeVec
 )
 
 func SetupMetrics(hostname, daemonName, metricsAddr string) {

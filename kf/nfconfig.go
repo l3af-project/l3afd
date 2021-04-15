@@ -8,16 +8,16 @@ import (
 	"io/ioutil"
 	"reflect"
 	"strings"
-	"syscall"
 	"sync"
+	"syscall"
 	"time"
 
 	"tbd/Torbit/admind/models"
 	"tbd/Torbit/cfgdist/kvstores"
 	"tbd/Torbit/cfgdist/kvstores/emitter"
 	"tbd/Torbit/go-shared/logs"
-	"tbd/Torbit/net/context"
 	"tbd/Torbit/l3afd/config"
+	"tbd/Torbit/net/context"
 )
 
 type NFConfigs struct {
@@ -346,9 +346,9 @@ func (c *NFConfigs) StopNRemoveAllBPFPrograms(ifaceName, direction, ebpfType str
 // 4. BPF Program running but position change (seq_id change)
 // 5. BPF Program not running but needs to start.
 
-func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceName, direction string) (error) {
+func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceName, direction string) error {
 
-	var bpfList *list.List;
+	var bpfList *list.List
 	if bpfProg == nil {
 		return nil
 	}
@@ -374,7 +374,7 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 		if reflect.DeepEqual(data.Program, *bpfProg) == true {
 			logs.Debugf("VerifyNUpdateBPFProgram : DeepEqual Matched Name %s ", data.Program.Name)
 			// Nothing to do
-			return nil;
+			return nil
 		}
 
 		// Admin status change - disabled
@@ -466,7 +466,7 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 	return nil
 }
 
-func (c *NFConfigs) MoveToLocation(element *list.Element, bpfList *list.List) (error) {
+func (c *NFConfigs) MoveToLocation(element *list.Element, bpfList *list.List) error {
 
 	if element == nil {
 		return fmt.Errorf("MoveToLocation - element is nil")
@@ -536,9 +536,9 @@ func (c *NFConfigs) MoveToLocation(element *list.Element, bpfList *list.List) (e
 }
 
 // InsertAndStartBPFProgram method for tc programs
-func (c *NFConfigs) InsertAndStartBPFProgram(bpfProg *models.BPFProgram, ifaceName, direction string) (error) {
+func (c *NFConfigs) InsertAndStartBPFProgram(bpfProg *models.BPFProgram, ifaceName, direction string) error {
 
-	var bpfList *list.List;
+	var bpfList *list.List
 	if bpfProg == nil {
 		return fmt.Errorf("InsertAndStartBPFProgram - bpf program is nil")
 	}
@@ -599,7 +599,7 @@ func (c *NFConfigs) InsertAndStartBPFProgram(bpfProg *models.BPFProgram, ifaceNa
 }
 
 // This method stops the root program, removes the root node from the list and reset the list to nil
-func (c *NFConfigs) StopRootProgram(ifaceName, direction string) (error) {
+func (c *NFConfigs) StopRootProgram(ifaceName, direction string) error {
 
 	switch direction {
 	case models.XDPIngressType:
@@ -645,7 +645,7 @@ func VerifyNMountBPFFS() error {
 	dstPath := "/sys/fs/bpf"
 	srcPath := "bpffs"
 	fstype := "bpf"
-	flags  := 0
+	flags := 0
 
 	mnts, err := ioutil.ReadFile("/proc/mounts")
 	if err != nil {
@@ -662,7 +662,7 @@ func VerifyNMountBPFFS() error {
 }
 
 // Link BPF programs
-func (c *NFConfigs)LinkBPFPrograms(leftBPF, rightBPF *BPF) error {
+func (c *NFConfigs) LinkBPFPrograms(leftBPF, rightBPF *BPF) error {
 	logs.Infof("LinkBPFPrograms : left BPF Prog %s right BPF Prog %s", leftBPF.Program.Name, rightBPF.Program.Name)
 	rightBPF.PrevMapName = leftBPF.Program.MapName
 	if err := leftBPF.PutNextProgFDFromID(rightBPF.ProgID); err != nil {
@@ -670,4 +670,28 @@ func (c *NFConfigs)LinkBPFPrograms(leftBPF, rightBPF *BPF) error {
 		return fmt.Errorf("LinkBPFPrograms - failed to update program fd in prev prog prog map before move %w", err)
 	}
 	return nil
+}
+
+// Method provides dump of KFs for debug purpose
+func (c *NFConfigs) KFDetails(iface string) []*BPF {
+	arrBPFDetails := make([]*BPF, 0)
+	bpfList := c.IngressXDPBpfs[iface]
+	if bpfList != nil {
+		for e := bpfList.Front(); e != nil; e = e.Next() {
+			arrBPFDetails = append(arrBPFDetails, e.Value.(*BPF))
+		}
+	}
+	bpfList = c.IngressTCBpfs[iface]
+	if bpfList != nil {
+		for e := bpfList.Front(); e != nil; e = e.Next() {
+			arrBPFDetails = append(arrBPFDetails, e.Value.(*BPF))
+		}
+	}
+	bpfList = c.EgressTCBpfs[iface]
+	if bpfList != nil {
+		for e := bpfList.Front(); e != nil; e = e.Next() {
+			arrBPFDetails = append(arrBPFDetails, e.Value.(*BPF))
+		}
+	}
+	return arrBPFDetails
 }

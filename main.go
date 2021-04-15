@@ -47,12 +47,15 @@ func main() {
 	logs.IfFatalLogf(checkKernelVersion(conf), "The unsupported kernel version please upgrade")
 
 	if conf.AdmindApiEnabled {
-		logs.IfErrorLogf(registerL3afD(conf), "L3afd registration failed", err)
+		logs.IfErrorLogf(registerL3afD(conf), "L3afd registration failed")
 	}
 
-	_, err = NFConfigsFromCDB(ctx, conf)
+	kfConfigs, err := NFConfigsFromCDB(ctx, conf)
 	logs.IfFatalLogf(err, "L3afd failed to start", err)
 
+	if conf.EBPFChainDebugEnabled {
+		kf.SetupKFDebug(conf.EBPFChainDebugAddr, kfConfigs)
+	}
 	select {}
 }
 

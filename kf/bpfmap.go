@@ -2,16 +2,17 @@ package kf
 
 import (
 	"fmt"
-	"strings"
-	"unsafe"
-	"strconv"
 	"tbd/Torbit/go-shared/logs"
 	"github.com/cilium/ebpf"
+	"strconv"
+	"strings"
+	"unsafe"
 )
+
 type BPFMap struct {
-	Name string
+	Name  string
 	MapID ebpf.MapID
-	Type ebpf.MapType
+	Type  ebpf.MapType
 }
 
 // This function is used to update eBPF maps, which are used by network functions.
@@ -22,7 +23,7 @@ type BPFMap struct {
 // if map has multiple entry then key will be value and value will be 1
 // In case of Array then key will be index and value are stored.
 
-func (b *BPFMap)Update(value string) error {
+func (b *BPFMap) Update(value string) error {
 
 	logs.Debugf("update map name %s ID %d", b.Name, b.MapID)
 	ebpfMap, err := ebpf.NewMapFromID(b.MapID)
@@ -58,7 +59,7 @@ func (b *BPFMap)Update(value string) error {
 		for key, val := range s {
 			v, _ := strconv.ParseInt(val, 10, 64)
 			x := 1
-			logs.Debugf("updating map %s key %d mapid %d", b.Name,v,b.MapID)
+			logs.Debugf("updating map %s key %d mapid %d", b.Name, v, b.MapID)
 			if err := ebpfMap.Update(unsafe.Pointer(&v), unsafe.Pointer(&x), 0); err != nil {
 				return fmt.Errorf("update hash map element failed for key %d error %v", key, err)
 			}
@@ -81,7 +82,7 @@ func (b *BPFMap) GetValue() int64 {
 
 	ebpfMap, err := ebpf.NewMapFromID(b.MapID)
 	if err != nil {
-		logs.Warningf("GetValue : NewMapFromID failed ID %d  err %v",b.MapID, err)
+		logs.Warningf("GetValue : NewMapFromID failed ID %d  err %v", b.MapID, err)
 		return 0
 	}
 	defer ebpfMap.Close()
