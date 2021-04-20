@@ -318,16 +318,28 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		return fmt.Errorf("bpf program %s failed to start %w", b.Program.Name, err)
 	}
 
-	// waiting for maps to populate
-	time.Sleep(2 * time.Second)
+	// Fetch when prev program map is defined
+	if len(b.PrevMapName) > 0 {
+		// retry 10 times
+		for i := 0; i < 10; i++ {
+			b.ProgID, err = b.GetProgID()
+			if err == nil {
+				break
+			}
 
-	b.ProgID, err = b.GetProgID()
-	if err != nil {
-		return fmt.Errorf("failed to fetch network functions program FD %w", err)
+			logs.Warningf("failed to fetch the program ID, retrying after a second ... ")
+			time.Sleep(1 * time.Second)
+		}
+
+		if err != nil {
+			logs.Errorf("failed to fetch network functions program FD %w", err)
+			return fmt.Errorf("failed to fetch network functions program FD %w", err)
+		}
 	}
 
 	if len(b.Program.MapArgs) > 0 {
 		if err := b.Update(direction); err != nil {
+			logs.Errorf("failed to update network functions BPF maps %w", err)
 			return fmt.Errorf("failed to update network functions BPF maps %w", err)
 		}
 	}
@@ -728,12 +740,10 @@ func (b *BPF) PutNextProgFDFromID(progID int) error {
 
 // This returns ID of the bpf program
 func (b *BPF) GetProgID() (int, error) {
-	if len(b.PrevMapName) == 0 {
-		// no chaining map to be updated in case of root or last program
-		return 0, nil
-	}
+
 	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapName)
 	if err != nil {
+		logs.Errorf("unable to access pinned prog map %s %w", b.PrevMapName, err)
 		return 0, fmt.Errorf("unable to access pinned prog map %s %v", b.PrevMapName, err)
 	}
 	defer ebpfMap.Close()
@@ -741,7 +751,10 @@ func (b *BPF) GetProgID() (int, error) {
 	key := 0
 
 	if err = ebpfMap.Lookup(unsafe.Pointer(&key), unsafe.Pointer(&value)); err != nil {
-		return 0, fmt.Errorf("unable to lookup prog map %v", err)
+		if err != nil {
+			logs.Warningf("unable to lookup prog map %s", b.PrevMapName)
+			return 0, fmt.Errorf("unable to lookup prog map %w", err)
+		}
 	}
 
 	logs.Infof("GetProgID - Name %s PrevMapName %s ID %d", b.Program.Name, b.PrevMapName, value)

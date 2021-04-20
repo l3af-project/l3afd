@@ -2,11 +2,13 @@ package kf
 
 import (
 	"fmt"
-	"tbd/Torbit/go-shared/logs"
-	"github.com/cilium/ebpf"
 	"strconv"
 	"strings"
 	"unsafe"
+
+	"tbd/Torbit/go-shared/logs"
+
+	"github.com/cilium/ebpf"
 )
 
 type BPFMap struct {
@@ -16,13 +18,23 @@ type BPFMap struct {
 }
 
 // This function is used to update eBPF maps, which are used by network functions.
-// Supported types are Array and HashMap
-// multiple values are comma separated
+// Supported types are Array and Hash
+// Multiple values are comma separated
 // Hashmap can be multiple values or single values.
-// if map has single entry then key will be 0 and value will be updated.
-// if map has multiple entry then key will be value and value will be 1
-// In case of Array then key will be index and value are stored.
-
+// If hash map has single entry then key will be 0 and value will be updated.
+// If hash map has multiple entries then key will be values and value will be 1 to set
+// In case of Array then key will be index starting from 0 and values are stored.
+// for e.g.
+// 	HashMap scenario 1. rl_ports_map="80,443" in this case
+// 		key => 80 value => 1
+// 		key => 443 value => 1
+// 	HashMap scenario 2. rl_config_map="10000" in this case
+// 		key => 0 value => 10000
+// 	Array scenario 1. rl_ports_map="80,443" in this case
+// 		key => 0 value => 80
+// 		key => 1 value => 443
+// 	Array scenario 2. rl_config_map="10000" in this case
+// 		key => 0 value => 10000
 func (b *BPFMap) Update(value string) error {
 
 	logs.Debugf("update map name %s ID %d", b.Name, b.MapID)
