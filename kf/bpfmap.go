@@ -25,15 +25,15 @@ type BPFMap struct {
 // If hash map has multiple entries then key will be values and value will be 1 to set
 // In case of Array then key will be index starting from 0 and values are stored.
 // for e.g.
-// 	HashMap scenario 1. rl_ports_map="80,443" or --ports="80,443" in this case
+// 	HashMap scenario 1. --ports="80,443" values are stored in rl_ports_map BPF map
 // 		key => 80 value => 1
 // 		key => 443 value => 1
-// 	HashMap scenario 2. rl_config_map="10000" or --rate="10000" in this case
+// 	HashMap scenario 2. --rate="10000" value is stored in rl_config_map BPF map
 // 		key => 0 value => 10000
-// 	Array scenario 1. rl_ports_map="80,443" or  --ports="80,443" in this case
+// 	Array scenario 1. --ports="80,443" values are stored in rl_ports_map BPF map
 // 		key => 0 value => 80
 // 		key => 1 value => 443
-// 	Array scenario 2. rl_config_map="10000" or --rate="10000" in this case
+// 	Array scenario 2. --rate="10000" value is stored in rl_config_map BPF map
 // 		key => 0 value => 10000
 func (b *BPFMap) Update(value string) error {
 
