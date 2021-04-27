@@ -337,6 +337,22 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		}
 	}
 
+	// making sure program fd map pinned file is created
+	if len(b.Program.MapName) > 0 {
+		for i := 0; i < 10; i++ {
+			if _, err = os.Stat(b.Program.MapName); err == nil {
+				break
+			}
+			logs.Warningf("failed to find pinned file, retrying after a second ... ")
+			time.Sleep(1 * time.Second)
+		}
+
+		if err != nil {
+			logs.Errorf("failed to find pinned file %w", err)
+			return fmt.Errorf("failed to find pinned file, %w", err)
+		}
+	}
+
 	if len(b.Program.MapArgs) > 0 {
 		if err := b.Update(direction); err != nil {
 			logs.Errorf("failed to update network functions BPF maps %w", err)
