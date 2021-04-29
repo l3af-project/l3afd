@@ -130,23 +130,6 @@ func TestBPF_Stop(t *testing.T) {
 			},
 			wantErr: true,
 		},
-		{name: "InvalidCmd",
-			fields: fields{
-				Program: models.BPFProgram{
-					Name:          "nfprogram",
-					Artifact:      "foo.tar.gz",
-					CmdStart:      "foo",
-					CmdStop:       "",
-					Version:       "1.0",
-					IsUserProgram: true,
-					AdminStatus:   "enabled",
-				},
-				Cmd:          fakeExecCommand("/tmp/dummy/foo"),
-				FilePath:     "/tmp/dummy",
-				RestartCount: 3,
-			},
-			wantErr: false,
-		},
 		{name: "WithStopCmd",
 			fields: fields{
 				Program: models.BPFProgram{

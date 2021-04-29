@@ -66,7 +66,7 @@ func Test_pCheck_pCheckStart(t *testing.T) {
 				IngressTCbpfProgs: make(map[string]*list.List),
 				EgressTCbpfProgs:  make(map[string]*list.List),
 			},
-			wantErr: false,
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
