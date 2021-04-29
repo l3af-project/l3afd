@@ -60,7 +60,7 @@ func Test_pCheck_pCheckStart(t *testing.T) {
 	}{
 		{
 			name:   "EmptyBPF",
-			fields: fields{MaxRetryCount: 3, retryMonitorDelay: 1},
+			fields: fields{MaxRetryCount: 3, retryMonitorDelay: 10},
 			args: args{IngressXDPbpfProgs: make(map[string]*list.List),
 				IngressTCbpfProgs: make(map[string]*list.List),
 				EgressTCbpfProgs:  make(map[string]*list.List),
