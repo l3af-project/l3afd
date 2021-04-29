@@ -44,7 +44,8 @@ func TestNewpCheck(t *testing.T) {
 
 func Test_pCheck_pCheckStart(t *testing.T) {
 	type fields struct {
-		MaxRetryCount int
+		MaxRetryCount     int
+		retryMonitorDelay int
 	}
 	type args struct {
 		IngressXDPbpfProgs map[string]*list.List
@@ -59,7 +60,7 @@ func Test_pCheck_pCheckStart(t *testing.T) {
 	}{
 		{
 			name:   "EmptyBPF",
-			fields: fields{MaxRetryCount: 3},
+			fields: fields{MaxRetryCount: 3, retryMonitorDelay: 1},
 			args: args{IngressXDPbpfProgs: make(map[string]*list.List),
 				IngressTCbpfProgs: make(map[string]*list.List),
 				EgressTCbpfProgs:  make(map[string]*list.List),
