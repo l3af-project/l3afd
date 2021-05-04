@@ -21,15 +21,14 @@ type BPFMap struct {
 // Supported types are Array and Hash
 // Multiple values are comma separated
 // Hashmap can be multiple values or single values.
-// If hash map has single entry then key will be 0 and value will be updated.
-// If hash map has multiple entries then key will be values and value will be 1 to set
+// If hash map entries then key will be values and value will be set to 1
 // In case of Array then key will be index starting from 0 and values are stored.
 // for e.g.
 // 	HashMap scenario 1. --ports="80,443" values are stored in rl_ports_map BPF map
 // 		key => 80 value => 1
 // 		key => 443 value => 1
-// 	HashMap scenario 2. --rate="10000" value is stored in rl_config_map BPF map
-// 		key => 0 value => 10000
+// 	HashMap scenario 2. --ports="443" value is stored in rl_ports_map BPF map
+// 		key => 443 value => 1
 // 	Array scenario 1. --ports="80,443" values are stored in rl_ports_map BPF map
 // 		key => 0 value => 80
 // 		key => 1 value => 443
@@ -57,15 +56,6 @@ func (b *BPFMap) Update(value string) error {
 			if err := ebpfMap.Delete(unsafe.Pointer(&key)); err != nil {
 				logs.Warningf("delete hash map for key %d failed %v", key, err)
 			}
-		}
-
-		if len(s) < 2 {
-			v, _ := strconv.ParseInt(s[0], 10, 64)
-			k := 0
-			if err := ebpfMap.Update(unsafe.Pointer(&k), unsafe.Pointer(&v), 0); err != nil {
-				return fmt.Errorf("update hash map for key 0 failed %v", err)
-			}
-			return nil
 		}
 
 		for key, val := range s {

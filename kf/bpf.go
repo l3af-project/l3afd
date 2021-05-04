@@ -371,7 +371,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	return nil
 }
 
-// Updates the config maps
+// Updates the config map_args
 func (b *BPF) Update(direction string) error {
 	for _, val := range b.Program.MapArgs {
 		logs.Debugf("element of map args %s", val)
