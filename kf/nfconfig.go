@@ -366,13 +366,11 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 
 	for e := bpfList.Front(); e != nil; e = e.Next() {
 		data := e.Value.(*BPF)
-
 		if strings.Compare(data.Program.Name, bpfProg.Name) != 0 {
 			continue
 		}
 
 		if reflect.DeepEqual(data.Program, *bpfProg) == true {
-			logs.Debugf("VerifyNUpdateBPFProgram : DeepEqual Matched Name %s ", data.Program.Name)
 			// Nothing to do
 			return nil
 		}
@@ -406,6 +404,32 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 			return nil
 		}
 
+		// Version Change
+		if data.Program.Version != bpfProg.Version || reflect.DeepEqual(data.Program.StartArgs, bpfProg.StartArgs) != true {
+			logs.Infof("VerifyNUpdateBPFProgram : version update initiated - current version %s new version %s", data.Program.Version, bpfProg.Version)
+
+			nextProgID, err := data.GetNextProgID()
+			if err != nil {
+				return fmt.Errorf("failed to fetch next program FD from the bpf map")
+			}
+			if err := data.Stop(ifaceName, direction); err != nil {
+				return fmt.Errorf("failed to stop older version of network function BPF %s iface %s direction %s version %s", bpfProg.Name, ifaceName, direction, bpfProg.Version)
+			}
+			data.Program = *bpfProg
+
+			if err := c.DownloadAndStartBPFProgram(e, ifaceName, direction); err != nil {
+				return fmt.Errorf("failed to download and start newer version of network function BPF %s version %s iface %s direction %s", bpfProg.Name, bpfProg.Version, ifaceName, direction)
+			}
+			data.PutNextProgFDFromID(nextProgID)
+			return nil
+		}
+
+		// monitor maps change
+		if reflect.DeepEqual(data.Program.MonitorMaps, bpfProg.MonitorMaps) != true {
+			logs.Infof("monitor map list is mismatched - updated")
+			copy(data.Program.MonitorMaps, bpfProg.MonitorMaps)
+		}
+
 		if data.Program.CfgVersion != bpfProg.CfgVersion {
 
 			// Update CfgVersion
@@ -423,12 +447,6 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 				}
 			}
 
-			// monitor maps change
-			if reflect.DeepEqual(data.Program.MonitorMaps, bpfProg.MonitorMaps) != true {
-				logs.Infof("monitor map list is mismatched")
-				copy(data.Program.MonitorMaps, bpfProg.MonitorMaps)
-			}
-
 			// map arguments change - basically any config change to KF
 			if reflect.DeepEqual(data.Program.MapArgs, bpfProg.MapArgs) != true {
 				logs.Infof("maps_args are mismatched")
@@ -436,28 +454,11 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 				data.Update(direction)
 			}
 
-			// Version Change
-			if data.Program.Version != bpfProg.Version || reflect.DeepEqual(data.Program.StartArgs, bpfProg.StartArgs) != true {
-				logs.Infof("VerifyNUpdateBPFProgram : version update initiated - current version %s new version %s", data.Program.Version, bpfProg.Version)
-
-				nextProgID, err := data.GetNextProgID()
-				if err != nil {
-					return fmt.Errorf("failed to fetch next program FD from the bpf map")
-				}
-				if err := data.Stop(ifaceName, direction); err != nil {
-					return fmt.Errorf("failed to stop older version of network function BPF %s iface %s direction %s version %s", bpfProg.Name, ifaceName, direction, bpfProg.Version)
-				}
-				data.Program = *bpfProg
-
-				if err := c.DownloadAndStartBPFProgram(e, ifaceName, direction); err != nil {
-					return fmt.Errorf("failed to download and start newer version of network function BPF %s version %s iface %s direction %s", bpfProg.Name, bpfProg.Version, ifaceName, direction)
-				}
-				data.PutNextProgFDFromID(nextProgID)
-			}
 			return nil
 		}
 	}
 
+	logs.Debugf("Program is not found in the list name %s", bpfProg.Name)
 	// if not found in the list.
 	if err := c.InsertAndStartBPFProgram(bpfProg, ifaceName, direction); err != nil {
 		return fmt.Errorf("failed to insert and start BPFProgram to new location BPF %s version %s iface %s direction %s", bpfProg.Name, bpfProg.Version, ifaceName, direction)

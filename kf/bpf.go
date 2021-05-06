@@ -196,6 +196,8 @@ func StopExternalRunningProcess(processName string) error {
 }
 
 // Stop returns the last error seen, but stops bpf program.
+// Disable monitoring maps and close all map handles.
+// Verify next program pinned map file is removed
 func (b *BPF) Stop(ifaceName, direction string) error {
 	if b.Program.IsUserProgram && b.Cmd == nil {
 		return fmt.Errorf("BPFProgram is not running %s", b.Program.Name)
@@ -228,6 +230,12 @@ func (b *BPF) Stop(ifaceName, direction string) error {
 			logs.IfErrorLogf(b.Cmd.Wait(), "cmd wait at stopping bpf program %s errored", b.Program.Name)
 			b.Cmd = nil
 		}
+
+		// verify pinned map file is removed.
+		if err := b.VerifyPinnedMapVanish(); err != nil {
+			logs.Errorf("stop user program - failed to remove pinned file %s", b.Program.Name)
+			return fmt.Errorf("stop user program - failed to remove pinned file %s", b.Program.Name)
+		}
 		return nil
 	}
 
@@ -250,10 +258,19 @@ func (b *BPF) Stop(ifaceName, direction string) error {
 	logs.IfWarningLogf(prog.Run(), "l3afd/nf : Failed to stop the program %s", b.Program.CmdStop)
 	b.Cmd = nil
 
+	// verify pinned map file is removed.
+	if err := b.VerifyPinnedMapVanish(); err != nil {
+		logs.Errorf("failed to remove pinned file %s", b.Program.Name)
+		return fmt.Errorf("failed to remove pinned file %s", b.Program.Name)
+	}
 	return nil
 }
 
 // Start returns the last error seen, but starts bpf program.
+// Here initially prevprogmap entry is removed and passed to the bpf program
+// After starting the user program, will update the kernel progam fd into prevprogram map.
+// This method waits till prog fd entry is updated, else returns error assuming kernel program is not loaded.
+// It also verifies the next program pinned map is created or not.
 func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	if b.FilePath == "" {
 		return errors.New("no program binary path found")
@@ -267,6 +284,13 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	// Validate
 	if err := assertExecutable(cmd); err != nil {
 		return fmt.Errorf("no executable permissions on %s - error %w", b.Program.CmdStart, err)
+	}
+
+	// Making sure old map entry is removed before passing the prog fd map to the program.
+	if len(b.PrevMapName) > 0 {
+		if err := b.RemovePrevProgFD(); err != nil {
+			logs.Errorf("ProgramMap %s entry removal failed %w", b.PrevMapName, err)
+		}
 	}
 
 	args := make([]string, 0, len(b.Program.StartArgs)<<1)
@@ -309,6 +333,10 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 
 		// Enable monitor
 		b.Monitor = true
+
+		if err := b.VerifyPinnedMapExists(); err != nil {
+			return fmt.Errorf("no userprogram and failed to find pinned file %s, %w", b.Program.MapName, err)
+		}
 		return nil
 	}
 
@@ -318,9 +346,21 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		return fmt.Errorf("bpf program %s failed to start %w", b.Program.Name, err)
 	}
 
-	// Fetch when prev program map is defined
+	// making sure program fd map pinned file is created
+	if err := b.VerifyPinnedMapExists(); err != nil {
+		return fmt.Errorf("failed to find pinned file %s  %w", b.Program.MapName, err)
+	}
+
+	if len(b.Program.MapArgs) > 0 {
+		if err := b.Update(direction); err != nil {
+			logs.Errorf("failed to update network functions BPF maps %w", err)
+			return fmt.Errorf("failed to update network functions BPF maps %w", err)
+		}
+	}
+
+	// Fetch when prev program map is updated
 	if len(b.PrevMapName) > 0 {
-		// retry 10 times
+		// retry 10 times to verify entry is created
 		for i := 0; i < 10; i++ {
 			b.ProgID, err = b.GetProgID()
 			if err == nil {
@@ -334,29 +374,6 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		if err != nil {
 			logs.Errorf("failed to fetch network functions program FD %w", err)
 			return fmt.Errorf("failed to fetch network functions program FD %w", err)
-		}
-	}
-
-	// making sure program fd map pinned file is created
-	if len(b.Program.MapName) > 0 {
-		for i := 0; i < 10; i++ {
-			if _, err = os.Stat(b.Program.MapName); err == nil {
-				break
-			}
-			logs.Warningf("failed to find pinned file, retrying after a second ... ")
-			time.Sleep(1 * time.Second)
-		}
-
-		if err != nil {
-			logs.Errorf("failed to find pinned file %w", err)
-			return fmt.Errorf("failed to find pinned file, %w", err)
-		}
-	}
-
-	if len(b.Program.MapArgs) > 0 {
-		if err := b.Update(direction); err != nil {
-			logs.Errorf("failed to update network functions BPF maps %w", err)
-			return fmt.Errorf("failed to update network functions BPF maps %w", err)
 		}
 	}
 
@@ -374,7 +391,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 // Updates the config map_args
 func (b *BPF) Update(direction string) error {
 	for _, val := range b.Program.MapArgs {
-		logs.Debugf("element of map args %s", val)
+		logs.Infof("Update map args key %s val %s", val.Key, val.Value)
 		// fetch the key in
 		bpfMap, ok := b.BpfMaps[val.Key]
 		if !ok {
@@ -737,6 +754,7 @@ func (b *BPF) PutNextProgFDFromID(progID int) error {
 		return nil
 	}
 
+	logs.Infof("PutNextProgFDFromID : Map Name %s ID %d", b.Program.MapName, progID)
 	ebpfMap, err := ebpf.LoadPinnedMap(b.Program.MapName)
 	if err != nil {
 		return fmt.Errorf("unable to access pinned next prog map %s %v", b.Program.MapName, err)
@@ -748,7 +766,9 @@ func (b *BPF) PutNextProgFDFromID(progID int) error {
 		return fmt.Errorf("failed to get next prog FD from ID for program %s %v", b.Program.Name, err)
 	}
 	key := 0
-	if err = ebpfMap.Put(unsafe.Pointer(&key), uint32(bpfProg.FD())); err != nil {
+	fd := bpfProg.FD()
+	logs.Infof("PutNextProgFDFromID : Map Name %s FD %d", b.Program.MapName, fd)
+	if err = ebpfMap.Update(unsafe.Pointer(&key), unsafe.Pointer(&fd), 0); err != nil {
 		return fmt.Errorf("unable to update prog next map %s %v", b.Program.MapName, err)
 	}
 	return nil
@@ -777,7 +797,8 @@ func (b *BPF) GetProgID() (int, error) {
 	return value, nil
 }
 
-// Delete the entry if the last element
+// Delete the entry if its last program in the chain.
+// This method is called when sequence of the program changed to last in the chain
 func (b *BPF) RemoveNextProgFD() error {
 	if len(b.Program.MapName) == 0 {
 		// no chaining map in case of root programs
@@ -793,5 +814,71 @@ func (b *BPF) RemoveNextProgFD() error {
 	if err := ebpfMap.Delete(unsafe.Pointer(&key)); err != nil {
 		return fmt.Errorf("failed to delete prog fd entry")
 	}
+	return nil
+}
+
+// Delete the entry if the last element
+func (b *BPF) RemovePrevProgFD() error {
+
+	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapName)
+	if err != nil {
+		return fmt.Errorf("unable to access pinned prev prog map %s %v", b.PrevMapName, err)
+	}
+	defer ebpfMap.Close()
+	key := 0
+
+	if err := ebpfMap.Delete(unsafe.Pointer(&key)); err != nil {
+		// Some cases map may be empty ignore it.
+		logs.Debugf("RemovePrevProgFD failed %w", err)
+	}
+	return nil
+}
+
+// making sure program fd map's pinned file is created
+func (b *BPF) VerifyPinnedMapExists() error {
+	var err error
+	if len(b.Program.MapName) > 0 {
+		logs.Infof("VerifyPinnedMapExists : Program %s MapName %s", b.Program.Name, b.Program.MapName)
+		for i := 0; i < 10; i++ {
+			if _, err = os.Stat(b.Program.MapName); err == nil {
+				logs.Infof("VerifyPinnedMapExists : map file found %s", b.Program.MapName)
+				break
+			}
+			logs.Warningf("failed to find pinned file, retrying after a second ... ")
+			time.Sleep(1 * time.Second)
+		}
+
+		if err != nil {
+			logs.Errorf("failed to find pinned file %s", b.Program.MapName)
+			return fmt.Errorf("failed to find pinned file, %s", b.Program.MapName)
+		}
+	}
+
+	return nil
+}
+
+// making sure program fd map's pinned file is removed
+func (b *BPF) VerifyPinnedMapVanish() error {
+	var err error
+	if len(b.Program.MapName) > 0 {
+		logs.Infof("VerifyPinnedMapVanish : Program %s MapName %s", b.Program.Name, b.Program.MapName)
+		time.Sleep(1 * time.Second)
+		for i := 0; i < 10; i++ {
+			if _, err = os.Stat(b.Program.MapName); os.IsNotExist(err) {
+				logs.Infof("VerifyPinnedMapVanish : map file not found %s %w", b.Program.MapName, err)
+				break
+			}
+			logs.Warningf("failed to remove pinned file, retrying after a second ... ")
+			time.Sleep(1 * time.Second)
+		}
+
+		if err == nil {
+			if err := os.Remove(b.Program.MapName); err != nil {
+				logs.Errorf("failed to remove pinned file %s", b.Program.MapName)
+				return fmt.Errorf("failed to remove pinned file, %s", b.Program.MapName)
+			}
+		}
+	}
+
 	return nil
 }

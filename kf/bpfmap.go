@@ -61,7 +61,7 @@ func (b *BPFMap) Update(value string) error {
 		for key, val := range s {
 			v, _ := strconv.ParseInt(val, 10, 64)
 			x := 1
-			logs.Debugf("updating map %s key %d mapid %d", b.Name, v, b.MapID)
+			logs.Infof("updating map %s key %d mapid %d", b.Name, v, b.MapID)
 			if err := ebpfMap.Update(unsafe.Pointer(&v), unsafe.Pointer(&x), 0); err != nil {
 				return fmt.Errorf("update hash map element failed for key %d error %v", key, err)
 			}
@@ -69,7 +69,8 @@ func (b *BPFMap) Update(value string) error {
 	} else if b.Type == ebpf.Array {
 		for key, val := range s {
 			v, _ := strconv.ParseInt(val, 10, 64)
-			if err := ebpfMap.Update(unsafe.Pointer(&key), &v, 0); err != nil {
+			logs.Infof("updating map %s key %d mapid %d", b.Name, v, b.MapID)
+			if err := ebpfMap.Update(unsafe.Pointer(&key), unsafe.Pointer(&v), 0); err != nil {
 				return fmt.Errorf("update array map index %d %v\n", key, err)
 			}
 		}
@@ -93,7 +94,7 @@ func (b *BPFMap) GetValue() int64 {
 	key := 0
 
 	if err = ebpfMap.Lookup(unsafe.Pointer(&key), unsafe.Pointer(&value)); err != nil {
-		logs.Warningf("GetValue Lookup failed : %v", err)
+		logs.Warningf("GetValue Lookup failed : Name %s ID %d %w", b.Name, b.MapID, err)
 		return 0
 	}
 
