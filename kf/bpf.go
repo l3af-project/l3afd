@@ -838,19 +838,20 @@ func (b *BPF) RemovePrevProgFD() error {
 func (b *BPF) VerifyPinnedMapExists() error {
 	var err error
 	if len(b.Program.MapName) > 0 {
-		logs.Infof("VerifyPinnedMapExists : Program %s MapName %s", b.Program.Name, b.Program.MapName)
+		logs.Debugf("VerifyPinnedMapExists : Program %s MapName %s", b.Program.Name, b.Program.MapName)
 		for i := 0; i < 10; i++ {
 			if _, err = os.Stat(b.Program.MapName); err == nil {
-				logs.Infof("VerifyPinnedMapExists : map file found %s", b.Program.MapName)
-				break
+				logs.Infof("VerifyPinnedMapExists : map file created %s", b.Program.MapName)
+				return nil
 			}
-			logs.Warningf("failed to find pinned file, retrying after a second ... ")
+			logs.Warningf("failed to find pinned file, checking again after a second ... ")
 			time.Sleep(1 * time.Second)
 		}
 
 		if err != nil {
-			logs.Errorf("failed to find pinned file %s", b.Program.MapName)
-			return fmt.Errorf("failed to find pinned file, %s", b.Program.MapName)
+			err = fmt.Errorf("failed to find pinned file %s err %w", b.Program.MapName, err)
+			logs.Errorf(err.Error())
+			return err
 		}
 	}
 
@@ -859,26 +860,26 @@ func (b *BPF) VerifyPinnedMapExists() error {
 
 // making sure program fd map's pinned file is removed
 func (b *BPF) VerifyPinnedMapVanish() error {
-	var err error
-	if len(b.Program.MapName) > 0 {
-		logs.Infof("VerifyPinnedMapVanish : Program %s MapName %s", b.Program.Name, b.Program.MapName)
-		time.Sleep(1 * time.Second)
-		for i := 0; i < 10; i++ {
-			if _, err = os.Stat(b.Program.MapName); os.IsNotExist(err) {
-				logs.Infof("VerifyPinnedMapVanish : map file not found %s %w", b.Program.MapName, err)
-				break
-			}
-			logs.Warningf("failed to remove pinned file, retrying after a second ... ")
-			time.Sleep(1 * time.Second)
-		}
 
-		if err == nil {
-			if err := os.Remove(b.Program.MapName); err != nil {
-				logs.Errorf("failed to remove pinned file %s", b.Program.MapName)
-				return fmt.Errorf("failed to remove pinned file, %s", b.Program.MapName)
-			}
-		}
+	if len(b.Program.MapName) < 0 {
+		return nil
 	}
 
-	return nil
+	var err error
+	logs.Debugf("VerifyPinnedMapVanish : Program %s MapName %s", b.Program.Name, b.Program.MapName)
+	for i := 0; i < 10; i++ {
+		if _, err = os.Stat(b.Program.MapName); os.IsNotExist(err) {
+			logs.Infof("VerifyPinnedMapVanish : map file removed successfully - %s ", b.Program.MapName)
+			return nil
+		} else if err != nil {
+			logs.Warningf("VerifyPinnedMapVanish: Error checking for map file %w", err)
+		} else {
+			logs.Warningf("VerifyPinnedMapVanish: program pinned file still exists, checking again after a second")
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	err = fmt.Errorf("%s map file was never removed by BPF program %s err %w", b.Program.MapName, b.Program.Name, err)
+	logs.Errorf(err.Error())
+	return err
 }
