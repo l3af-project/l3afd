@@ -428,6 +428,7 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 		if reflect.DeepEqual(data.Program.MonitorMaps, bpfProg.MonitorMaps) != true {
 			logs.Infof("monitor map list is mismatched - updated")
 			copy(data.Program.MonitorMaps, bpfProg.MonitorMaps)
+			return nil
 		}
 
 		if data.Program.CfgVersion != bpfProg.CfgVersion {
