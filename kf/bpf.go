@@ -858,10 +858,10 @@ func (b *BPF) VerifyPinnedMapExists() error {
 	return nil
 }
 
-// making sure program fd map's pinned file is removed
+// making sure XDP program fd map's pinned file is removed
 func (b *BPF) VerifyPinnedMapVanish() error {
 
-	if len(b.Program.MapName) < 0 {
+	if len(b.Program.MapName) <= 0 || b.Program.EBPFType != models.XDPType {
 		return nil
 	}
 
