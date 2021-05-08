@@ -723,29 +723,6 @@ func (b *BPF) MonitorMaps() error {
 	return nil
 }
 
-func (b *BPF) GetNextProgID() (int, error) {
-	if len(b.Program.MapName) == 0 {
-		// no chaining map
-		return 0, nil
-	}
-	ebpfMap, err := ebpf.LoadPinnedMap(b.Program.MapName)
-	if err != nil {
-		return 0, fmt.Errorf("unable to access pinned next prog map %s %v", b.Program.MapName, err)
-	}
-	defer ebpfMap.Close()
-
-	var value int
-	key := 0
-	if err := ebpfMap.Lookup(unsafe.Pointer(&key), unsafe.Pointer(&value)); err != nil {
-		if strings.Contains(fmt.Sprint(err), "key does not exist") {
-			return 0, nil
-		}
-		return 0, fmt.Errorf("unable to lookup next prog map %s %v", b.Program.MapName, err)
-	}
-
-	return value, nil
-}
-
 // Updating next program FD from program ID
 func (b *BPF) PutNextProgFDFromID(progID int) error {
 

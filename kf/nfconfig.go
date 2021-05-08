@@ -408,19 +408,21 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 		if data.Program.Version != bpfProg.Version || reflect.DeepEqual(data.Program.StartArgs, bpfProg.StartArgs) != true {
 			logs.Infof("VerifyNUpdateBPFProgram : version update initiated - current version %s new version %s", data.Program.Version, bpfProg.Version)
 
-			nextProgID, err := data.GetNextProgID()
-			if err != nil {
-				return fmt.Errorf("failed to fetch next program FD from the bpf map")
-			}
 			if err := data.Stop(ifaceName, direction); err != nil {
 				return fmt.Errorf("failed to stop older version of network function BPF %s iface %s direction %s version %s", bpfProg.Name, ifaceName, direction, bpfProg.Version)
 			}
+
 			data.Program = *bpfProg
 
 			if err := c.DownloadAndStartBPFProgram(e, ifaceName, direction); err != nil {
 				return fmt.Errorf("failed to download and start newer version of network function BPF %s version %s iface %s direction %s", bpfProg.Name, bpfProg.Version, ifaceName, direction)
 			}
-			data.PutNextProgFDFromID(nextProgID)
+
+			// update if not a last program
+			if e.Next() != nil {
+				data.PutNextProgFDFromID(e.Next().Value.(*BPF).ProgID)
+			}
+
 			return nil
 		}
 
@@ -529,10 +531,14 @@ func (c *NFConfigs) MoveToLocation(element *list.Element, bpfList *list.List) er
 			return fmt.Errorf("MoveToLocation - failed LinkBPFPrograms after MoveToBack element to with prev prog %w", err)
 		}
 	}
-	if err := element.Value.(*BPF).RemoveNextProgFD(); err != nil {
-		logs.Errorf("failed to remove MoveToBack program fd in map %w", err)
-		return fmt.Errorf("failed to remove MoveToBack program fd in map %w", err)
+
+	if element.Next() == nil {
+		if err := element.Value.(*BPF).RemoveNextProgFD(); err != nil {
+			logs.Errorf("failed to remove MoveToBack program fd in map %w", err)
+			return fmt.Errorf("failed to remove MoveToBack program fd in map %w", err)
+		}
 	}
+
 	logs.Infof("MoveToLocation : MoveToBack Moved - %s", element.Value.(*BPF).Program.Name)
 	return nil
 }
