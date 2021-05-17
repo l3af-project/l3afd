@@ -428,8 +428,8 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 
 		// monitor maps change
 		if reflect.DeepEqual(data.Program.MonitorMaps, bpfProg.MonitorMaps) != true {
-			logs.Infof("monitor map list is mismatched - updated")
-			copy(data.Program.MonitorMaps, bpfProg.MonitorMaps)
+			logs.Infof("monitor map list is mismatch - updated")
+			data.Program.MonitorMaps = bpfProg.MonitorMaps
 			return nil
 		}
 
@@ -453,7 +453,7 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 			// map arguments change - basically any config change to KF
 			if reflect.DeepEqual(data.Program.MapArgs, bpfProg.MapArgs) != true {
 				logs.Infof("maps_args are mismatched")
-				copy(data.Program.MapArgs, bpfProg.MapArgs)
+				data.Program.MapArgs = bpfProg.MapArgs
 				data.Update(direction)
 			}
 

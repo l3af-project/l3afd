@@ -641,7 +641,7 @@ func (b *BPF) AddBPFMap(mapName string) error {
 
 	// TC maps are pinned by default
 	if b.Program.EBPFType == models.TCType {
-		ebpfMap, err := ebpf.LoadPinnedMap(mapName)
+		ebpfMap, err := ebpf.LoadPinnedMap(mapName, nil)
 		if err != nil {
 			return fmt.Errorf("ebpf LoadPinnedMap failed %v", err)
 		}
@@ -732,7 +732,7 @@ func (b *BPF) PutNextProgFDFromID(progID int) error {
 	}
 
 	logs.Infof("PutNextProgFDFromID : Map Name %s ID %d", b.Program.MapName, progID)
-	ebpfMap, err := ebpf.LoadPinnedMap(b.Program.MapName)
+	ebpfMap, err := ebpf.LoadPinnedMap(b.Program.MapName, nil)
 	if err != nil {
 		return fmt.Errorf("unable to access pinned next prog map %s %v", b.Program.MapName, err)
 	}
@@ -754,7 +754,7 @@ func (b *BPF) PutNextProgFDFromID(progID int) error {
 // This returns ID of the bpf program
 func (b *BPF) GetProgID() (int, error) {
 
-	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapName)
+	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapName, &ebpf.LoadPinOptions{ReadOnly: true})
 	if err != nil {
 		logs.Errorf("unable to access pinned prog map %s %w", b.PrevMapName, err)
 		return 0, fmt.Errorf("unable to access pinned prog map %s %v", b.PrevMapName, err)
@@ -781,7 +781,7 @@ func (b *BPF) RemoveNextProgFD() error {
 		// no chaining map in case of root programs
 		return nil
 	}
-	ebpfMap, err := ebpf.LoadPinnedMap(b.Program.MapName)
+	ebpfMap, err := ebpf.LoadPinnedMap(b.Program.MapName, nil)
 	if err != nil {
 		return fmt.Errorf("unable to access pinned next prog map %s %v", b.Program.MapName, err)
 	}
@@ -797,7 +797,7 @@ func (b *BPF) RemoveNextProgFD() error {
 // Delete the entry if the last element
 func (b *BPF) RemovePrevProgFD() error {
 
-	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapName)
+	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapName, nil)
 	if err != nil {
 		return fmt.Errorf("unable to access pinned prev prog map %s %v", b.PrevMapName, err)
 	}
