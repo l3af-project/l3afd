@@ -18,6 +18,7 @@ import (
 	"tbd/go-shared/logs"
 	"tbd/l3afd/config"
 	"tbd/net/context"
+	"github.com/safchain/ethtool"
 )
 
 type NFConfigs struct {
@@ -211,6 +212,9 @@ func (c *NFConfigs) VerifyAndStartXDPRootProgram(ifaceName, direction string) er
 	}
 
 	if c.IngressXDPBpfs[ifaceName].Len() == 0 {
+		if err := DisableLRO(ifaceName); err != nil {
+			return fmt.Errorf("failed to disable lro %w", err)
+		}
 		if err := VerifyNMountBPFFS(); err != nil {
 			return fmt.Errorf("failed to mount bpf file system")
 		}
@@ -702,4 +706,29 @@ func (c *NFConfigs) KFDetails(iface string) []*BPF {
 		}
 	}
 	return arrBPFDetails
+}
+
+// XDP programs are failing when LRO is enabled, to fix this we use to manually disable.
+// # ethtool -K ens7 lro off
+// # ethtool -k ens7 | grep large-receive-offload
+// large-receive-offload: off
+//
+func DisableLRO(ifaceName string) error {
+	ethHandle, err := ethtool.NewEthtool()
+	if err != nil {
+		err = fmt.Errorf("ethtool failed to get the handle %w", err)
+		logs.Errorf(err.Error())
+		return err
+	}
+	defer ethHandle.Close()
+
+	config := make(map[string]bool, 1)
+	config["rx-lro"] = false
+	if err := ethHandle.Change(ifaceName, config); err != nil {
+		err = fmt.Errorf("ethtool failed to disable LRO on %s with err %w", ifaceName, err)
+		logs.Errorf(err.Error())
+		return err
+	}
+
+	return nil
 }
