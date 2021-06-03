@@ -13,17 +13,17 @@ import (
 	"strings"
 	"time"
 
-	"tbd/Torbit/admind-sdks/go/admindapi"
-	"tbd/Torbit/admind/models"
-	"tbd/Torbit/cfgdist/kvstores/emitter"
-	"tbd/Torbit/go-shared/logs"
-	"tbd/Torbit/go-shared/nsqbatch"
-	"tbd/Torbit/go-shared/pidfile"
-	version "tbd/Torbit/go-version"
+	"tbd/admind-sdks/go/admindapi"
+	"tbd/admind/models"
+	"tbd/cfgdist/kvstores/emitter"
+	"tbd/go-shared/logs"
+	"tbd/go-shared/nsqbatch"
+	"tbd/go-shared/pidfile"
+	version "tbd/go-version"
 
-	"tbd/Torbit/l3afd/config"
-	"tbd/Torbit/l3afd/kf"
-	"tbd/Torbit/l3afd/stats"
+	"tbd/l3afd/config"
+	"tbd/l3afd/kf"
+	"tbd/l3afd/stats"
 )
 
 const daemonName = "l3afd"

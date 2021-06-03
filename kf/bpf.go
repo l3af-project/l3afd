@@ -25,8 +25,8 @@ import (
 	"tbd/go-shared/logs"
 	"tbd/sys/unix"
 
-	"tbd/Torbit/l3afd/config"
-	"tbd/Torbit/l3afd/stats"
+	"tbd/l3afd/config"
+	"tbd/l3afd/stats"
 	"github.com/cilium/ebpf"
 	ps "github.com/mitchellh/go-ps"
 )

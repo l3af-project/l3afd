@@ -12,12 +12,12 @@ import (
 	"syscall"
 	"time"
 
-	"tbd/Torbit/admind/models"
-	"tbd/Torbit/cfgdist/kvstores"
-	"tbd/Torbit/cfgdist/kvstores/emitter"
-	"tbd/Torbit/go-shared/logs"
-	"tbd/Torbit/l3afd/config"
-	"tbd/Torbit/net/context"
+	"tbd/admind/models"
+	"tbd/cfgdist/kvstores"
+	"tbd/cfgdist/kvstores/emitter"
+	"tbd/go-shared/logs"
+	"tbd/l3afd/config"
+	"tbd/net/context"
 	"github.com/safchain/ethtool"
 )
 

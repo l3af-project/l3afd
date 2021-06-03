@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"tbd/Torbit/go-shared/logs"
+	"tbd/go-shared/logs"
 )
 
 var kfcfgs *NFConfigs

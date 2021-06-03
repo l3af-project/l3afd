@@ -6,7 +6,7 @@ import (
 	"strings"
 	"unsafe"
 
-	"tbd/Torbit/go-shared/logs"
+	"tbd/go-shared/logs"
 
 	"github.com/cilium/ebpf"
 )
