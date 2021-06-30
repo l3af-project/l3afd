@@ -82,8 +82,10 @@ func NFConfigsFromCDB(ctx context.Context, conf *config.Config) (*kf.NFConfigs, 
 		return nil, fmt.Errorf("error in version announcer: %v", err)
 	}
 	emit := emitter.NewKVStoreChangeEmitter(cdbKVStore)
-	pMon := kf.NewpCheck(conf.MaxNFReStartCount, conf.BpfChainingEnabled, conf.PollInterval)
-	nfConfigs, err := kf.NewNFConfigs(emit, machineHostname, conf, pMon)
+	pMon := kf.NewpCheck(conf.MaxNFReStartCount, conf.BpfChainingEnabled, conf.KFPollInterval)
+	kfM := kf.NewpKFMetrics(conf.BpfChainingEnabled, conf.NMetricSamples)
+
+	nfConfigs, err := kf.NewNFConfigs(emit, machineHostname, conf, pMon, kfM)
 
 	pidfile.SetupGracefulShutdown(func() error {
 		if len(nfConfigs.IngressXDPBpfs) > 0 || len(nfConfigs.IngressTCBpfs) > 0 || len(nfConfigs.EgressTCBpfs) > 0 {
@@ -94,7 +96,6 @@ func NFConfigsFromCDB(ctx context.Context, conf *config.Config) (*kf.NFConfigs, 
 		logs.IfErrorLogf(emit.Close(), "kv store emit close failed")
 		return nil
 	}, conf.ShutdownTimeout, conf.PIDFilename)
-
 	return nfConfigs, nil
 }
 

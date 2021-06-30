@@ -27,8 +27,9 @@ type Config struct {
 
 	// stats
 	// Prometheus endpoint for pull/scrape the metrics.
-	MetricsAddr  string
-	PollInterval time.Duration
+	MetricsAddr    string
+	KFPollInterval time.Duration
+	NMetricSamples int
 
 	ShutdownTimeout time.Duration
 
@@ -82,7 +83,8 @@ func ReadConfig(configPath string) (*Config, error) {
 		MaxNFsAttachCount:           util.LoadConfigInt(confReader, "l3afd", "max-nfs-attach-count"),
 		BpfChainingEnabled:          util.LoadOptionalConfigBool(confReader, "l3afd", "bpf-chaining-enabled", true),
 		MetricsAddr:                 util.LoadConfigString(confReader, "web", "metrics-addr"),
-		PollInterval:                util.LoadOptionalConfigDuration(confReader, "web", "poll-interval", 10),
+		KFPollInterval:              util.LoadOptionalConfigDuration(confReader, "web", "kf-poll-interval", 30*time.Second),
+		NMetricSamples:              util.LoadOptionalConfigInt(confReader, "web", "n-metric-samples", 20),
 		ShutdownTimeout:             util.LoadConfigDuration(confReader, "l3afd", "shutdown-timeout"),
 		AdmindHost:                  util.LoadConfigString(confReader, "admind", "host"),
 		AdmindUsername:              util.LoadConfigString(confReader, "admind", "username"),

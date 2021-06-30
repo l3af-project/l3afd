@@ -21,6 +21,7 @@ var (
 	emit            *mockKeyChangeEmitter
 	machineHostname string
 	pMon            *pCheck
+	mMon            *kfMetrics
 	val             []byte
 	valVerChange    []byte
 	valStatusChange []byte
@@ -59,6 +60,7 @@ func setupDBTest() {
 	var pairs [][2]string
 	emit = newMockEventEmitter(pairs)
 	pMon = NewpCheck(3, true, 10)
+	mMon = NewpKFMetrics(true, 30)
 
 	ingressXDPBpfs = make(map[string]*list.List)
 	ingressTCBpfs = make(map[string]*list.List)
@@ -158,6 +160,7 @@ func TestNewNFConfigs(t *testing.T) {
 		host     string
 		hostConf *config.Config
 		pMon     *pCheck
+		mMon     *kfMetrics
 	}
 	setupDBTest()
 	tests := []struct {
@@ -170,20 +173,22 @@ func TestNewNFConfigs(t *testing.T) {
 			args: args{emit: emit,
 				host:     machineHostname,
 				hostConf: nil,
-				pMon:     pMon},
+				pMon:     pMon,
+				mMon:     mMon},
 			want: &NFConfigs{hostName: machineHostname,
 				IngressXDPBpfs: ingressXDPBpfs,
 				IngressTCBpfs:  ingressTCBpfs,
 				EgressTCBpfs:   egressTCBpfs,
 				hostConfig:     nil,
 				processMon:     pMon,
+				kfMetricsMon:   mMon,
 			},
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewNFConfigs(tt.args.emit, tt.args.host, tt.args.hostConf, tt.args.pMon)
+			got, err := NewNFConfigs(tt.args.emit, tt.args.host, tt.args.hostConf, tt.args.pMon, tt.args.mMon)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewNFConfigs() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -203,6 +208,7 @@ func TestNFConfigs_HandleAdded(t *testing.T) {
 		egressTCBpfs   map[string]*list.List
 		hostConfig     *config.Config
 		processMon     *pCheck
+		metricsMon     *kfMetrics
 	}
 	type args struct {
 		key []byte
@@ -224,6 +230,7 @@ func TestNFConfigs_HandleAdded(t *testing.T) {
 				egressTCBpfs:   make(map[string]*list.List),
 				hostConfig:     nil,
 				processMon:     pMon,
+				metricsMon:     mMon,
 			},
 			args: args{
 				key: nil,
@@ -241,6 +248,7 @@ func TestNFConfigs_HandleAdded(t *testing.T) {
 				EgressTCBpfs:   tt.fields.egressTCBpfs,
 				hostConfig:     tt.fields.hostConfig,
 				processMon:     tt.fields.processMon,
+				kfMetricsMon:   tt.fields.metricsMon,
 			}
 			if err := cfg.HandleAdded(tt.args.key, tt.args.val); (err != nil) != tt.wantErr {
 				t.Errorf("NFConfigs.HandleAdded() error = %v, wantErr %v", err, tt.wantErr)
@@ -257,6 +265,7 @@ func TestNFConfigs_HandleUpdated(t *testing.T) {
 		egressTCBpfs   map[string]*list.List
 		hostConfig     *config.Config
 		processMon     *pCheck
+		metricsMon     *kfMetrics
 	}
 	type args struct {
 		key []byte
@@ -284,6 +293,7 @@ func TestNFConfigs_HandleUpdated(t *testing.T) {
 				egressTCBpfs:   make(map[string]*list.List),
 				hostConfig:     nil,
 				processMon:     pMon,
+				metricsMon:     mMon,
 			},
 			args: args{
 				key: nil,
@@ -300,6 +310,7 @@ func TestNFConfigs_HandleUpdated(t *testing.T) {
 				egressTCBpfs:   make(map[string]*list.List),
 				hostConfig:     nil,
 				processMon:     pMon,
+				metricsMon:     mMon,
 			},
 			args: args{
 				key: []byte("dummy"),
@@ -316,6 +327,7 @@ func TestNFConfigs_HandleUpdated(t *testing.T) {
 				egressTCBpfs:   make(map[string]*list.List),
 				hostConfig:     nil,
 				processMon:     pMon,
+				metricsMon:     mMon,
 			},
 			args: args{
 				key: []byte("machineHostname"),
@@ -333,6 +345,7 @@ func TestNFConfigs_HandleUpdated(t *testing.T) {
 
 				hostConfig: &config.Config{BPFDir: "/tmp", ProximityUrl: "http://www.example.com"},
 				processMon: pMon,
+				metricsMon: mMon,
 			},
 			args: args{
 				key: []byte("bpf_programs"),
@@ -349,6 +362,7 @@ func TestNFConfigs_HandleUpdated(t *testing.T) {
 				egressTCBpfs:   make(map[string]*list.List),
 				hostConfig:     &config.Config{BPFDir: "/tmp", ProximityUrl: "http://www.example.com"},
 				processMon:     pMon,
+				metricsMon:     mMon,
 			},
 			args: args{
 				key: []byte("dummy"),
@@ -365,6 +379,7 @@ func TestNFConfigs_HandleUpdated(t *testing.T) {
 				egressTCBpfs:   make(map[string]*list.List),
 				hostConfig:     &config.Config{BPFDir: "/tmp", ProximityUrl: "http://www.example.com"},
 				processMon:     pMon,
+				metricsMon:     mMon,
 			},
 			args: args{
 				key: []byte("dummy"),
@@ -381,6 +396,7 @@ func TestNFConfigs_HandleUpdated(t *testing.T) {
 				egressTCBpfs:   make(map[string]*list.List),
 				hostConfig:     &config.Config{BPFDir: "/tmp", ProximityUrl: "http://www.example.com"},
 				processMon:     pMon,
+				metricsMon:     mMon,
 			},
 			args: args{
 				key: []byte("nf"),

@@ -5,6 +5,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"container/ring"
 	"errors"
 	"fmt"
 	"io"
@@ -15,6 +16,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -41,24 +43,26 @@ const bpfStatus string = "RUNNING"
 
 // BPF defines run time details for BPFProgram.
 type BPF struct {
-	Program      models.BPFProgram
-	Cmd          *exec.Cmd
-	FilePath     string            // Binary file path
-	RestartCount int               // To track restart count
-	LogDir       string            // Log dir for the BPF program
-	PrevMapName  string            // Map name to link
-	ProgID       int               // eBPF Program ID
-	BpfMaps      map[string]BPFMap // Map name is Key
+	Program        models.BPFProgram
+	Cmd            *exec.Cmd
+	FilePath       string                    // Binary file path
+	RestartCount   int                       // To track restart count
+	LogDir         string                    // Log dir for the BPF program
+	PrevMapName    string                    // Map name to link
+	ProgID         int                       // eBPF Program ID
+	BpfMaps        map[string]BPFMap         // Config maps passed as map-args, Map name is Key
+	MetricsBpfMaps map[string]*MetricsBPFMap // Metrics map name+key+aggregator is key
 }
 
 func NewBpfProgram(program models.BPFProgram, logDir string) *BPF {
 	bpf := &BPF{
-		Program:      program,
-		RestartCount: 0,
-		Cmd:          nil,
-		FilePath:     "",
-		LogDir:       logDir,
-		BpfMaps:      make(map[string]BPFMap, 0),
+		Program:        program,
+		RestartCount:   0,
+		Cmd:            nil,
+		FilePath:       "",
+		LogDir:         logDir,
+		BpfMaps:        make(map[string]BPFMap, 0),
+		MetricsBpfMaps: make(map[string]*MetricsBPFMap, 0),
 	}
 	return bpf
 }
@@ -192,7 +196,7 @@ func StopExternalRunningProcess(processName string) error {
 }
 
 // Stop returns the last error seen, but stops bpf program.
-// Disable monitoring maps and close all map handles.
+// Clean up all map handles.
 // Verify next program pinned map file is removed
 func (b *BPF) Stop(ifaceName, direction string) error {
 	if b.Program.IsUserProgram && b.Cmd == nil {
@@ -205,6 +209,12 @@ func (b *BPF) Stop(ifaceName, direction string) error {
 	for key, val := range b.BpfMaps {
 		logs.Debugf("removing BPF maps %s value map %#v", key, val)
 		delete(b.BpfMaps, key)
+	}
+
+	// Removing Metrics maps
+	for key, val := range b.MetricsBpfMaps {
+		logs.Debugf("removing metric bpf maps %s value %#v", key, val)
+		delete(b.MetricsBpfMaps, key)
 	}
 
 	// Reset ProgID
@@ -342,7 +352,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	}
 
 	if len(b.Program.MapArgs) > 0 {
-		if err := b.Update(direction); err != nil {
+		if err := b.Update(ifaceName, direction); err != nil {
 			logs.Errorf("failed to update network functions BPF maps %w", err)
 			return fmt.Errorf("failed to update network functions BPF maps %w", err)
 		}
@@ -376,7 +386,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 }
 
 // Updates the config map_args
-func (b *BPF) Update(direction string) error {
+func (b *BPF) Update(ifaceName, direction string) error {
 	for _, val := range b.Program.MapArgs {
 		logs.Infof("Update map args key %s val %s", val.Key, val.Value)
 		// fetch the key in
@@ -390,7 +400,6 @@ func (b *BPF) Update(direction string) error {
 
 		bpfMap.Update(val.Value)
 	}
-
 	stats.Incr(stats.NFUpdateCount, b.Program.Name, direction)
 	return nil
 }
@@ -407,7 +416,7 @@ func (b *BPF) isRunning() (bool, error) {
 
 		args := make([]string, 0, len(b.Program.StatusArgs)<<1)
 
-		for _, val := range b.Program.StopArgs {
+		for _, val := range b.Program.StatusArgs {
 			args = append(args, "--"+val.Key)
 			if len(val.Value) > 0 {
 				args = append(args, "="+val.Value)
@@ -428,7 +437,7 @@ func (b *BPF) isRunning() (bool, error) {
 		return false, fmt.Errorf("l3afd/nf : BPF Program not running %s", errStr)
 	}
 
-	if b.Cmd == nil {
+	if err := b.VerifyProcessObject(); err != nil {
 		return false, errors.New("No process id found")
 	}
 
@@ -625,87 +634,124 @@ func fileExists(filename string) bool {
 
 // Add eBPF map into BPFMaps list
 func (b *BPF) AddBPFMap(mapName string) error {
+	bpfMap, err := b.GetBPFMap(mapName)
+
+	if err != nil {
+		return err
+	}
+
+	b.BpfMaps[mapName] = *bpfMap
+	return nil
+}
+
+func (b *BPF) GetBPFMap(mapName string) (*BPFMap, error) {
+	var newBPFMap BPFMap
 
 	// TC maps are pinned by default
 	if b.Program.EBPFType == models.TCType {
 		ebpfMap, err := ebpf.LoadPinnedMap(mapName, nil)
 		if err != nil {
-			return fmt.Errorf("ebpf LoadPinnedMap failed %v", err)
+			return nil, fmt.Errorf("ebpf LoadPinnedMap failed %v", err)
 		}
 		defer ebpfMap.Close()
 
-		tempMapID, err := ebpfMap.ID()
-		if err != nil {
-			return fmt.Errorf("fetching map id failed %v", err)
-		}
-
 		ebpfInfo, err := ebpfMap.Info()
 		if err != nil {
-			return fmt.Errorf("fetching map info failed %v", err)
+			return nil, fmt.Errorf("fetching map info failed %v", err)
 		}
 
-		tmpBPFMap := BPFMap{
+		tempMapID, ok := ebpfInfo.ID()
+		if !ok {
+			return nil, fmt.Errorf("fetching map id failed %v", err)
+		}
+
+		newBPFMap = BPFMap{
 			Name:  ebpfInfo.Name,
 			MapID: tempMapID,
 			Type:  ebpfInfo.Type,
 		}
-		logs.Infof("added mapID %d Name %s Type %s", tmpBPFMap.MapID, tmpBPFMap.Name, tmpBPFMap.Type)
-		b.BpfMaps[mapName] = tmpBPFMap
-		return nil
-	}
 
-	// XDP maps
-	// map names are truncated to 15 chars
-	mpName := mapName
-	if len(mapName) > 15 {
-		mpName = mapName[:15]
-	}
-	var mpId ebpf.MapID = 0
+	} else if b.Program.EBPFType == models.XDPType {
 
-	for {
-		tmpMapId, err := ebpf.MapGetNextID(mpId)
-
-		if err != nil {
-			return fmt.Errorf("failed to fetch the map object %v", err)
+		// XDP maps
+		// map names are truncated to 15 chars
+		mpName := mapName
+		if len(mapName) > 15 {
+			mpName = mapName[:15]
 		}
+		var mpId ebpf.MapID = 0
 
-		ebpfMap, err := ebpf.NewMapFromID(tmpMapId)
-		if err != nil {
-			return fmt.Errorf("failed to get NewMapFromID %v", err)
-		}
-		defer ebpfMap.Close()
+		for {
+			tmpMapId, err := ebpf.MapGetNextID(mpId)
 
-		ebpfInfo, err := ebpfMap.Info()
-		if err != nil {
-			return fmt.Errorf("failed to fetch ebpfinfo %v", err)
-		}
-
-		if ebpfInfo.Name == mpName {
-			tmpBPFMap := BPFMap{
-				Name:  ebpfInfo.Name,
-				MapID: tmpMapId,
-				Type:  ebpfInfo.Type,
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch the map object %v", err)
 			}
-			b.BpfMaps[mapName] = tmpBPFMap
-			break
+
+			ebpfMap, err := ebpf.NewMapFromID(tmpMapId)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get NewMapFromID %v", err)
+			}
+			defer ebpfMap.Close()
+
+			ebpfInfo, err := ebpfMap.Info()
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch ebpfinfo %v", err)
+			}
+
+			if ebpfInfo.Name == mpName {
+				newBPFMap = BPFMap{
+					Name:  ebpfInfo.Name,
+					MapID: tmpMapId,
+					Type:  ebpfInfo.Type,
+				}
+				break
+			}
+			mpId = tmpMapId
 		}
-		mpId = tmpMapId
 	}
+
+	logs.Infof("added mapID %d Name %s Type %s", newBPFMap.MapID, newBPFMap.Name, newBPFMap.Type)
+	return &newBPFMap, nil
+}
+
+// Add eBPF map into BPFMaps list
+func (b *BPF) AddMetricsBPFMap(mapName, aggregator string, key, samplesLength int) error {
+
+	var tmpMetricsBPFMap MetricsBPFMap
+	bpfMap, err := b.GetBPFMap(mapName)
+
+	if err != nil {
+		return err
+	}
+
+	tmpMetricsBPFMap.BPFMap = *bpfMap
+	tmpMetricsBPFMap.key = key
+	tmpMetricsBPFMap.aggregator = aggregator
+	tmpMetricsBPFMap.Values = ring.New(samplesLength)
+
+	logs.Infof("added Metrics map ID %d Name %s Type %s Key %d Aggregator %s", tmpMetricsBPFMap.MapID, tmpMetricsBPFMap.Name, tmpMetricsBPFMap.Type, tmpMetricsBPFMap.key, tmpMetricsBPFMap.aggregator)
+	map_key := mapName + strconv.Itoa(key) + aggregator
+	b.MetricsBpfMaps[map_key] = &tmpMetricsBPFMap
+
 	return nil
 }
 
 // This method to fetch values from bpf maps and publish to metrics
-func (b *BPF) MonitorMaps() error {
+func (b *BPF) MonitorMaps(ifaceName string, intervals int) error {
 	for _, element := range b.Program.MonitorMaps {
 		logs.Debugf("monitor maps element %s ", element)
-		bpfMap, ok := b.BpfMaps[element]
+		mapKey := element.Name + strconv.Itoa(element.Key) + element.Aggregator
+		bpfMap, ok := b.MetricsBpfMaps[mapKey]
 		if !ok {
-			if err := b.AddBPFMap(element); err != nil {
-				return fmt.Errorf("not able to fetch map %s", element)
+			logs.Infof("Map not found")
+			if err := b.AddMetricsBPFMap(element.Name, element.Aggregator, element.Key, intervals); err != nil {
+				return fmt.Errorf("not able to fetch map %s key %d aggregator %s", element.Name, element.Key, element.Aggregator)
 			}
 		}
-		bpfMap, _ = b.BpfMaps[element]
-		stats.SetValue(float64(bpfMap.GetValue()), stats.NFMointorMap, b.Program.Name, element)
+		bpfMap, _ = b.MetricsBpfMaps[mapKey]
+		MetricName := element.Name + "_" + strconv.Itoa(element.Key) + "_" + element.Aggregator
+		stats.SetValue(bpfMap.GetValue(), stats.NFMointorMap, b.Program.Name, MetricName)
 	}
 	return nil
 }
@@ -844,6 +890,27 @@ func (b *BPF) VerifyPinnedMapVanish() error {
 	}
 
 	err = fmt.Errorf("%s map file was never removed by BPF program %s err %w", b.Program.MapName, b.Program.Name, err)
+	logs.Errorf(err.Error())
+	return err
+}
+
+// This method to verify cmd and process object is populated or not
+func (b *BPF) VerifyProcessObject() error {
+
+	if b.Cmd == nil {
+		err := fmt.Errorf("command object is nil - %s", b.Program.Name)
+		logs.Errorf(err.Error())
+		return err
+	}
+
+	for i := 0; i < 10; i++ {
+		if b.Cmd.Process != nil {
+			return nil
+		}
+		logs.Warningf("VerifyProcessObject: process object not found, checking again after a second")
+		time.Sleep(1 * time.Second)
+	}
+	err := fmt.Errorf("process object is nil - %s", b.Program.Name)
 	logs.Errorf(err.Error())
 	return err
 }

@@ -1,7 +1,9 @@
 package kf
 
 import (
+	"container/ring"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"unsafe"
@@ -15,6 +17,15 @@ type BPFMap struct {
 	Name  string
 	MapID ebpf.MapID
 	Type  ebpf.MapType
+}
+
+// This stores Metrics map details.
+type MetricsBPFMap struct {
+	BPFMap
+	key        int
+	Values     *ring.Ring
+	aggregator string
+	lastValue  float64
 }
 
 // This function is used to update eBPF maps, which are used by network functions.
@@ -80,9 +91,12 @@ func (b *BPFMap) Update(value string) error {
 	return nil
 }
 
-// Get value of the map for key 0
-func (b *BPFMap) GetValue() int64 {
-
+// Get value of the map for given key
+// There are 2 aggregators are supported here
+// max-rate - this calculates delta requests / sec and stores absolute value.
+// avg - stores the values in the circular queue
+// We can implement more aggregate function as needed.
+func (b *MetricsBPFMap) GetValue() float64 {
 	ebpfMap, err := ebpf.NewMapFromID(b.MapID)
 	if err != nil {
 		logs.Warningf("GetValue : NewMapFromID failed ID %d  err %v", b.MapID, err)
@@ -91,12 +105,58 @@ func (b *BPFMap) GetValue() int64 {
 	defer ebpfMap.Close()
 
 	var value int64
-	key := 0
-
-	if err = ebpfMap.Lookup(unsafe.Pointer(&key), unsafe.Pointer(&value)); err != nil {
+	if err = ebpfMap.Lookup(unsafe.Pointer(&b.key), unsafe.Pointer(&value)); err != nil {
 		logs.Warningf("GetValue Lookup failed : Name %s ID %d %w", b.Name, b.MapID, err)
 		return 0
 	}
 
-	return value
+	var retVal float64
+	switch b.aggregator {
+	case "scalar":
+		retVal = float64(value)
+	case "max-rate":
+		b.Values = b.Values.Next()
+		b.Values.Value = math.Abs(float64(float64(value) - b.lastValue))
+		b.lastValue = float64(value)
+		retVal = b.MaxValue()
+	case "avg":
+		b.Values.Value = value
+		b.Values = b.Values.Next()
+		retVal = b.AvgValue()
+	default:
+		logs.Warningf("unsupported aggregator %s and value %d", b.aggregator, value)
+	}
+
+	return retVal
+}
+
+// This method  finds the max value in the circular list
+func (b *MetricsBPFMap) MaxValue() float64 {
+	tmp := b.Values
+	var max float64
+	for i := 0; i < b.Values.Len(); i++ {
+		if tmp.Value != nil {
+			val := tmp.Value.(float64)
+			if max < val {
+				max = val
+			}
+		}
+		tmp = tmp.Next()
+	}
+	return max
+}
+
+// This method calculates the average
+func (b *MetricsBPFMap) AvgValue() float64 {
+	tmp := b.Values.Next()
+	var sum float64
+	var n float64 = 0.0
+	for i := 0; i < b.Values.Len(); i++ {
+		if tmp.Value != nil {
+			sum = sum + tmp.Value.(float64)
+			n = n + 1
+		}
+		tmp = tmp.Next()
+	}
+	return sum / n
 }

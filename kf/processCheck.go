@@ -50,8 +50,6 @@ func (c *pCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string
 				isRunning, _ := bpf.isRunning()
 				if isRunning == true {
 					stats.Set(1.0, stats.NFRunning, bpf.Program.Name, direction)
-					// Add to monitor bpfmaps
-					logs.IfErrorLogf(bpf.MonitorMaps(), "pMonitor monitor maps failed - %s", bpf.Program.Name)
 					continue
 				}
 				// Not running trying to restart

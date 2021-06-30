@@ -31,13 +31,14 @@ type NFConfigs struct {
 	IngressTCBpfs  map[string]*list.List
 	EgressTCBpfs   map[string]*list.List
 
-	hostConfig *config.Config
-	processMon *pCheck
+	hostConfig   *config.Config
+	processMon   *pCheck
+	kfMetricsMon *kfMetrics
 }
 
 var shutdownInterval = 900 * time.Millisecond
 
-func NewNFConfigs(emit emitter.KeyChangeEmitter, host string, hostConf *config.Config, pMon *pCheck) (*NFConfigs, error) {
+func NewNFConfigs(emit emitter.KeyChangeEmitter, host string, hostConf *config.Config, pMon *pCheck, metricsMon *kfMetrics) (*NFConfigs, error) {
 	nfConfigs := &NFConfigs{
 		hostName:       host,
 		hostConfig:     hostConf,
@@ -51,6 +52,8 @@ func NewNFConfigs(emit emitter.KeyChangeEmitter, host string, hostConf *config.C
 	}
 	nfConfigs.processMon = pMon
 	nfConfigs.processMon.pCheckStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs)
+	nfConfigs.kfMetricsMon = metricsMon
+	nfConfigs.kfMetricsMon.kfMetricsStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs)
 	return nfConfigs, nil
 }
 
@@ -396,6 +399,21 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 				}
 			}
 
+			// if chaining is disabled prev will be nil
+			if tmpPreviousBPF == nil && tmpNextBPF == nil {
+				switch direction {
+				case models.XDPIngressType:
+					c.IngressXDPBpfs[ifaceName] = nil
+				case models.IngressType:
+					c.IngressTCBpfs[ifaceName] = nil
+				case models.EgressType:
+					c.EgressTCBpfs[ifaceName] = nil
+				default:
+					return fmt.Errorf("unknown direction type %s", direction)
+				}
+				return nil
+			}
+
 			// Check if list contains root program only then stop the root program.
 			if tmpPreviousBPF.Prev() == nil && tmpPreviousBPF.Next() == nil {
 				logs.Infof("no network functions are running, stopping root program")
@@ -458,7 +476,7 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 			if reflect.DeepEqual(data.Program.MapArgs, bpfProg.MapArgs) != true {
 				logs.Infof("maps_args are mismatched")
 				data.Program.MapArgs = bpfProg.MapArgs
-				data.Update(direction)
+				data.Update(ifaceName, direction)
 			}
 
 			return nil
@@ -712,7 +730,6 @@ func (c *NFConfigs) KFDetails(iface string) []*BPF {
 // # ethtool -K ens7 lro off
 // # ethtool -k ens7 | grep large-receive-offload
 // large-receive-offload: off
-//
 func DisableLRO(ifaceName string) error {
 	ethHandle, err := ethtool.NewEthtool()
 	if err != nil {
