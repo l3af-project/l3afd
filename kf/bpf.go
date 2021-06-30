@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"container/ring"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -22,6 +23,9 @@ import (
 	"syscall"
 	"time"
 	"unsafe"
+
+	"tbd/cfgdist/kvstores/emitter"
+	"tbd/go-shared/nsqbatch"
 
 	"tbd/admind/models"
 	"tbd/go-shared/logs"
@@ -52,9 +56,12 @@ type BPF struct {
 	ProgID         int                       // eBPF Program ID
 	BpfMaps        map[string]BPFMap         // Config maps passed as map-args, Map name is Key
 	MetricsBpfMaps map[string]*MetricsBPFMap // Metrics map name+key+aggregator is key
+	Ctx            context.Context
+	Done           chan bool
+	DataCenter     string
 }
 
-func NewBpfProgram(program models.BPFProgram, logDir string) *BPF {
+func NewBpfProgram(ctx context.Context, program models.BPFProgram, logDir, dataCenter string) *BPF {
 	bpf := &BPF{
 		Program:        program,
 		RestartCount:   0,
@@ -63,6 +70,9 @@ func NewBpfProgram(program models.BPFProgram, logDir string) *BPF {
 		LogDir:         logDir,
 		BpfMaps:        make(map[string]BPFMap, 0),
 		MetricsBpfMaps: make(map[string]*MetricsBPFMap, 0),
+		Ctx:            ctx,
+		Done:           nil,
+		DataCenter:     dataCenter,
 	}
 	return bpf
 }
@@ -215,6 +225,12 @@ func (b *BPF) Stop(ifaceName, direction string) error {
 	for key, val := range b.MetricsBpfMaps {
 		logs.Debugf("removing metric bpf maps %s value %#v", key, val)
 		delete(b.MetricsBpfMaps, key)
+	}
+
+	// Stop KFcnfigs
+	if len(b.Program.CmdConfig) > 0 && len(b.Program.ConfigFilePath) > 0 {
+		logs.Infof("Stopping KF configs %s ", b.Program.Name)
+		b.Done <- true
 	}
 
 	// Reset ProgID
@@ -375,6 +391,13 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 			logs.Errorf("failed to fetch network functions program FD %w", err)
 			return fmt.Errorf("failed to fetch network functions program FD %w", err)
 		}
+	}
+
+	// KFconfigs
+	if len(b.Program.CmdConfig) > 0 && len(b.Program.ConfigFilePath) > 0 {
+		logs.Infof("KP specific config monitoring - %s", b.Program.ConfigFilePath)
+		b.Done = make(chan bool)
+		go b.RunKFConfigs()
 	}
 
 	logs.IfWarningLogf(b.SetPrLimits(), "failed to set resource limits")
@@ -913,4 +936,40 @@ func (b *BPF) VerifyProcessObject() error {
 	err := fmt.Errorf("process object is nil - %s", b.Program.Name)
 	logs.Errorf(err.Error())
 	return err
+}
+
+func (b *BPF) RunKFConfigs() error {
+
+	netNamespace := os.Getenv("TBNETNAMESPACE")
+	machineHostname, err := os.Hostname()
+	logs.IfErrorLogf(err, "Could not get hostname from OS")
+	daemonName := b.Program.Name
+
+	var producer nsqbatch.Producer
+	if prefs := nsqbatch.GetSystemPrefs(); prefs.Enabled {
+		producer, err = nsqbatch.NewProducer(prefs)
+		if err != nil {
+			logs.Errorf("could not set up nsqd: Details %s", err)
+			return fmt.Errorf("could not set up nsqd: %v", err)
+		}
+	}
+
+	cdbKVStore, err := VersionAnnouncerFromCDB(b.Ctx, machineHostname,
+		daemonName, netNamespace, b.Program.ConfigFilePath, b.DataCenter, "", false, false, producer)
+	if err != nil {
+		return fmt.Errorf("error in KFConfig %s version announcer: %v", b.Program.Name, err)
+	}
+	emit := emitter.NewKVStoreChangeEmitter(cdbKVStore)
+
+	_, err = NewKFCfgs(emit, b.FilePath, &b.Program)
+	if err != nil {
+		return fmt.Errorf("failed to start monitoring KF specific config %v", err)
+	}
+
+	select {
+	case <-b.Done:
+		logs.Infof("KF config %s kv emitter close invoked", b.Program.Name)
+		emit.Close()
+		return nil
+	}
 }

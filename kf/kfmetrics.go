@@ -5,8 +5,8 @@ import (
 	"container/list"
 	"time"
 
-	"gecgithub01.walmart.com/Torbit/admind/models"
-	"gecgithub01.walmart.com/Torbit/go-shared/logs"
+	"tbd/admind/models"
+	"tbd/go-shared/logs"
 )
 
 type kfMetrics struct {

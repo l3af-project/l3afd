@@ -1,6 +1,7 @@
 package kf
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"reflect"
@@ -33,10 +34,12 @@ func TestHelperProcess(t *testing.T) {
 
 func TestNewBpfProgram(t *testing.T) {
 	type args struct {
-		program   models.BPFProgram
-		logDir    string
-		chain     bool
-		direction string
+		program    models.BPFProgram
+		logDir     string
+		chain      bool
+		direction  string
+		ctx        context.Context
+		datacenter string
 	}
 	execCommand = fakeExecCommand
 	defer func() { execCommand = exec.Command }()
@@ -52,14 +55,16 @@ func TestNewBpfProgram(t *testing.T) {
 					Artifact:      "foo.tar.gz",
 					CmdStart:      "foo",
 					CmdStop:       "",
+					CmdConfig:     "",
 					Version:       "1.0",
 					IsUserProgram: true,
 					IsPlugin:      false,
 					AdminStatus:   "enabled",
 				},
-				logDir:    "",
-				chain:     false,
-				direction: "ingress",
+				logDir:     "",
+				chain:      false,
+				direction:  "ingress",
+				datacenter: "localdc",
 			},
 			want: &BPF{
 				Program: models.BPFProgram{
@@ -67,6 +72,7 @@ func TestNewBpfProgram(t *testing.T) {
 					Artifact:      "foo.tar.gz",
 					CmdStart:      "foo",
 					CmdStop:       "",
+					CmdConfig:     "",
 					Version:       "1.0",
 					IsUserProgram: true,
 					IsPlugin:      false,
@@ -77,6 +83,9 @@ func TestNewBpfProgram(t *testing.T) {
 				LogDir:         "",
 				BpfMaps:        make(map[string]BPFMap, 0),
 				MetricsBpfMaps: make(map[string]*MetricsBPFMap, 0),
+				Ctx:            nil,
+				Done:           nil,
+				DataCenter:     "localdc",
 			},
 		},
 		{name: "EmptyBPFProgram",
@@ -95,7 +104,7 @@ func TestNewBpfProgram(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewBpfProgram(tt.args.program, tt.args.logDir); !reflect.DeepEqual(got, tt.want) {
+			if got := NewBpfProgram(tt.args.ctx, tt.args.program, tt.args.logDir, tt.args.datacenter); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewBpfProgram() = %#v, want %#v", got, tt.want)
 			}
 		})
@@ -109,6 +118,8 @@ func TestBPF_Stop(t *testing.T) {
 		FilePath     string
 		RestartCount int
 		Direction    string
+		ctx          context.Context
+		datacenter   string
 	}
 	tests := []struct {
 		name    string

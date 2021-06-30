@@ -85,8 +85,10 @@ func NFConfigsFromCDB(ctx context.Context, conf *config.Config) (*kf.NFConfigs, 
 	pMon := kf.NewpCheck(conf.MaxNFReStartCount, conf.BpfChainingEnabled, conf.KFPollInterval)
 	kfM := kf.NewpKFMetrics(conf.BpfChainingEnabled, conf.NMetricSamples)
 
-	nfConfigs, err := kf.NewNFConfigs(emit, machineHostname, conf, pMon, kfM)
-
+	nfConfigs, err := kf.NewNFConfigs(ctx, emit, machineHostname, conf, pMon, kfM)
+	if err != nil {
+		return nil, fmt.Errorf("error in NewNFConfigs setup: %v", err)
+	}
 	pidfile.SetupGracefulShutdown(func() error {
 		if len(nfConfigs.IngressXDPBpfs) > 0 || len(nfConfigs.IngressTCBpfs) > 0 || len(nfConfigs.EgressTCBpfs) > 0 {
 			ctx, cancelfunc := context.WithTimeout(context.Background(), conf.ShutdownTimeout*time.Second)

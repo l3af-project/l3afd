@@ -22,6 +22,7 @@ import (
 )
 
 type NFConfigs struct {
+	ctx      context.Context
 	hostName string
 	configs  sync.Map // key: string, val: *models.L3afDNFConfigDetail
 	// These holds bpf programs in the list
@@ -38,8 +39,9 @@ type NFConfigs struct {
 
 var shutdownInterval = 900 * time.Millisecond
 
-func NewNFConfigs(emit emitter.KeyChangeEmitter, host string, hostConf *config.Config, pMon *pCheck, metricsMon *kfMetrics) (*NFConfigs, error) {
+func NewNFConfigs(ctx context.Context, emit emitter.KeyChangeEmitter, host string, hostConf *config.Config, pMon *pCheck, metricsMon *kfMetrics) (*NFConfigs, error) {
 	nfConfigs := &NFConfigs{
+		ctx:            ctx,
 		hostName:       host,
 		hostConfig:     hostConf,
 		IngressXDPBpfs: make(map[string]*list.List),
@@ -266,7 +268,7 @@ func (c *NFConfigs) VerifyAndStartTCRootProgram(ifaceName, direction string) err
 // This method inserts the element at the end of the list
 func (c *NFConfigs) PushBackAndStartBPF(bpfProg *models.BPFProgram, ifaceName, direction string) error {
 
-	bpf := NewBpfProgram(*bpfProg, c.hostConfig.BPFLogDir)
+	bpf := NewBpfProgram(c.ctx, *bpfProg, c.hostConfig.BPFLogDir, c.hostConfig.DataCenter)
 	var bpfList *list.List
 
 	switch direction {
@@ -577,7 +579,7 @@ func (c *NFConfigs) InsertAndStartBPFProgram(bpfProg *models.BPFProgram, ifaceNa
 		return nil
 	}
 
-	bpf := NewBpfProgram(*bpfProg, c.hostConfig.BPFLogDir)
+	bpf := NewBpfProgram(c.ctx, *bpfProg, c.hostConfig.BPFLogDir, c.hostConfig.DataCenter)
 
 	switch direction {
 	case models.XDPIngressType:

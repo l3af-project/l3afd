@@ -161,6 +161,7 @@ func TestNewNFConfigs(t *testing.T) {
 		hostConf *config.Config
 		pMon     *pCheck
 		mMon     *kfMetrics
+		ctx      context.Context
 	}
 	setupDBTest()
 	tests := []struct {
@@ -188,7 +189,7 @@ func TestNewNFConfigs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewNFConfigs(tt.args.emit, tt.args.host, tt.args.hostConf, tt.args.pMon, tt.args.mMon)
+			got, err := NewNFConfigs(tt.args.ctx, tt.args.emit, tt.args.host, tt.args.hostConf, tt.args.pMon, tt.args.mMon)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewNFConfigs() error = %v, wantErr %v", err, tt.wantErr)
 				return
