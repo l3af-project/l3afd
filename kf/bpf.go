@@ -767,7 +767,6 @@ func (b *BPF) MonitorMaps(ifaceName string, intervals int) error {
 		mapKey := element.Name + strconv.Itoa(element.Key) + element.Aggregator
 		bpfMap, ok := b.MetricsBpfMaps[mapKey]
 		if !ok {
-			logs.Infof("Map not found")
 			if err := b.AddMetricsBPFMap(element.Name, element.Aggregator, element.Key, intervals); err != nil {
 				return fmt.Errorf("not able to fetch map %s key %d aggregator %s", element.Name, element.Key, element.Aggregator)
 			}
