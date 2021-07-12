@@ -44,7 +44,7 @@ func (c *pCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string
 				if c.Chain && bpf.Program.SeqID == 0 { // do not monitor root program
 					continue
 				}
-				if bpf.Program.AdminStatus == models.Disabled {
+				if bpf.Program.AdminStatus == models.Disabled || !bpf.Monitor {
 					continue
 				}
 				isRunning, _ := bpf.isRunning()

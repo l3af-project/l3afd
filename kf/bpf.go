@@ -43,12 +43,15 @@ const bpfStatus string = "RUNNING"
 type BPF struct {
 	Program      models.BPFProgram
 	Cmd          *exec.Cmd
-	FilePath     string            // Binary file path
-	RestartCount int               // To track restart count
-	LogDir       string            // Log dir for the BPF program
-	PrevMapName  string            // Map name to link
-	ProgID       int               // eBPF Program ID
-	BpfMaps      map[string]BPFMap // Map name is Key
+	FilePath     string // Binary file path
+	RestartCount int    // To track restart count
+	LogDir       string // Log dir for the BPF program
+	PrevMapName  string // Map name to link
+	ProgID       int    // eBPF Program ID
+	// Handle race conditions in the event of restarting entire chain
+	// This is to indicate processCheck monitor to avoid starting the program while this flag is set to false.
+	Monitor bool
+	BpfMaps map[string]BPFMap // Map name is Key
 }
 
 func NewBpfProgram(program models.BPFProgram, logDir string) *BPF {
@@ -58,6 +61,7 @@ func NewBpfProgram(program models.BPFProgram, logDir string) *BPF {
 		Cmd:          nil,
 		FilePath:     "",
 		LogDir:       logDir,
+		Monitor:      false,
 		BpfMaps:      make(map[string]BPFMap, 0),
 	}
 	return bpf
@@ -201,6 +205,9 @@ func (b *BPF) Stop(ifaceName, direction string) error {
 
 	logs.Infof("Stopping BPF Program - %s", b.Program.Name)
 
+	// Disable monitor
+	b.Monitor = false
+
 	// Removing maps
 	for key, val := range b.BpfMaps {
 		logs.Debugf("removing BPF maps %s value map %#v", key, val)
@@ -324,6 +331,9 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		}
 		b.Cmd = nil
 
+		// Enable monitor
+		b.Monitor = true
+
 		if err := b.VerifyPinnedMapExists(); err != nil {
 			return fmt.Errorf("no userprogram and failed to find pinned file %s, %w", b.Program.MapName, err)
 		}
@@ -370,6 +380,9 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	logs.IfWarningLogf(b.SetPrLimits(), "failed to set resource limits")
 	stats.Incr(stats.NFStartCount, b.Program.Name, direction)
 	stats.Set(float64(time.Now().Unix()), stats.NFStartTime, b.Program.Name, direction)
+
+	// Enable monitor
+	b.Monitor = true
 
 	logs.Infof("BPF program - %s started Process id %d Program ID %d", b.Program.Name, b.Cmd.Process.Pid, b.ProgID)
 	return nil
