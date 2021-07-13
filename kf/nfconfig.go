@@ -1,3 +1,6 @@
+// Copyright Contributors to the L3AF Project.
+// SPDX-License-Identifier: Apache-2.0
+
 // Package kf provides primitives for l3afd's network function configs.
 package kf
 

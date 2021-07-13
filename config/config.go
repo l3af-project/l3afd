@@ -1,3 +1,6 @@
+// Copyright Contributors to the L3AF Project.
+// SPDX-License-Identifier: Apache-2.0
+
 // Package config provides primitives for l3afd configuration ( i.e. l3afd.cfg) file.
 package config
 
