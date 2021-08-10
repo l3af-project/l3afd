@@ -19,7 +19,6 @@ import (
 	"tbd/admind-sdks/go/admindapi"
 	"tbd/admind/models"
 	"tbd/cfgdist/kvstores/emitter"
-	"tbd/go-shared/logs"
 	"tbd/go-shared/nsqbatch"
 	"tbd/go-shared/pidfile"
 	version "tbd/go-version"
@@ -27,14 +26,46 @@ import (
 	"tbd/l3afd/config"
 	"tbd/l3afd/kf"
 	"tbd/l3afd/stats"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 const daemonName = "l3afd"
 
+func setupLogging() {
+	const logLevelEnvName = "L3AF_LOG_LEVEL"
+
+	// If this is removed, zerolog will do structured logging. For now,
+	// we set zerolog to do human-readable logging just to keep the same
+	// behavior as the closed-source logging package that we replaced with
+	// zerolog.
+	log.Logger = log.Output(zerolog.ConsoleWriter{
+		Out: os.Stderr, TimeFormat: time.RFC3339Nano})
+
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+
+	// Set the default
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+
+	logLevelStr := os.Getenv(logLevelEnvName)
+	if logLevelStr == "" {
+		return
+	}
+	logLevel, err := zerolog.ParseLevel(logLevelStr)
+	if err != nil {
+		log.Error().Err(err).Msg("Invalid L3AF_LOG_LEVEL")
+		return
+	}
+	zerolog.SetGlobalLevel(logLevel)
+	log.Debug().Msgf("Log level set to %q", logLevel)
+}
+
 func main() {
+	setupLogging()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	logs.Infof("%s started.", daemonName)
+	log.Info().Msgf("%s started.", daemonName)
 
 	var confPath string
 	flag.StringVar(&confPath, "config", "config/l3afd.cfg", "config path")
@@ -42,19 +73,31 @@ func main() {
 	flag.Parse()
 	version.Init()
 	conf, err := config.ReadConfig(confPath)
-	logs.IfFatalLogf(err, "Unable to parse config", confPath)
+	if err != nil {
+		log.Fatal().Err(err).Msgf("Unable to parse config %q", confPath)
+	}
 
-	logs.IfFatalLogf(pidfile.CheckPIDConflict(conf.PIDFilename), "The PID file: %s, is in an unacceptable state", conf.PIDFilename)
-	logs.IfFatalLogf(pidfile.CreatePID(conf.PIDFilename), "The PID file: %s, could not be created", conf.PIDFilename)
+	if err = pidfile.CheckPIDConflict(conf.PIDFilename); err != nil {
+		log.Fatal().Err(err).Msgf("The PID file: %s, is in an unacceptable state", conf.PIDFilename)
+	}
+	if err = pidfile.CreatePID(conf.PIDFilename); err != nil {
+		log.Fatal().Err(err).Msgf("The PID file: %s, could not be created", conf.PIDFilename)
+	}
 
-	logs.IfFatalLogf(checkKernelVersion(conf), "The unsupported kernel version please upgrade")
+	if err = checkKernelVersion(conf); err != nil {
+		log.Fatal().Err(err).Msg("The unsupported kernel version please upgrade")
+	}
 
 	if conf.AdmindApiEnabled {
-		logs.IfErrorLogf(registerL3afD(conf), "L3afd registration failed")
+		if err = registerL3afD(conf); err != nil {
+			log.Error().Err(err).Msg("L3afd registration failed")
+		}
 	}
 
 	kfConfigs, err := NFConfigsFromCDB(ctx, conf)
-	logs.IfFatalLogf(err, "L3afd failed to start", err)
+	if err != nil {
+		log.Fatal().Err(err).Msg("L3afd failed to start")
+	}
 
 	if conf.EBPFChainDebugEnabled {
 		kf.SetupKFDebug(conf.EBPFChainDebugAddr, kfConfigs)
@@ -65,7 +108,9 @@ func main() {
 func NFConfigsFromCDB(ctx context.Context, conf *config.Config) (*kf.NFConfigs, error) {
 	// Get Hostname
 	machineHostname, err := os.Hostname()
-	logs.IfErrorLogf(err, "Could not get hostname from OS")
+	if err != nil {
+		log.Error().Err(err).Msg("Could not get hostname from OS")
+	}
 
 	// setup Metrics endpoint
 	stats.SetupMetrics(machineHostname, daemonName, conf.MetricsAddr)
@@ -74,8 +119,9 @@ func NFConfigsFromCDB(ctx context.Context, conf *config.Config) (*kf.NFConfigs, 
 	if prefs := nsqbatch.GetSystemPrefs(); prefs.Enabled {
 		producer, err = nsqbatch.NewProducer(prefs)
 		if err != nil {
-			logs.Errorf("could not set up nsqd: Details %s", err)
-			return nil, fmt.Errorf("could not set up nsqd: %v", err)
+			err = fmt.Errorf("could not set up nsqd: %s", err)
+			log.Error().Err(err).Msg("")
+			return nil, err
 		}
 	}
 	netNamespace := os.Getenv("TBNETNAMESPACE")
@@ -96,9 +142,13 @@ func NFConfigsFromCDB(ctx context.Context, conf *config.Config) (*kf.NFConfigs, 
 		if len(nfConfigs.IngressXDPBpfs) > 0 || len(nfConfigs.IngressTCBpfs) > 0 || len(nfConfigs.EgressTCBpfs) > 0 {
 			ctx, cancelfunc := context.WithTimeout(context.Background(), conf.ShutdownTimeout*time.Second)
 			defer cancelfunc()
-			logs.IfErrorLogf(nfConfigs.Close(ctx), "stopping all network functions failed")
+			if err := nfConfigs.Close(ctx); err != nil {
+				log.Error().Err(err).Msg("stopping all network functions failed")
+			}
 		}
-		logs.IfErrorLogf(emit.Close(), "kv store emit close failed")
+		if err := emit.Close(); err != nil {
+			log.Error().Err(err).Msg("kv store emit close failed")
+		}
 		return nil
 	}, conf.ShutdownTimeout, conf.PIDFilename)
 	return nfConfigs, nil
@@ -183,11 +233,15 @@ func registerL3afD(conf *config.Config) error {
 
 	// Get Hostname
 	machineHostname, err := os.Hostname()
-	logs.IfErrorLogf(err, "Could not get hostname from OS")
+	if err != nil {
+		log.Error().Err(err).Msg("Could not get hostname from OS")
+	}
 	// Kernel version is validated once, so we are assuming we have supported version
 	kernelVersion, _ := getKernelVersion()
 	l3afdHostIfaces, err := getHostNetwork()
-	logs.IfFatalLogf(err, "Could not get network interfaces from OS")
+	if err != nil {
+		log.Fatal().Err(err).Msg("Could not get network interfaces from OS")
+	}
 
 	l3afdHost := &models.NewL3afDHostRequest{
 		Name:          machineHostname,
@@ -204,22 +258,22 @@ func registerL3afD(conf *config.Config) error {
 
 	api, err := admindapi.NewAPI(conf.AdmindUsername, conf.AdmindApiKey, conf.AdmindHost)
 	if err != nil {
-		logs.Fatalf("Could not create admind api handle. Error %s", err)
+		log.Fatal().Err(err).Msg("Could not create admind api handle")
 	}
 
 	resp, err := api.POST(&admindapi.Req{URI: "/api/v2/l3afd/hosts", Body: string(buf)})
 
 	if err != nil && resp.HTTPResponse().StatusCode == http.StatusConflict {
-		logs.Warningf("POST request for l3afd hosts already registered.")
+		log.Warn().Msg("POST request for l3afd hosts already registered")
 		if err = updateL3afDHost(api, l3afdHost); err != nil {
-			logs.Errorf("L3afd Host update failed %v", err)
+			log.Error().Err(err).Msg("L3afd Host update failed")
 		}
 		return nil
 	}
 	defer resp.HTTPResponse().Body.Close()
 
 	if err != nil {
-		logs.Fatalf("POST or PUT request for l3afd hosts returned unexpected errors %s\n", err)
+		log.Fatal().Err(err).Msg("POST or PUT request for l3afd hosts returned unexpected errors")
 		return err
 	}
 
@@ -228,7 +282,7 @@ func registerL3afD(conf *config.Config) error {
 		return fmt.Errorf("POST request for l3afd hosts returned unexpected status code: %d (%s), %d was expected\n\tResponse Body: %s\n", resp.HTTPResponse().StatusCode, http.StatusText(resp.HTTPResponse().StatusCode), http.StatusOK, string(buff))
 	}
 
-	logs.Infof("L3af daemon registered successfully.")
+	log.Info().Msg("L3af daemon registered successfully.")
 	return nil
 }
 
@@ -280,7 +334,7 @@ func updateL3afDHost(api *admindapi.API, l3afdHost *models.NewL3afDHostRequest) 
 		return fmt.Errorf("PUT request for l3afd hosts returned unexpected status code: %d (%s), %d was expected\n", resp.HTTPResponse().StatusCode, http.StatusText(resp.HTTPResponse().StatusCode), http.StatusOK)
 	}
 
-	logs.Infof("L3af daemon updated successfully.")
+	log.Info().Msg("L3af daemon updated successfully.")
 	return nil
 }
 

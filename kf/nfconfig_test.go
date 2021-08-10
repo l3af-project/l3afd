@@ -15,9 +15,10 @@ import (
 	"tbd/admind/models"
 	"tbd/cfgdist/kvstores"
 	"tbd/cfgdist/kvstores/emitter"
-	"tbd/go-shared/logs"
 
 	"tbd/l3afd/config"
+
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -89,7 +90,7 @@ func setupValidBPF() {
 	}
 	ifaceName = "dummy"
 	seqID = 1
-	logs.Infof(bpf.Program.Name)
+	log.Info().Msg(bpf.Program.Name)
 
 	return
 }

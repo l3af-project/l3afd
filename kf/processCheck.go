@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"tbd/admind/models"
-	"tbd/go-shared/logs"
 
 	"tbd/l3afd/stats"
+
+	"github.com/rs/zerolog/log"
 )
 
 type pCheck struct {
@@ -58,9 +59,11 @@ func (c *pCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string
 				// Not running trying to restart
 				if bpf.RestartCount < c.MaxRetryCount && bpf.Program.AdminStatus == models.Enabled {
 					bpf.RestartCount++
-					logs.Warningf("pMonitor BPF Program is not running - restart attempt %d -  program name - %s on iface %s",
+					log.Warn().Msgf("pMonitor BPF Program is not running. Restart attempt: %d, program name: %s, iface: %s",
 						bpf.RestartCount, bpf.Program.Name, ifaceName)
-					logs.IfErrorLogf(bpf.Start(ifaceName, direction, c.Chain), "pMonitor BPF Program start failed - %s", bpf.Program.Name)
+					if err := bpf.Start(ifaceName, direction, c.Chain); err != nil {
+						log.Error().Err(err).Msgf("pMonitor BPF Program start failed for program %s", bpf.Program.Name)
+					}
 				} else {
 					stats.Set(0.0, stats.NFRunning, bpf.Program.Name, direction)
 				}

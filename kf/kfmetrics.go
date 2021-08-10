@@ -9,7 +9,8 @@ import (
 	"time"
 
 	"tbd/admind/models"
-	"tbd/go-shared/logs"
+
+	"github.com/rs/zerolog/log"
 )
 
 type kfMetrics struct {
@@ -46,7 +47,9 @@ func (c *kfMetrics) kfMetricsWorker(bpfProgs map[string]*list.List, direction st
 				if bpf.Program.AdminStatus == models.Disabled {
 					continue
 				}
-				logs.IfErrorLogf(bpf.MonitorMaps(ifaceName, c.Intervals), "pMonitor monitor maps failed - %s", bpf.Program.Name)
+				if err := bpf.MonitorMaps(ifaceName, c.Intervals); err != nil {
+					log.Error().Err(err).Msgf("pMonitor monitor maps failed - %s", bpf.Program.Name)
+				}
 			}
 		}
 	}

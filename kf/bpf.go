@@ -27,17 +27,17 @@ import (
 	"time"
 	"unsafe"
 
+	"tbd/admind/models"
 	"tbd/cfgdist/kvstores/emitter"
 	"tbd/go-shared/nsqbatch"
-
-	"tbd/admind/models"
-	"tbd/go-shared/logs"
 	"tbd/sys/unix"
 
 	"tbd/l3afd/config"
 	"tbd/l3afd/stats"
+
 	"github.com/cilium/ebpf"
 	ps "github.com/mitchellh/go-ps"
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -83,7 +83,7 @@ func NewBpfProgram(ctx context.Context, program models.BPFProgram, logDir, dataC
 // Loading the Root Program for a given interface.
 func LoadRootProgram(ifaceName string, direction string, eBPFType string, conf *config.Config) (*BPF, error) {
 
-	logs.Infof("LoadRootProgram iface %s direction %s ebpfType %s", ifaceName, direction, eBPFType)
+	log.Info().Msgf("LoadRootProgram iface %s direction %s ebpfType %s", ifaceName, direction, eBPFType)
 	var rootProgBPF *BPF
 
 	switch eBPFType {
@@ -139,14 +139,14 @@ func LoadRootProgram(ifaceName string, direction string, eBPFType string, conf *
 	rootProgBPF.Program.AddStopArgs(models.L3afDNFArgs{Key: "cmd", Value: models.StopType})
 
 	if err := rootProgBPF.VerifyAndGetArtifacts(conf); err != nil {
-		logs.Errorf("failed to get root artifacts")
+		log.Error().Err(err).Msg("failed to get root artifacts")
 		return nil, err
 	}
 
 	// On l3afd crashing scenario verify root program are unloaded properly by checking existence of persisted maps
 	// if map file exists then root program is still running
 	if fileExists(rootProgBPF.Program.MapName) {
-		logs.Warningf("previous instance of root program %s is running, stopping it ", rootProgBPF.Program.Name)
+		log.Warn().Msgf("previous instance of root program %s is running, stopping it ", rootProgBPF.Program.Name)
 		if err := rootProgBPF.Stop(ifaceName, direction); err != nil {
 			return nil, fmt.Errorf("failed to stop root program on iface %s name %s direction %s", ifaceName, rootProgBPF.Program.Name, direction)
 		}
@@ -193,11 +193,11 @@ func StopExternalRunningProcess(processName string) error {
 	if err != nil {
 		return fmt.Errorf("failed to fetch processes list")
 	}
-	logs.Infof("Searching for process %s and not ppid %d", processName, myPid)
+	log.Info().Msgf("Searching for process %s and not ppid %d", processName, myPid)
 	for _, process := range processList {
 		if strings.Contains(process.Executable(), psName) {
 			if process.PPid() != myPid {
-				logs.Warningf("found process id %d name %s ppid %d, stopping it", process.Pid(), process.Executable(), process.PPid())
+				log.Warn().Msgf("found process id %d name %s ppid %d, stopping it", process.Pid(), process.Executable(), process.PPid())
 				err := syscall.Kill(process.Pid(), syscall.SIGTERM)
 				if err != nil {
 					return fmt.Errorf("external BPFProgram stop failed with error: %w", err)
@@ -216,23 +216,23 @@ func (b *BPF) Stop(ifaceName, direction string) error {
 		return fmt.Errorf("BPFProgram is not running %s", b.Program.Name)
 	}
 
-	logs.Infof("Stopping BPF Program - %s", b.Program.Name)
+	log.Info().Msgf("Stopping BPF Program - %s", b.Program.Name)
 
 	// Removing maps
 	for key, val := range b.BpfMaps {
-		logs.Debugf("removing BPF maps %s value map %#v", key, val)
+		log.Debug().Msgf("removing BPF maps %s value map %#v", key, val)
 		delete(b.BpfMaps, key)
 	}
 
 	// Removing Metrics maps
 	for key, val := range b.MetricsBpfMaps {
-		logs.Debugf("removing metric bpf maps %s value %#v", key, val)
+		log.Debug().Msgf("removing metric bpf maps %s value %#v", key, val)
 		delete(b.MetricsBpfMaps, key)
 	}
 
 	// Stop KFcnfigs
 	if len(b.Program.CmdConfig) > 0 && len(b.Program.ConfigFilePath) > 0 {
-		logs.Infof("Stopping KF configs %s ", b.Program.Name)
+		log.Info().Msgf("Stopping KF configs %s ", b.Program.Name)
 		b.Done <- true
 	}
 
@@ -249,13 +249,15 @@ func (b *BPF) Stop(ifaceName, direction string) error {
 			return fmt.Errorf("BPFProgram %s syscall.SIGTERM failed with error: %w", b.Program.Name, err)
 		}
 		if b.Cmd != nil {
-			logs.IfErrorLogf(b.Cmd.Wait(), "cmd wait at stopping bpf program %s errored", b.Program.Name)
+			if err := b.Cmd.Wait(); err != nil {
+				log.Error().Err(err).Msgf("cmd wait at stopping bpf program %s errored", b.Program.Name)
+			}
 			b.Cmd = nil
 		}
 
 		// verify pinned map file is removed.
 		if err := b.VerifyPinnedMapVanish(); err != nil {
-			logs.Errorf("stop user program - failed to remove pinned file %s", b.Program.Name)
+			log.Error().Err(err).Msgf("stop user program - failed to remove pinned file %s", b.Program.Name)
 			return fmt.Errorf("stop user program - failed to remove pinned file %s", b.Program.Name)
 		}
 		return nil
@@ -275,14 +277,16 @@ func (b *BPF) Stop(ifaceName, direction string) error {
 		args = append(args, "--"+val.Key+"="+val.Value)
 	}
 
-	logs.Infof("bpf program stop command : %s %v", cmd, args)
+	log.Info().Msgf("bpf program stop command : %s %v", cmd, args)
 	prog := execCommand(cmd, args...)
-	logs.IfWarningLogf(prog.Run(), "l3afd/nf : Failed to stop the program %s", b.Program.CmdStop)
+	if err := prog.Run(); err != nil {
+		log.Warn().Err(err).Msgf("l3afd/nf : Failed to stop the program %s", b.Program.CmdStop)
+	}
 	b.Cmd = nil
 
 	// verify pinned map file is removed.
 	if err := b.VerifyPinnedMapVanish(); err != nil {
-		logs.Errorf("failed to remove pinned file %s", b.Program.Name)
+		log.Error().Err(err).Msgf("failed to remove pinned file %s", b.Program.Name)
 		return fmt.Errorf("failed to remove pinned file %s", b.Program.Name)
 	}
 	return nil
@@ -311,7 +315,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	// Making sure old map entry is removed before passing the prog fd map to the program.
 	if len(b.PrevMapName) > 0 {
 		if err := b.RemovePrevProgFD(); err != nil {
-			logs.Errorf("ProgramMap %s entry removal failed %w", b.PrevMapName, err)
+			log.Error().Err(err).Msgf("ProgramMap %s entry removal failed %w", b.PrevMapName)
 		}
 	}
 
@@ -340,14 +344,14 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		args = append(args, "--"+val.Key+"="+val.Value)
 	}
 
-	logs.Infof("BPF Program start command : %s %v", cmd, args)
+	log.Info().Msgf("BPF Program start command : %s %v", cmd, args)
 	b.Cmd = execCommand(cmd, args...)
 	if err := b.Cmd.Start(); err != nil {
-		logs.Infof("user mode BPF program failed - %s %v", b.Program.Name, err)
+		log.Info().Err(err).Msgf("user mode BPF program failed - %s", b.Program.Name)
 		return fmt.Errorf("failed to start : %s %v", cmd, args)
 	}
 	if !b.Program.IsUserProgram {
-		logs.Infof("no user mode BPF program - %s No Pid", b.Program.Name)
+		log.Info().Msgf("no user mode BPF program - %s No Pid", b.Program.Name)
 		if err := b.Cmd.Wait(); err != nil {
 			return fmt.Errorf("cmd wait at starting of bpf program returned with error %w", err)
 		}
@@ -361,7 +365,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 
 	isRunning, err := b.isRunning()
 	if isRunning == false {
-		logs.Errorf("eBPF program is failed to start : %v ", err)
+		log.Error().Err(err).Msg("eBPF program failed to start")
 		return fmt.Errorf("bpf program %s failed to start %w", b.Program.Name, err)
 	}
 
@@ -372,7 +376,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 
 	if len(b.Program.MapArgs) > 0 {
 		if err := b.Update(ifaceName, direction); err != nil {
-			logs.Errorf("failed to update network functions BPF maps %w", err)
+			log.Error().Err(err).Msg("failed to update network functions BPF maps")
 			return fmt.Errorf("failed to update network functions BPF maps %w", err)
 		}
 	}
@@ -386,35 +390,37 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 				break
 			}
 
-			logs.Warningf("failed to fetch the program ID, retrying after a second ... ")
+			log.Warn().Msg("failed to fetch the program ID, retrying after a second ... ")
 			time.Sleep(1 * time.Second)
 		}
 
 		if err != nil {
-			logs.Errorf("failed to fetch network functions program FD %w", err)
+			log.Error().Err(err).Msg("failed to fetch network functions program FD")
 			return fmt.Errorf("failed to fetch network functions program FD %w", err)
 		}
 	}
 
 	// KFconfigs
 	if len(b.Program.CmdConfig) > 0 && len(b.Program.ConfigFilePath) > 0 {
-		logs.Infof("KP specific config monitoring - %s", b.Program.ConfigFilePath)
+		log.Info().Msgf("KP specific config monitoring - %s", b.Program.ConfigFilePath)
 		b.Done = make(chan bool)
 		go b.RunKFConfigs()
 	}
 
-	logs.IfWarningLogf(b.SetPrLimits(), "failed to set resource limits")
+	if err := b.SetPrLimits(); err != nil {
+		log.Warn().Err(err).Msg("failed to set resource limits")
+	}
 	stats.Incr(stats.NFStartCount, b.Program.Name, direction)
 	stats.Set(float64(time.Now().Unix()), stats.NFStartTime, b.Program.Name, direction)
 
-	logs.Infof("BPF program - %s started Process id %d Program ID %d", b.Program.Name, b.Cmd.Process.Pid, b.ProgID)
+	log.Info().Msgf("BPF program - %s started Process id %d Program ID %d", b.Program.Name, b.Cmd.Process.Pid, b.ProgID)
 	return nil
 }
 
 // Updates the config map_args
 func (b *BPF) Update(ifaceName, direction string) error {
 	for _, val := range b.Program.MapArgs {
-		logs.Infof("Update map args key %s val %s", val.Key, val.Value)
+		log.Info().Msgf("Update map args key %s val %s", val.Key, val.Value)
 		// fetch the key in
 		bpfMap, ok := b.BpfMaps[val.Key]
 		if !ok {
@@ -453,7 +459,9 @@ func (b *BPF) isRunning() (bool, error) {
 		var out bytes.Buffer
 		prog.Stdout = &out
 		prog.Stderr = &out
-		logs.IfWarningLogf(prog.Run(), "l3afd/nf : Failed to execute %s", b.Program.CmdStatus)
+		if err := prog.Run(); err != nil {
+			log.Warn().Err(err).Msgf("l3afd/nf : Failed to execute %s", b.Program.CmdStatus)
+		}
 
 		outStr, errStr := string(out.Bytes()), string(out.Bytes())
 		if strings.EqualFold(outStr, bpfStatus) {
@@ -495,15 +503,17 @@ func (b *BPF) SetPrLimits() error {
 		rlimit.Cur = uint64(b.Program.Memory)
 		rlimit.Max = uint64(b.Program.Memory)
 
-		logs.IfErrorLogf(prLimit(b.Cmd.Process.Pid, unix.RLIMIT_AS, &rlimit),
-			"Failed to set Memory limits - %s", b.Program.Name)
+		if err := prLimit(b.Cmd.Process.Pid, unix.RLIMIT_AS, &rlimit); err != nil {
+			log.Error().Err(err).Msgf("Failed to set Memory limits - %s", b.Program.Name)
+		}
 	}
 
 	if b.Program.CPU != 0 {
 		rlimit.Cur = uint64(b.Program.CPU)
 		rlimit.Max = uint64(b.Program.CPU)
-		logs.IfErrorLogf(prLimit(b.Cmd.Process.Pid, unix.RLIMIT_CPU, &rlimit),
-			"Failed to set CPU limits - %s", b.Program.Name)
+		if err := prLimit(b.Cmd.Process.Pid, unix.RLIMIT_CPU, &rlimit); err != nil {
+			log.Error().Err(err).Msgf("Failed to set CPU limits - %s", b.Program.Name)
+		}
 	}
 
 	return nil
@@ -536,7 +546,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 	}
 
 	proximityURL.Path = path.Join(proximityURL.Path, b.Program.Name, b.Program.Version, linuxDist, b.Program.Artifact)
-	logs.Infof("Downloading - %s", proximityURL.String())
+	log.Info().Msgf("Downloading - %s", proximityURL)
 
 	timeOut := time.Duration(conf.HttpClientTimeout) * time.Second
 	var netTransport = &http.Transport{
@@ -613,7 +623,7 @@ func prLimit(pid int, limit uintptr, rlimit *unix.Rlimit) error {
 		0, 0, 0)
 
 	if errno != 0 {
-		logs.Errorf("Failed to set prlimit for process %d and errorno %d", pid, errno)
+		log.Error().Msgf("Failed to set prlimit for process %d and errorno %d", pid, errno)
 		return errors.New("Failed to set prlimit")
 	}
 
@@ -737,7 +747,7 @@ func (b *BPF) GetBPFMap(mapName string) (*BPFMap, error) {
 		}
 	}
 
-	logs.Infof("added mapID %d Name %s Type %s", newBPFMap.MapID, newBPFMap.Name, newBPFMap.Type)
+	log.Info().Msgf("added mapID %d Name %s Type %s", newBPFMap.MapID, newBPFMap.Name, newBPFMap.Type)
 	return &newBPFMap, nil
 }
 
@@ -756,7 +766,7 @@ func (b *BPF) AddMetricsBPFMap(mapName, aggregator string, key, samplesLength in
 	tmpMetricsBPFMap.aggregator = aggregator
 	tmpMetricsBPFMap.Values = ring.New(samplesLength)
 
-	logs.Infof("added Metrics map ID %d Name %s Type %s Key %d Aggregator %s", tmpMetricsBPFMap.MapID, tmpMetricsBPFMap.Name, tmpMetricsBPFMap.Type, tmpMetricsBPFMap.key, tmpMetricsBPFMap.aggregator)
+	log.Info().Msgf("added Metrics map ID %d Name %s Type %s Key %d Aggregator %s", tmpMetricsBPFMap.MapID, tmpMetricsBPFMap.Name, tmpMetricsBPFMap.Type, tmpMetricsBPFMap.key, tmpMetricsBPFMap.aggregator)
 	map_key := mapName + strconv.Itoa(key) + aggregator
 	b.MetricsBpfMaps[map_key] = &tmpMetricsBPFMap
 
@@ -766,7 +776,7 @@ func (b *BPF) AddMetricsBPFMap(mapName, aggregator string, key, samplesLength in
 // This method to fetch values from bpf maps and publish to metrics
 func (b *BPF) MonitorMaps(ifaceName string, intervals int) error {
 	for _, element := range b.Program.MonitorMaps {
-		logs.Debugf("monitor maps element %s ", element)
+		log.Debug().Msgf("monitor maps element %s ", element)
 		mapKey := element.Name + strconv.Itoa(element.Key) + element.Aggregator
 		bpfMap, ok := b.MetricsBpfMaps[mapKey]
 		if !ok {
@@ -789,7 +799,7 @@ func (b *BPF) PutNextProgFDFromID(progID int) error {
 		return nil
 	}
 
-	logs.Infof("PutNextProgFDFromID : Map Name %s ID %d", b.Program.MapName, progID)
+	log.Info().Msgf("PutNextProgFDFromID : Map Name %s ID %d", b.Program.MapName, progID)
 	ebpfMap, err := ebpf.LoadPinnedMap(b.Program.MapName, nil)
 	if err != nil {
 		return fmt.Errorf("unable to access pinned next prog map %s %v", b.Program.MapName, err)
@@ -802,7 +812,7 @@ func (b *BPF) PutNextProgFDFromID(progID int) error {
 	}
 	key := 0
 	fd := bpfProg.FD()
-	logs.Infof("PutNextProgFDFromID : Map Name %s FD %d", b.Program.MapName, fd)
+	log.Info().Msgf("PutNextProgFDFromID : Map Name %s FD %d", b.Program.MapName, fd)
 	if err = ebpfMap.Update(unsafe.Pointer(&key), unsafe.Pointer(&fd), 0); err != nil {
 		return fmt.Errorf("unable to update prog next map %s %v", b.Program.MapName, err)
 	}
@@ -814,7 +824,7 @@ func (b *BPF) GetProgID() (int, error) {
 
 	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapName, &ebpf.LoadPinOptions{ReadOnly: true})
 	if err != nil {
-		logs.Errorf("unable to access pinned prog map %s %w", b.PrevMapName, err)
+		log.Error().Err(err).Msgf("unable to access pinned prog map %s", b.PrevMapName)
 		return 0, fmt.Errorf("unable to access pinned prog map %s %v", b.PrevMapName, err)
 	}
 	defer ebpfMap.Close()
@@ -823,12 +833,12 @@ func (b *BPF) GetProgID() (int, error) {
 
 	if err = ebpfMap.Lookup(unsafe.Pointer(&key), unsafe.Pointer(&value)); err != nil {
 		if err != nil {
-			logs.Warningf("unable to lookup prog map %s", b.PrevMapName)
+			log.Warn().Err(err).Msgf("unable to lookup prog map %s", b.PrevMapName)
 			return 0, fmt.Errorf("unable to lookup prog map %w", err)
 		}
 	}
 
-	logs.Infof("GetProgID - Name %s PrevMapName %s ID %d", b.Program.Name, b.PrevMapName, value)
+	log.Info().Msgf("GetProgID - Name %s PrevMapName %s ID %d", b.Program.Name, b.PrevMapName, value)
 	return value, nil
 }
 
@@ -864,7 +874,7 @@ func (b *BPF) RemovePrevProgFD() error {
 
 	if err := ebpfMap.Delete(unsafe.Pointer(&key)); err != nil {
 		// Some cases map may be empty ignore it.
-		logs.Debugf("RemovePrevProgFD failed %w", err)
+		log.Debug().Err(err).Msg("RemovePrevProgFD failed")
 	}
 	return nil
 }
@@ -873,19 +883,19 @@ func (b *BPF) RemovePrevProgFD() error {
 func (b *BPF) VerifyPinnedMapExists() error {
 	var err error
 	if len(b.Program.MapName) > 0 {
-		logs.Debugf("VerifyPinnedMapExists : Program %s MapName %s", b.Program.Name, b.Program.MapName)
+		log.Debug().Msgf("VerifyPinnedMapExists : Program %s MapName %s", b.Program.Name, b.Program.MapName)
 		for i := 0; i < 10; i++ {
 			if _, err = os.Stat(b.Program.MapName); err == nil {
-				logs.Infof("VerifyPinnedMapExists : map file created %s", b.Program.MapName)
+				log.Info().Msgf("VerifyPinnedMapExists : map file created %s", b.Program.MapName)
 				return nil
 			}
-			logs.Warningf("failed to find pinned file, checking again after a second ... ")
+			log.Warn().Msgf("failed to find pinned file, checking again after a second ... ")
 			time.Sleep(1 * time.Second)
 		}
 
 		if err != nil {
 			err = fmt.Errorf("failed to find pinned file %s err %w", b.Program.MapName, err)
-			logs.Errorf(err.Error())
+			log.Error().Err(err).Msg("")
 			return err
 		}
 	}
@@ -901,21 +911,21 @@ func (b *BPF) VerifyPinnedMapVanish() error {
 	}
 
 	var err error
-	logs.Debugf("VerifyPinnedMapVanish : Program %s MapName %s", b.Program.Name, b.Program.MapName)
+	log.Debug().Msgf("VerifyPinnedMapVanish : Program %s MapName %s", b.Program.Name, b.Program.MapName)
 	for i := 0; i < 10; i++ {
 		if _, err = os.Stat(b.Program.MapName); os.IsNotExist(err) {
-			logs.Infof("VerifyPinnedMapVanish : map file removed successfully - %s ", b.Program.MapName)
+			log.Info().Msgf("VerifyPinnedMapVanish : map file removed successfully - %s ", b.Program.MapName)
 			return nil
 		} else if err != nil {
-			logs.Warningf("VerifyPinnedMapVanish: Error checking for map file %w", err)
+			log.Warn().Err(err).Msg("VerifyPinnedMapVanish: Error checking for map file")
 		} else {
-			logs.Warningf("VerifyPinnedMapVanish: program pinned file still exists, checking again after a second")
+			log.Warn().Msg("VerifyPinnedMapVanish: program pinned file still exists, checking again after a second")
 		}
 		time.Sleep(1 * time.Second)
 	}
 
 	err = fmt.Errorf("%s map file was never removed by BPF program %s err %w", b.Program.MapName, b.Program.Name, err)
-	logs.Errorf(err.Error())
+	log.Error().Err(err).Msg("")
 	return err
 }
 
@@ -924,7 +934,7 @@ func (b *BPF) VerifyProcessObject() error {
 
 	if b.Cmd == nil {
 		err := fmt.Errorf("command object is nil - %s", b.Program.Name)
-		logs.Errorf(err.Error())
+		log.Error().Err(err).Msg("")
 		return err
 	}
 
@@ -932,11 +942,11 @@ func (b *BPF) VerifyProcessObject() error {
 		if b.Cmd.Process != nil {
 			return nil
 		}
-		logs.Warningf("VerifyProcessObject: process object not found, checking again after a second")
+		log.Warn().Msgf("VerifyProcessObject: process object not found, checking again after a second")
 		time.Sleep(1 * time.Second)
 	}
 	err := fmt.Errorf("process object is nil - %s", b.Program.Name)
-	logs.Errorf(err.Error())
+	log.Error().Err(err).Msg("")
 	return err
 }
 
@@ -944,14 +954,16 @@ func (b *BPF) RunKFConfigs() error {
 
 	netNamespace := os.Getenv("TBNETNAMESPACE")
 	machineHostname, err := os.Hostname()
-	logs.IfErrorLogf(err, "Could not get hostname from OS")
+	if err != nil {
+		log.Error().Err(err).Msg("Could not get hostname from OS")
+	}
 	daemonName := b.Program.Name
 
 	var producer nsqbatch.Producer
 	if prefs := nsqbatch.GetSystemPrefs(); prefs.Enabled {
 		producer, err = nsqbatch.NewProducer(prefs)
 		if err != nil {
-			logs.Errorf("could not set up nsqd: Details %s", err)
+			log.Error().Err(err).Msg("could not set up nsqd")
 			return fmt.Errorf("could not set up nsqd: %v", err)
 		}
 	}
@@ -970,7 +982,7 @@ func (b *BPF) RunKFConfigs() error {
 
 	select {
 	case <-b.Done:
-		logs.Infof("KF config %s kv emitter close invoked", b.Program.Name)
+		log.Info().Msgf("KF config %s kv emitter close invoked", b.Program.Name)
 		emit.Close()
 		return nil
 	}

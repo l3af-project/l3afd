@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	"tbd/go-shared/logs"
+	"github.com/rs/zerolog/log"
 )
 
 var kfcfgs *NFConfigs
@@ -19,8 +19,10 @@ func SetupKFDebug(ebpfChainDebugAddr string, kfConfigs *NFConfigs) {
 		http.HandleFunc("/kfs/", ViewHandler)
 
 		// We just need to start a server.
-		logs.IfErrorLogf(http.ListenAndServe(ebpfChainDebugAddr, nil), "failed to start KF chain debug server")
-		logs.Infof("KF debug server started")
+		if err := http.ListenAndServe(ebpfChainDebugAddr, nil); err != nil {
+			log.Fatal().Err(err).Msg("failed to start KF chain debug server")
+		}
+		log.Info().Msg("KF debug server started")
 	}()
 }
 

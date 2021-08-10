@@ -6,10 +6,10 @@ package stats
 import (
 	"net/http"
 
-	"tbd/go-shared/logs"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -65,7 +65,9 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 		[]string{"host", "network_function", "direction"},
 	)
 
-	logs.IfWarningLogf(prometheus.Register(nfRunningVec), "Failed to register NFRunning metrics")
+	if err := prometheus.Register(nfRunningVec); err != nil {
+		log.Warn().Err(err).Msg("Failed to register NFRunning metrics")
+	}
 
 	NFRunning = nfRunningVec.MustCurryWith(prometheus.Labels{"host": hostname})
 
@@ -78,7 +80,9 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 		[]string{"host", "network_function", "direction"},
 	)
 
-	logs.IfWarningLogf(prometheus.Register(nfStartTimeVec), "Failed to register NFStartTime metrics")
+	if err := prometheus.Register(nfStartTimeVec); err != nil {
+		log.Warn().Err(err).Msg("Failed to register NFStartTime metrics")
+	}
 
 	NFStartTime = nfStartTimeVec.MustCurryWith(prometheus.Labels{"host": hostname})
 
@@ -91,7 +95,9 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 		[]string{"host", "network_function", "map_name"},
 	)
 
-	logs.IfWarningLogf(prometheus.Register(nfMonitorMapVec), "Failed to register NFMonitorMap metrics")
+	if err := prometheus.Register(nfMonitorMapVec); err != nil {
+		log.Warn().Err(err).Msg("Failed to register NFMonitorMap metrics")
+	}
 
 	NFMointorMap = nfMonitorMapVec.MustCurryWith(prometheus.Labels{"host": hostname})
 
@@ -102,14 +108,16 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 	go func() {
 		// Expose the registered metrics via HTTP.
 		http.Handle("/metrics", metricsHandler)
-		logs.IfFatalLogf(http.ListenAndServe(metricsAddr, nil), "Failed to launch prometheus metrics endpoint")
+		if err := http.ListenAndServe(metricsAddr, nil); err != nil {
+			log.Fatal().Err(err).Msgf("Failed to launch prometheus metrics endpoint")
+		}
 	}()
 }
 
 func Incr(counterVec *prometheus.CounterVec, networkFunction, direction string) {
 
 	if counterVec == nil {
-		logs.Warningf("Metrics: counter vector is nil and needs to be initialized")
+		log.Warn().Msg("Metrics: counter vector is nil and needs to be initialized before Incr")
 		return
 	}
 	if nfCounter, err := counterVec.GetMetricWithLabelValues(networkFunction, direction); err == nil {
@@ -120,7 +128,7 @@ func Incr(counterVec *prometheus.CounterVec, networkFunction, direction string) 
 func Set(value float64, gaugeVec *prometheus.GaugeVec, networkFunction, direction string) {
 
 	if gaugeVec == nil {
-		logs.Warningf("Metrics: gauge vector is nil and needs to be initialized")
+		log.Warn().Msg("Metrics: gauge vector is nil and needs to be initialized before Set")
 		return
 	}
 	if nfGauge, err := gaugeVec.GetMetricWithLabelValues(networkFunction, direction); err == nil {
@@ -131,7 +139,7 @@ func Set(value float64, gaugeVec *prometheus.GaugeVec, networkFunction, directio
 func SetValue(value float64, gaugeVec *prometheus.GaugeVec, networkFunction, mapName string) {
 
 	if gaugeVec == nil {
-		logs.Warningf("Metrics: gauge vector is nil and needs to be initialized")
+		log.Warn().Msg("Metrics: gauge vector is nil and needs to be initialized before SetValue")
 		return
 	}
 	if nfGauge, err := gaugeVec.GetMetricWithLabelValues(networkFunction, mapName); err == nil {

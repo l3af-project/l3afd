@@ -8,13 +8,12 @@ import (
 	"path/filepath"
 	"sync"
 
-	"tbd/cfgdist/cdbs"
-
-	"tbd/cfgdist/kvstores"
-	"tbd/go-shared/logs"
-
 	"tbd/admind/models"
+	"tbd/cfgdist/cdbs"
+	"tbd/cfgdist/kvstores"
 	"tbd/cfgdist/kvstores/emitter"
+
+	"github.com/rs/zerolog/log"
 )
 
 type KFCfgs struct {
@@ -39,7 +38,9 @@ func NewKFCfgs(emit emitter.KeyChangeEmitter, filePath string, program *models.B
 }
 
 func (c *KFCfgs) HandleError(err error, et kvstores.EventType, key, val []byte) {
-	logs.IfErrorLogf(err, "error handling event for key %s", key)
+	if err != nil {
+		log.Error().Err(err).Msgf("error handling event for key %s", key)
+	}
 }
 
 func (c *KFCfgs) HandleDeleted(key []byte) error {
@@ -54,7 +55,7 @@ func (c *KFCfgs) HandleDeleted(key []byte) error {
 	if ok {
 		args = append(args, "--val="+val.(string))
 	} else {
-		logs.Errorf("value not found for the key %s", keySting)
+		log.Error().Msgf("value not found for the key %s", keySting)
 	}
 
 	c.RunCommand(args)
@@ -115,14 +116,14 @@ func (c *KFCfgs) RunCommand(args []string) error {
 		args = append(args, "--"+val.Key+"="+val.Value)
 	}
 
-	logs.Infof("KF config command  : %s %v", cmdPath, args)
+	log.Info().Msgf("KF config command  : %s %v", cmdPath, args)
 	cmd := execCommand(cmdPath, args...)
 
 	c.MutexLock.Lock()
 	defer c.MutexLock.Unlock()
 
 	if err := cmd.Start(); err != nil {
-		logs.Infof("user mode KF config command failed - %s %v", c.Program.Name, err)
+		log.Info().Msgf("user mode KF config command failed - %s %v", c.Program.Name, err)
 		return fmt.Errorf("failed to start : %s %v", cmd, args)
 	}
 

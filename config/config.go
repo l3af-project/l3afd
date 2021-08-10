@@ -7,9 +7,10 @@ package config
 import (
 	"time"
 
-	"tbd/go-shared/logs"
 	"tbd/go-shared/util"
 	"tbd/goconfig/config"
+
+	"github.com/rs/zerolog/log"
 )
 
 type Config struct {
@@ -68,9 +69,11 @@ type Config struct {
 //Initializes configuration from file
 func ReadConfig(configPath string) (*Config, error) {
 
-	logs.Infof("Reading configuration from: %s", configPath)
+	log.Info().Msgf("Reading configuration from: %s", configPath)
 	confReader, configErr := config.ReadDefault(configPath)
-	logs.IfFatalLogf(configErr, "Could not open config file %q", configPath)
+	if configErr != nil {
+		log.Fatal().Err(configErr).Msgf("Could not open config file %q", configPath)
+	}
 
 	return &Config{
 		PIDFilename:                 util.LoadConfigString(confReader, "l3afd", "pid-file"),

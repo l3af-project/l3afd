@@ -11,9 +11,8 @@ import (
 	"strings"
 	"unsafe"
 
-	"tbd/go-shared/logs"
-
 	"github.com/cilium/ebpf"
+	"github.com/rs/zerolog/log"
 )
 
 type BPFMap struct {
@@ -50,7 +49,7 @@ type MetricsBPFMap struct {
 // 		key => 0 value => 10000
 func (b *BPFMap) Update(value string) error {
 
-	logs.Debugf("update map name %s ID %d", b.Name, b.MapID)
+	log.Debug().Msgf("update map name %s ID %d", b.Name, b.MapID)
 	ebpfMap, err := ebpf.NewMapFromID(b.MapID)
 	if err != nil {
 		return fmt.Errorf("access new map from ID failed %v", err)
@@ -68,14 +67,14 @@ func (b *BPFMap) Update(value string) error {
 		for entries.Next(unsafe.Pointer(&key), unsafe.Pointer(&val)) {
 			// Order of keys is non-deterministic due to randomized map seed
 			if err := ebpfMap.Delete(unsafe.Pointer(&key)); err != nil {
-				logs.Warningf("delete hash map for key %d failed %v", key, err)
+				log.Warn().Err(err).Msgf("delete hash map for key %d failed", key)
 			}
 		}
 
 		for key, val := range s {
 			v, _ := strconv.ParseInt(val, 10, 64)
 			x := 1
-			logs.Infof("updating map %s key %d mapid %d", b.Name, v, b.MapID)
+			log.Info().Msgf("updating map %s key %d mapid %d", b.Name, v, b.MapID)
 			if err := ebpfMap.Update(unsafe.Pointer(&v), unsafe.Pointer(&x), 0); err != nil {
 				return fmt.Errorf("update hash map element failed for key %d error %v", key, err)
 			}
@@ -83,7 +82,7 @@ func (b *BPFMap) Update(value string) error {
 	} else if b.Type == ebpf.Array {
 		for key, val := range s {
 			v, _ := strconv.ParseInt(val, 10, 64)
-			logs.Infof("updating map %s key %d mapid %d", b.Name, v, b.MapID)
+			log.Info().Msgf("updating map %s key %d mapid %d", b.Name, v, b.MapID)
 			if err := ebpfMap.Update(unsafe.Pointer(&key), unsafe.Pointer(&v), 0); err != nil {
 				return fmt.Errorf("update array map index %d %v\n", key, err)
 			}
@@ -102,14 +101,14 @@ func (b *BPFMap) Update(value string) error {
 func (b *MetricsBPFMap) GetValue() float64 {
 	ebpfMap, err := ebpf.NewMapFromID(b.MapID)
 	if err != nil {
-		logs.Warningf("GetValue : NewMapFromID failed ID %d  err %v", b.MapID, err)
+		log.Warn().Err(err).Msgf("GetValue : NewMapFromID failed ID %d", b.MapID)
 		return 0
 	}
 	defer ebpfMap.Close()
 
 	var value int64
 	if err = ebpfMap.Lookup(unsafe.Pointer(&b.key), unsafe.Pointer(&value)); err != nil {
-		logs.Warningf("GetValue Lookup failed : Name %s ID %d %w", b.Name, b.MapID, err)
+		log.Warn().Err(err).Msgf("GetValue Lookup failed : Name %s ID %d", b.Name, b.MapID)
 		return 0
 	}
 
@@ -127,7 +126,7 @@ func (b *MetricsBPFMap) GetValue() float64 {
 		b.Values = b.Values.Next()
 		retVal = b.AvgValue()
 	default:
-		logs.Warningf("unsupported aggregator %s and value %d", b.aggregator, value)
+		log.Warn().Msgf("unsupported aggregator %s and value %d", b.aggregator, value)
 	}
 
 	return retVal
