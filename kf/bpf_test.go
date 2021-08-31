@@ -188,7 +188,7 @@ func TestBPF_Stop(t *testing.T) {
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
 			}
-			if err := b.Stop(ifaceName, models.IngressType); (err != nil) != tt.wantErr {
+			if err := b.Stop(ifaceName, models.IngressType, false); (err != nil) != tt.wantErr {
 				t.Errorf("BPF.Stop() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

@@ -39,6 +39,8 @@ type NFConfigs struct {
 	hostConfig   *config.Config
 	processMon   *pCheck
 	kfMetricsMon *kfMetrics
+
+	mu *sync.Mutex
 }
 
 var shutdownInterval = 900 * time.Millisecond
@@ -65,11 +67,21 @@ func NewNFConfigs(ctx context.Context, emit emitter.KeyChangeEmitter, host strin
 
 func (c *NFConfigs) HandleError(err error, et kvstores.EventType, key, val []byte) {
 	if err != nil {
-		log.Error().Err(err).Msgf("error handling event for key %s")
+		log.Error().Err(err).Msgf("error handling event for key %s", string(key))
 	}
 }
 
 func (c *NFConfigs) HandleDeleted(key []byte) error {
+
+	if string(key) == c.hostName {
+		if len(c.IngressXDPBpfs) > 0 || len(c.IngressTCBpfs) > 0 || len(c.EgressTCBpfs) > 0 {
+			ctx, cancelfunc := context.WithTimeout(context.Background(), c.hostConfig.ShutdownTimeout*time.Second)
+			defer cancelfunc()
+			if err := c.Close(ctx); err != nil {
+				log.Error().Err(err).Msg("stopping all kernel functions failed")
+			}
+		}
+	}
 	c.configs.Delete(string(key))
 	return nil
 }
@@ -93,6 +105,7 @@ func (c *NFConfigs) HandleUpdated(key, val []byte) error {
 		log.Debug().Msg("No BPF Programs in the config")
 		return nil
 	}
+
 	// Reading from CDB
 	for ifaceName, ifaceBPFProgs := range cfgbpfProgs { // iface name
 		for direction, dirBpfProg := range ifaceBPFProgs { // direction ingress or egress
@@ -103,6 +116,7 @@ func (c *NFConfigs) HandleUpdated(key, val []byte) error {
 						if bpfProg.AdminStatus == models.Enabled {
 							c.IngressXDPBpfs[ifaceName] = list.New()
 							if err := c.VerifyAndStartXDPRootProgram(ifaceName, direction); err != nil {
+								c.IngressXDPBpfs[ifaceName] = nil
 								return fmt.Errorf("failed to chain XDP BPF programs: %w", err)
 							}
 							log.Info().Msgf("Push Back and Start XDP program : %s seq_id : %d", bpfProg.Name, bpfProg.SeqID)
@@ -118,6 +132,7 @@ func (c *NFConfigs) HandleUpdated(key, val []byte) error {
 						if bpfProg.AdminStatus == models.Enabled {
 							c.IngressTCBpfs[ifaceName] = list.New()
 							if err := c.VerifyAndStartTCRootProgram(ifaceName, direction); err != nil {
+								c.IngressTCBpfs[ifaceName] = nil
 								return fmt.Errorf("failed to chain ingress tc bpf programs: %w", err)
 							}
 							if err := c.PushBackAndStartBPF(&bpfProg, ifaceName, direction); err != nil {
@@ -132,6 +147,7 @@ func (c *NFConfigs) HandleUpdated(key, val []byte) error {
 						if bpfProg.AdminStatus == models.Enabled {
 							c.EgressTCBpfs[ifaceName] = list.New()
 							if err := c.VerifyAndStartTCRootProgram(ifaceName, direction); err != nil {
+								c.EgressTCBpfs[ifaceName] = nil
 								return fmt.Errorf("failed to chain ingress tc bpf programs: %w", err)
 							}
 							if err := c.PushBackAndStartBPF(&bpfProg, ifaceName, direction); err != nil {
@@ -146,6 +162,9 @@ func (c *NFConfigs) HandleUpdated(key, val []byte) error {
 		}
 	}
 
+	if err := c.RemoveMissingNetIfacesNBPFProgsInConfigs(cfgbpfProgs); err != nil {
+		return fmt.Errorf("failed to remove missing network interfaces: %w", err)
+	}
 	c.configs.Store(string(key), cfgbpfProgs)
 	return nil
 }
@@ -173,7 +192,7 @@ func (c *NFConfigs) Close(ctx context.Context) error {
 		go func() {
 			defer wg.Done()
 			for ifaceName, _ := range c.IngressXDPBpfs {
-				if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.XDPIngressType, models.XDPType); err != nil {
+				if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.XDPIngressType); err != nil {
 					log.Warn().Err(err).Msg("failed to Close Ingress XDP BPF Program")
 				}
 				delete(c.IngressXDPBpfs, ifaceName)
@@ -184,7 +203,7 @@ func (c *NFConfigs) Close(ctx context.Context) error {
 		go func() {
 			defer wg.Done()
 			for ifaceName, _ := range c.IngressTCBpfs {
-				if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.IngressType, models.TCType); err != nil {
+				if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.IngressType); err != nil {
 					log.Warn().Err(err).Msg("failed to Close Ingress TC BPF Program")
 				}
 				delete(c.IngressTCBpfs, ifaceName)
@@ -195,7 +214,7 @@ func (c *NFConfigs) Close(ctx context.Context) error {
 		go func() {
 			defer wg.Done()
 			for ifaceName, _ := range c.EgressTCBpfs {
-				if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.EgressType, models.TCType); err != nil {
+				if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.EgressType); err != nil {
 					log.Warn().Err(err).Msg("failed to Close Egress TC BPF Program")
 				}
 				delete(c.EgressTCBpfs, ifaceName)
@@ -321,7 +340,7 @@ func (c *NFConfigs) DownloadAndStartBPFProgram(element *list.Element, ifaceName,
 }
 
 // Stopping all programs in order
-func (c *NFConfigs) StopNRemoveAllBPFPrograms(ifaceName, direction, ebpfType string) error {
+func (c *NFConfigs) StopNRemoveAllBPFPrograms(ifaceName, direction string) error {
 
 	var bpfList *list.List
 
@@ -343,8 +362,8 @@ func (c *NFConfigs) StopNRemoveAllBPFPrograms(ifaceName, direction, ebpfType str
 
 	for e := bpfList.Front(); e != nil; {
 		data := e.Value.(*BPF)
-		if err := data.Stop(ifaceName, direction); err != nil {
-			return fmt.Errorf("failed to stop program %s", data.Program.Name)
+		if err := data.Stop(ifaceName, direction, c.hostConfig.BpfChainingEnabled); err != nil {
+			return fmt.Errorf("failed to stop program %s direction %s", data.Program.Name, direction)
 		}
 		nextBPF := e.Next()
 		bpfList.Remove(e)
@@ -394,7 +413,7 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 		if data.Program.AdminStatus != bpfProg.AdminStatus {
 			log.Info().Msgf("verifyNUpdateBPFProgram :admin_status change detected - disabling the program %s", data.Program.Name)
 			data.Program.AdminStatus = bpfProg.AdminStatus
-			if err := data.Stop(ifaceName, direction); err != nil {
+			if err := data.Stop(ifaceName, direction, c.hostConfig.BpfChainingEnabled); err != nil {
 				return fmt.Errorf("failed to stop to on admin_status change BPF %s iface %s direction %s admin_status %s", bpfProg.Name, ifaceName, direction, bpfProg.AdminStatus)
 			}
 			tmpNextBPF := e.Next()
@@ -438,7 +457,7 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 		if data.Program.Version != bpfProg.Version || reflect.DeepEqual(data.Program.StartArgs, bpfProg.StartArgs) != true {
 			log.Info().Msgf("VerifyNUpdateBPFProgram : version update initiated - current version %s new version %s", data.Program.Version, bpfProg.Version)
 
-			if err := data.Stop(ifaceName, direction); err != nil {
+			if err := data.Stop(ifaceName, direction, c.hostConfig.BpfChainingEnabled); err != nil {
 				return fmt.Errorf("failed to stop older version of network function BPF %s iface %s direction %s version %s", bpfProg.Name, ifaceName, direction, bpfProg.Version)
 			}
 
@@ -611,13 +630,6 @@ func (c *NFConfigs) InsertAndStartBPFProgram(bpfProg *models.BPFProgram, ifaceNa
 				return fmt.Errorf("failed to download and start network function %s version %s iface %s direction %s", bpfProg.Name, bpfProg.Version, ifaceName, direction)
 			}
 
-			if tmpBPF.Prev() != nil {
-				if err := c.LinkBPFPrograms(tmpBPF.Prev().Value.(*BPF), tmpBPF.Value.(*BPF)); err != nil {
-					log.Error().Err(err).Msg("InsertAndStartBPFProgram - failed LinkBPFPrograms after InsertBefore element to with prev prog")
-					return fmt.Errorf("InsertAndStartBPFProgram - failed LinkBPFPrograms after InsertBefore element to with prev prog %w", err)
-				}
-			}
-
 			if tmpBPF.Next() != nil {
 				if err := c.LinkBPFPrograms(tmpBPF.Value.(*BPF), tmpBPF.Next().Value.(*BPF)); err != nil {
 					log.Error().Err(err).Msg("InsertAndStartBPFProgram - failed LinkBPFPrograms after InsertBefore element to with next prog")
@@ -636,7 +648,7 @@ func (c *NFConfigs) InsertAndStartBPFProgram(bpfProg *models.BPFProgram, ifaceNa
 	return nil
 }
 
-// This method stops the root program, removes the root node from the list and reset the list to nil
+// StopRootProgram -This method stops the root program, removes the root node from the list and reset the list to nil
 func (c *NFConfigs) StopRootProgram(ifaceName, direction string) error {
 
 	switch direction {
@@ -646,7 +658,7 @@ func (c *NFConfigs) StopRootProgram(ifaceName, direction string) error {
 			return nil
 		}
 
-		if err := c.IngressXDPBpfs[ifaceName].Front().Value.(*BPF).Stop(ifaceName, direction); err != nil {
+		if err := c.IngressXDPBpfs[ifaceName].Front().Value.(*BPF).Stop(ifaceName, direction, c.hostConfig.BpfChainingEnabled); err != nil {
 			return fmt.Errorf("failed to stop xdp root program iface %s", ifaceName)
 		}
 		c.IngressXDPBpfs[ifaceName].Remove(c.IngressXDPBpfs[ifaceName].Front())
@@ -656,7 +668,7 @@ func (c *NFConfigs) StopRootProgram(ifaceName, direction string) error {
 			log.Warn().Msgf("tc root program %s not running", direction)
 			return nil
 		}
-		if err := c.IngressTCBpfs[ifaceName].Front().Value.(*BPF).Stop(ifaceName, direction); err != nil {
+		if err := c.IngressTCBpfs[ifaceName].Front().Value.(*BPF).Stop(ifaceName, direction, c.hostConfig.BpfChainingEnabled); err != nil {
 			return fmt.Errorf("failed to stop ingress tc root program on interface %s", ifaceName)
 		}
 		c.IngressTCBpfs[ifaceName].Remove(c.IngressTCBpfs[ifaceName].Front())
@@ -666,7 +678,7 @@ func (c *NFConfigs) StopRootProgram(ifaceName, direction string) error {
 			log.Warn().Msgf("tc root program %s not running", direction)
 			return nil
 		}
-		if err := c.EgressTCBpfs[ifaceName].Front().Value.(*BPF).Stop(ifaceName, direction); err != nil {
+		if err := c.EgressTCBpfs[ifaceName].Front().Value.(*BPF).Stop(ifaceName, direction, c.hostConfig.BpfChainingEnabled); err != nil {
 			return fmt.Errorf("failed to stop egress tc root program on interface %s", ifaceName)
 		}
 		c.EgressTCBpfs[ifaceName].Remove(c.EgressTCBpfs[ifaceName].Front())
@@ -678,7 +690,7 @@ func (c *NFConfigs) StopRootProgram(ifaceName, direction string) error {
 	return nil
 }
 
-// Mounting bpf filesystem
+// VerifyNMountBPFFS - Mounting bpf filesystem
 func VerifyNMountBPFFS() error {
 	dstPath := "/sys/fs/bpf"
 	srcPath := "bpffs"
@@ -733,6 +745,117 @@ func (c *NFConfigs) KFDetails(iface string) []*BPF {
 	}
 	return arrBPFDetails
 }
+// RemoveMissingBPFProgramsInConfigs - This method to stop the KFs which are not listed in the configs.
+func (c *NFConfigs) RemoveMissingBPFProgramsInConfigs(cfgbpfProgs map[string]map[string]map[string]models.BPFProgram, ifaceName, direction string) error {
+	log.Debug().Msgf("RemoveMissingBPFProgramsInConfigs - ifaceName %s direction %s", ifaceName, direction)
+	ifaceBPFProgs, ok := cfgbpfProgs[ifaceName]
+	if !ok {
+		log.Info().Msgf("Missing Network Interface %s in the configs, stopping", ifaceName)
+		if err := c.StopNRemoveAllBPFPrograms(ifaceName, direction); err != nil {
+			log.Error().Err(err).Msgf("Failed to stop all the program in the direction %s for interface %s", direction, ifaceName)
+		}
+	}
+
+	dirBpfProg, dirOk := ifaceBPFProgs[direction]
+	if !dirOk {
+		log.Info().Msgf("Missing direction %s for network interface %s in the configs, stopping", ifaceName, direction)
+		if err := c.StopNRemoveAllBPFPrograms(ifaceName, direction); err != nil {
+			log.Error().Err(err).Msgf("Failed to stop all the program in the direction %s", direction)
+		}
+	}
+
+	var bpfList *list.List
+	switch direction {
+	case models.XDPIngressType:
+		bpfList = c.IngressXDPBpfs[ifaceName]
+	case models.IngressType:
+		bpfList = c.IngressTCBpfs[ifaceName]
+	case models.EgressType:
+		bpfList = c.EgressTCBpfs[ifaceName]
+	default: // we should never reach here
+		return fmt.Errorf("unknown direction type %s", direction)
+	}
+
+	for e := bpfList.Front(); e != nil; e = e.Next() {
+		data := e.Value.(*BPF)
+		if c.hostConfig.BpfChainingEnabled && data.Program.SeqID == 0 { // ignore root program
+			continue
+		}
+
+		Found := false
+		for _, bpfProg := range dirBpfProg {
+			if data.Program.Name == bpfProg.Name {
+				Found = true
+				break
+			}
+		}
+
+		if Found == false {
+			log.Info().Msgf("KF not found in config stopping - %s", data.Program.Name)
+			if err := data.Stop(ifaceName, direction, c.hostConfig.BpfChainingEnabled); err != nil {
+				return fmt.Errorf("failed to stop to on removed config BPF %s iface %s direction %s", data.Program.Name, ifaceName, direction)
+			}
+			tmpNextBPF := e.Next()
+			tmpPreviousBPF := e.Prev()
+			bpfList.Remove(e)
+			if tmpNextBPF != nil && tmpNextBPF.Prev() != nil { // relink the next element
+				if err := c.LinkBPFPrograms(tmpNextBPF.Prev().Value.(*BPF), tmpNextBPF.Value.(*BPF)); err != nil {
+					log.Error().Err(err).Msgf("missing config - failed LinkBPFPrograms")
+					return fmt.Errorf("missing config - failed LinkBPFPrograms %w", err)
+				}
+			}
+
+			// Check if list contains root program only then stop the root program.
+			if tmpPreviousBPF.Prev() == nil && tmpPreviousBPF.Next() == nil {
+				log.Info().Msgf("no network functions are running, stopping root program")
+
+				if err := c.StopRootProgram(ifaceName, direction); err != nil {
+					return fmt.Errorf("failed to stop to root program of iface %s direction %s", ifaceName, direction)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// RemoveMissingNetIfacesNBPFProgsInConfigs - This method to stop the KFs which are not listed network interfaces
+// and direction (xdpingress/ingress/egress) lists in the configs.
+func (c *NFConfigs) RemoveMissingNetIfacesNBPFProgsInConfigs(cfgbpfProgs map[string]map[string]map[string]models.BPFProgram) error {
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for ifaceName, _ := range c.IngressXDPBpfs {
+			if err := c.RemoveMissingBPFProgramsInConfigs(cfgbpfProgs, ifaceName, models.XDPIngressType); err != nil {
+				log.Error().Err(err).Msgf("Failed to stop missing program for network interface %s direction XDPIngress", ifaceName)
+			}
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for ifaceName := range c.IngressTCBpfs {
+			if err := c.RemoveMissingBPFProgramsInConfigs(cfgbpfProgs, ifaceName, models.IngressType); err != nil {
+				log.Error().Err(err).Msgf("Failed to stop missing program for network interface %s direction Ingress", ifaceName)
+			}
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for ifaceName := range c.EgressTCBpfs {
+			if err := c.RemoveMissingBPFProgramsInConfigs(cfgbpfProgs, ifaceName, models.EgressType); err != nil {
+				log.Error().Err(err).Msgf("Failed to stop missing program for network interface %s direction Egress", ifaceName)
+			}
+		}
+	}()
+
+	wg.Wait()
+	return nil
+}
 
 // XDP programs are failing when LRO is enabled, to fix this we use to manually disable.
 // # ethtool -K ens7 lro off
@@ -757,3 +880,4 @@ func DisableLRO(ifaceName string) error {
 
 	return nil
 }
+

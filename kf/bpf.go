@@ -147,12 +147,12 @@ func LoadRootProgram(ifaceName string, direction string, eBPFType string, conf *
 	// if map file exists then root program is still running
 	if fileExists(rootProgBPF.Program.MapName) {
 		log.Warn().Msgf("previous instance of root program %s is running, stopping it ", rootProgBPF.Program.Name)
-		if err := rootProgBPF.Stop(ifaceName, direction); err != nil {
+		if err := rootProgBPF.Stop(ifaceName, direction, conf.BpfChainingEnabled); err != nil {
 			return nil, fmt.Errorf("failed to stop root program on iface %s name %s direction %s", ifaceName, rootProgBPF.Program.Name, direction)
 		}
 	}
 
-	if err := rootProgBPF.Start(ifaceName, direction, true); err != nil {
+	if err := rootProgBPF.Start(ifaceName, direction, conf.BpfChainingEnabled); err != nil {
 		return nil, fmt.Errorf("failed to start root program on interface %s", ifaceName)
 	}
 
@@ -211,7 +211,7 @@ func StopExternalRunningProcess(processName string) error {
 // Stop returns the last error seen, but stops bpf program.
 // Clean up all map handles.
 // Verify next program pinned map file is removed
-func (b *BPF) Stop(ifaceName, direction string) error {
+func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	if b.Program.IsUserProgram && b.Cmd == nil {
 		return fmt.Errorf("BPFProgram is not running %s", b.Program.Name)
 	}
@@ -256,7 +256,7 @@ func (b *BPF) Stop(ifaceName, direction string) error {
 		}
 
 		// verify pinned map file is removed.
-		if err := b.VerifyPinnedMapVanish(); err != nil {
+		if err := b.VerifyPinnedMapVanish(chain); err != nil {
 			log.Error().Err(err).Msgf("stop user program - failed to remove pinned file %s", b.Program.Name)
 			return fmt.Errorf("stop user program - failed to remove pinned file %s", b.Program.Name)
 		}
@@ -285,7 +285,7 @@ func (b *BPF) Stop(ifaceName, direction string) error {
 	b.Cmd = nil
 
 	// verify pinned map file is removed.
-	if err := b.VerifyPinnedMapVanish(); err != nil {
+	if err := b.VerifyPinnedMapVanish(chain); err != nil {
 		log.Error().Err(err).Msgf("failed to remove pinned file %s", b.Program.Name)
 		return fmt.Errorf("failed to remove pinned file %s", b.Program.Name)
 	}
@@ -315,7 +315,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	// Making sure old map entry is removed before passing the prog fd map to the program.
 	if len(b.PrevMapName) > 0 {
 		if err := b.RemovePrevProgFD(); err != nil {
-			log.Error().Err(err).Msgf("ProgramMap %s entry removal failed %w", b.PrevMapName)
+			log.Error().Err(err).Msgf("ProgramMap %s entry removal failed", b.PrevMapName)
 		}
 	}
 
@@ -357,7 +357,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		}
 		b.Cmd = nil
 
-		if err := b.VerifyPinnedMapExists(); err != nil {
+		if err := b.VerifyPinnedMapExists(chain); err != nil {
 			return fmt.Errorf("no userprogram and failed to find pinned file %s, %w", b.Program.MapName, err)
 		}
 		return nil
@@ -370,7 +370,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	}
 
 	// making sure program fd map pinned file is created
-	if err := b.VerifyPinnedMapExists(); err != nil {
+	if err := b.VerifyPinnedMapExists(chain); err != nil {
 		return fmt.Errorf("failed to find pinned file %s  %w", b.Program.MapName, err)
 	}
 
@@ -776,7 +776,7 @@ func (b *BPF) AddMetricsBPFMap(mapName, aggregator string, key, samplesLength in
 // This method to fetch values from bpf maps and publish to metrics
 func (b *BPF) MonitorMaps(ifaceName string, intervals int) error {
 	for _, element := range b.Program.MonitorMaps {
-		log.Debug().Msgf("monitor maps element %s ", element)
+		log.Debug().Msgf("monitor maps element %s ", element.Name)
 		mapKey := element.Name + strconv.Itoa(element.Key) + element.Aggregator
 		bpfMap, ok := b.MetricsBpfMaps[mapKey]
 		if !ok {
@@ -819,7 +819,7 @@ func (b *BPF) PutNextProgFDFromID(progID int) error {
 	return nil
 }
 
-// This returns ID of the bpf program
+// GetProgID - This returns ID of the bpf program
 func (b *BPF) GetProgID() (int, error) {
 
 	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapName, &ebpf.LoadPinOptions{ReadOnly: true})
@@ -832,10 +832,15 @@ func (b *BPF) GetProgID() (int, error) {
 	key := 0
 
 	if err = ebpfMap.Lookup(unsafe.Pointer(&key), unsafe.Pointer(&value)); err != nil {
-		if err != nil {
-			log.Warn().Err(err).Msgf("unable to lookup prog map %s", b.PrevMapName)
-			return 0, fmt.Errorf("unable to lookup prog map %w", err)
-		}
+		log.Warn().Err(err).Msgf("unable to lookup prog map %s", b.PrevMapName)
+		return 0, fmt.Errorf("unable to lookup prog map %w", err)
+	}
+
+	// verify progID before storing in locally.
+	_, err = ebpf.NewProgramFromID(ebpf.ProgramID(value))
+	if err != nil {
+		log.Warn().Err(err).Msgf("failed to verify program ID %s", b.PrevMapName)
+		return 0, fmt.Errorf("failed to verify program ID %s %v", b.Program.Name, err)
 	}
 
 	log.Info().Msgf("GetProgID - Name %s PrevMapName %s ID %d", b.Program.Name, b.PrevMapName, value)
@@ -880,7 +885,12 @@ func (b *BPF) RemovePrevProgFD() error {
 }
 
 // making sure program fd map's pinned file is created
-func (b *BPF) VerifyPinnedMapExists() error {
+func (b *BPF) VerifyPinnedMapExists(chain bool) error {
+
+	if chain == false {
+		return nil
+	}
+
 	var err error
 	if len(b.Program.MapName) > 0 {
 		log.Debug().Msgf("VerifyPinnedMapExists : Program %s MapName %s", b.Program.Name, b.Program.MapName)
@@ -904,9 +914,9 @@ func (b *BPF) VerifyPinnedMapExists() error {
 }
 
 // making sure XDP program fd map's pinned file is removed
-func (b *BPF) VerifyPinnedMapVanish() error {
+func (b *BPF) VerifyPinnedMapVanish(chain bool) error {
 
-	if len(b.Program.MapName) <= 0 || b.Program.EBPFType != models.XDPType {
+	if len(b.Program.MapName) <= 0 || b.Program.EBPFType != models.XDPType || chain == false {
 		return nil
 	}
 
