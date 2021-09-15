@@ -6,6 +6,7 @@ package kf
 
 import (
 	"container/list"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -15,11 +16,8 @@ import (
 	"syscall"
 	"time"
 
-	"tbd/admind/models"
-	"tbd/cfgdist/kvstores"
-	"tbd/cfgdist/kvstores/emitter"
 	"tbd/l3afd/config"
-	"tbd/net/context"
+	"tbd/l3afd/models"
 
 	"github.com/rs/zerolog/log"
 	"github.com/safchain/ethtool"
@@ -45,7 +43,7 @@ type NFConfigs struct {
 
 var shutdownInterval = 900 * time.Millisecond
 
-func NewNFConfigs(ctx context.Context, emit emitter.KeyChangeEmitter, host string, hostConf *config.Config, pMon *pCheck, metricsMon *kfMetrics) (*NFConfigs, error) {
+func NewNFConfigs(ctx context.Context, host string, hostConf *config.Config, pMon *pCheck, metricsMon *kfMetrics) (*NFConfigs, error) {
 	nfConfigs := &NFConfigs{
 		ctx:            ctx,
 		hostName:       host,
@@ -53,11 +51,9 @@ func NewNFConfigs(ctx context.Context, emit emitter.KeyChangeEmitter, host strin
 		IngressXDPBpfs: make(map[string]*list.List),
 		IngressTCBpfs:  make(map[string]*list.List),
 		EgressTCBpfs:   make(map[string]*list.List),
+		mu:             new(sync.Mutex),
 	}
 
-	if err := emit.RegisterHandler(nfConfigs); err != nil {
-		return nil, fmt.Errorf("failed to register nfconfigs: %w", err)
-	}
 	nfConfigs.processMon = pMon
 	nfConfigs.processMon.pCheckStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs)
 	nfConfigs.kfMetricsMon = metricsMon
@@ -65,17 +61,14 @@ func NewNFConfigs(ctx context.Context, emit emitter.KeyChangeEmitter, host strin
 	return nfConfigs, nil
 }
 
-func (c *NFConfigs) HandleError(err error, et kvstores.EventType, key, val []byte) {
-	if err != nil {
-		log.Error().Err(err).Msgf("error handling event for key %s", string(key))
-	}
-}
-
 func (c *NFConfigs) HandleDeleted(key []byte) error {
 
 	if string(key) == c.hostName {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+
 		if len(c.IngressXDPBpfs) > 0 || len(c.IngressTCBpfs) > 0 || len(c.EgressTCBpfs) > 0 {
-			ctx, cancelfunc := context.WithTimeout(context.Background(), c.hostConfig.ShutdownTimeout*time.Second)
+			ctx, cancelfunc := context.WithTimeout(context.Background(), c.hostConfig.ShutdownTimeout)
 			defer cancelfunc()
 			if err := c.Close(ctx); err != nil {
 				log.Error().Err(err).Msg("stopping all kernel functions failed")
@@ -86,16 +79,11 @@ func (c *NFConfigs) HandleDeleted(key []byte) error {
 	return nil
 }
 
-func (c *NFConfigs) HandleAdded(key, val []byte) error {
-	return c.HandleUpdated(key, val)
-}
-
 // HandleUpdated Do Actions required on any key add/update
 func (c *NFConfigs) HandleUpdated(key, val []byte) error {
 	if string(key) != c.hostName {
 		return nil
 	}
-
 	cfg := make(map[string]map[string]map[string]map[string]models.BPFProgram)
 	if err := json.Unmarshal(val, &cfg); err != nil {
 		return fmt.Errorf("error decoding network function config: %w", err)
@@ -106,7 +94,10 @@ func (c *NFConfigs) HandleUpdated(key, val []byte) error {
 		return nil
 	}
 
-	// Reading from CDB
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// Reading from Configs
 	for ifaceName, ifaceBPFProgs := range cfgbpfProgs { // iface name
 		for direction, dirBpfProg := range ifaceBPFProgs { // direction ingress or egress
 			for _, bpfProg := range dirBpfProg { // seq_id for chaining
@@ -230,6 +221,8 @@ func (c *NFConfigs) Close(ctx context.Context) error {
 		case <-ticker.C:
 		}
 	}
+
+	return nil
 }
 
 // Check for XDP programs are not loaded then initialise the array
@@ -347,12 +340,15 @@ func (c *NFConfigs) StopNRemoveAllBPFPrograms(ifaceName, direction string) error
 	switch direction {
 	case models.XDPIngressType:
 		bpfList = c.IngressXDPBpfs[ifaceName]
+		c.IngressXDPBpfs[ifaceName] = nil
 	case models.IngressType:
 		bpfList = c.IngressTCBpfs[ifaceName]
+		c.IngressTCBpfs[ifaceName] = nil
 	case models.EgressType:
 		bpfList = c.EgressTCBpfs[ifaceName]
+		c.EgressTCBpfs[ifaceName] = nil
 	default: // we should never reach here
-		return fmt.Errorf("unknown direction type")
+		return fmt.Errorf("unknown direction type %s", direction)
 	}
 
 	if bpfList == nil {
@@ -373,13 +369,12 @@ func (c *NFConfigs) StopNRemoveAllBPFPrograms(ifaceName, direction string) error
 	return nil
 }
 
-// This method checks the following conditions
+// VerifyNUpdateBPFProgram - This method checks the following conditions
 // 1. BPF Program already running with no change
 // 2. BPF Program running but needs to stop (admin_status == disabled)
 // 3. BPF Program running but needs version update
 // 4. BPF Program running but position change (seq_id change)
 // 5. BPF Program not running but needs to start.
-
 func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceName, direction string) error {
 
 	var bpfList *list.List
@@ -722,7 +717,7 @@ func (c *NFConfigs) LinkBPFPrograms(leftBPF, rightBPF *BPF) error {
 	return nil
 }
 
-// Method provides dump of KFs for debug purpose
+// KFDetails - Method provides dump of KFs for debug purpose
 func (c *NFConfigs) KFDetails(iface string) []*BPF {
 	arrBPFDetails := make([]*BPF, 0)
 	bpfList := c.IngressXDPBpfs[iface]
@@ -745,6 +740,7 @@ func (c *NFConfigs) KFDetails(iface string) []*BPF {
 	}
 	return arrBPFDetails
 }
+
 // RemoveMissingBPFProgramsInConfigs - This method to stop the KFs which are not listed in the configs.
 func (c *NFConfigs) RemoveMissingBPFProgramsInConfigs(cfgbpfProgs map[string]map[string]map[string]models.BPFProgram, ifaceName, direction string) error {
 	log.Debug().Msgf("RemoveMissingBPFProgramsInConfigs - ifaceName %s direction %s", ifaceName, direction)
@@ -774,6 +770,11 @@ func (c *NFConfigs) RemoveMissingBPFProgramsInConfigs(cfgbpfProgs map[string]map
 		bpfList = c.EgressTCBpfs[ifaceName]
 	default: // we should never reach here
 		return fmt.Errorf("unknown direction type %s", direction)
+	}
+
+	if bpfList == nil {
+		log.Info().Msgf("List is empty, no kernel functions to stop for iface %s and direction %s", ifaceName, direction)
+		return nil
 	}
 
 	for e := bpfList.Front(); e != nil; e = e.Next() {
@@ -857,7 +858,7 @@ func (c *NFConfigs) RemoveMissingNetIfacesNBPFProgsInConfigs(cfgbpfProgs map[str
 	return nil
 }
 
-// XDP programs are failing when LRO is enabled, to fix this we use to manually disable.
+// DisableLRO - XDP programs are failing when LRO is enabled, to fix this we use to manually disable.
 // # ethtool -K ens7 lro off
 // # ethtool -k ens7 | grep large-receive-offload
 // large-receive-offload: off
@@ -880,4 +881,3 @@ func DisableLRO(ifaceName string) error {
 
 	return nil
 }
-

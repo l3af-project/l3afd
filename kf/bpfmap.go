@@ -19,6 +19,9 @@ type BPFMap struct {
 	Name  string
 	MapID ebpf.MapID
 	Type  ebpf.MapType
+
+	// BPFProg reference in case of stale map id
+	BPFProg *BPF
 }
 
 // This stores Metrics map details.
@@ -101,8 +104,21 @@ func (b *BPFMap) Update(value string) error {
 func (b *MetricsBPFMap) GetValue() float64 {
 	ebpfMap, err := ebpf.NewMapFromID(b.MapID)
 	if err != nil {
-		log.Warn().Err(err).Msgf("GetValue : NewMapFromID failed ID %d", b.MapID)
-		return 0
+		// We have observed in smaller configuration VM's, if we restart KF's
+		// Stale mapID's are reported, in such cases re-checking map id
+		log.Warn().Err(err).Msgf("GetValue : NewMapFromID failed ID %d, re-looking up of map id", b.MapID)
+		tmpBPF, err := b.BPFProg.GetBPFMap(b.Name)
+		if err != nil {
+			log.Warn().Err(err).Msgf("GetValue: Update new map ID %d", tmpBPF.MapID)
+			return 0
+		}
+		log.Info().Msgf("GetValue: Update new map ID %d", tmpBPF.MapID)
+		b.MapID = tmpBPF.MapID
+		ebpfMap, err = ebpf.NewMapFromID(b.MapID)
+		if err != nil {
+			log.Warn().Err(err).Msgf("GetValue : retry of NewMapFromID failed ID %d", b.MapID)
+			return 0
+		}
 	}
 	defer ebpfMap.Close()
 

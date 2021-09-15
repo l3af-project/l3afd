@@ -1,0 +1,58 @@
+// Copyright Contributors to the L3AF Project.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package v1.l3afdconfig;
+
+option go_package = "../l3afd/proto/gen/v1/l3afdconfig";
+option java_multiple_files = true;
+option java_package = "com.v1.l3afdconfig";
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+
+message L3afdConfigRequest {
+  // key is the hostname
+  string key = 1;
+
+  // value is the set of kernel functions details in json format to be started or updated on the host
+  string value = 2;
+}
+
+// L3afdConfigResponse is response from Update L3afdConfig unary rpc
+//
+message L3afdConfigResponse {
+  string error = 1;
+}
+
+
+message HealthCheckRequest {
+}
+
+// HealthCheckResponse is response from l3afd config to report the status
+//
+message HealthCheckResponse {
+  enum ServiceStatus {
+    UNKNOWN = 0;
+    STARTED = 1;
+    READY = 2;
+  }
+  ServiceStatus status = 1 [(google.api.field_behavior) = REQUIRED, (google.api.field_behavior) = IMMUTABLE];
+}
+
+// L3afConfigurator is a config endpoint to l3afd
+service L3afConfigurator {
+  rpc UpdateConfig(L3afdConfigRequest) returns (L3afdConfigResponse){
+      option (google.api.http) = {
+        post: "/l3af/configs/v1/update"
+        body: "*"
+      };
+  };
+
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse) {
+    option (google.api.http) = {
+      get: "/l3af/health/v1/status"
+    };
+  };
+}

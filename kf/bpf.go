@@ -27,10 +27,8 @@ import (
 	"time"
 	"unsafe"
 
-	"tbd/admind/models"
-	"tbd/cfgdist/kvstores/emitter"
-	"tbd/go-shared/nsqbatch"
-	"tbd/sys/unix"
+	"tbd/Torbit/l3afd/models"
+	"tbd/Torbit/sys/unix"
 
 	"tbd/l3afd/config"
 	"tbd/l3afd/stats"
@@ -260,6 +258,13 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 			log.Error().Err(err).Msgf("stop user program - failed to remove pinned file %s", b.Program.Name)
 			return fmt.Errorf("stop user program - failed to remove pinned file %s", b.Program.Name)
 		}
+
+		// Verify all metrics map references are removed from kernel
+		if err := b.VerifyMetricsMapsVanish(); err != nil {
+			log.Error().Err(err).Msgf("stop user program - failed to remove metric map references %s", b.Program.Name)
+			return fmt.Errorf("stop user program - failed to remove metric map references %s", b.Program.Name)
+		}
+
 		return nil
 	}
 
@@ -289,6 +294,13 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 		log.Error().Err(err).Msgf("failed to remove pinned file %s", b.Program.Name)
 		return fmt.Errorf("failed to remove pinned file %s", b.Program.Name)
 	}
+
+	// Verify all metrics map references are removed from kernel
+	if err := b.VerifyMetricsMapsVanish(); err != nil {
+		log.Error().Err(err).Msgf("failed to remove metric map references %s", b.Program.Name)
+		return fmt.Errorf("failed to remove metric map references %s", b.Program.Name)
+	}
+
 	return nil
 }
 
@@ -702,9 +714,10 @@ func (b *BPF) GetBPFMap(mapName string) (*BPFMap, error) {
 		}
 
 		newBPFMap = BPFMap{
-			Name:  ebpfInfo.Name,
-			MapID: tempMapID,
-			Type:  ebpfInfo.Type,
+			Name:    mapName,
+			MapID:   tempMapID,
+			Type:    ebpfInfo.Type,
+			BPFProg: b,
 		}
 
 	} else if b.Program.EBPFType == models.XDPType {
@@ -737,9 +750,10 @@ func (b *BPF) GetBPFMap(mapName string) (*BPFMap, error) {
 
 			if ebpfInfo.Name == mpName {
 				newBPFMap = BPFMap{
-					Name:  ebpfInfo.Name,
-					MapID: tmpMapId,
-					Type:  ebpfInfo.Type,
+					Name:    mapName,
+					MapID:   tmpMapId,
+					Type:    ebpfInfo.Type,
+					BPFProg: b,
 				}
 				break
 			}
@@ -776,7 +790,7 @@ func (b *BPF) AddMetricsBPFMap(mapName, aggregator string, key, samplesLength in
 // This method to fetch values from bpf maps and publish to metrics
 func (b *BPF) MonitorMaps(ifaceName string, intervals int) error {
 	for _, element := range b.Program.MonitorMaps {
-		log.Debug().Msgf("monitor maps element %s ", element.Name)
+		log.Debug().Msgf("monitor maps element %s key %d aggregator %s", element.Name, element.Key, element.Aggregator)
 		mapKey := element.Name + strconv.Itoa(element.Key) + element.Aggregator
 		bpfMap, ok := b.MetricsBpfMaps[mapKey]
 		if !ok {
@@ -960,40 +974,27 @@ func (b *BPF) VerifyProcessObject() error {
 	return err
 }
 
-func (b *BPF) RunKFConfigs() error {
+// VerifyMetricsMapsVanish - checks for all metrics maps references are removed from the kernel
+func (b *BPF) VerifyMetricsMapsVanish() error {
 
-	netNamespace := os.Getenv("TBNETNAMESPACE")
-	machineHostname, err := os.Hostname()
-	if err != nil {
-		log.Error().Err(err).Msg("Could not get hostname from OS")
-	}
-	daemonName := b.Program.Name
-
-	var producer nsqbatch.Producer
-	if prefs := nsqbatch.GetSystemPrefs(); prefs.Enabled {
-		producer, err = nsqbatch.NewProducer(prefs)
-		if err != nil {
-			log.Error().Err(err).Msg("could not set up nsqd")
-			return fmt.Errorf("could not set up nsqd: %v", err)
+	for i := 0; i < 10; i++ {
+		mapExists := false
+		for _, v := range b.BpfMaps {
+			_, err := ebpf.NewMapFromID(v.MapID)
+			if err == nil {
+				log.Warn().Msgf("VerifyMetricsMapsVanish: bpf map reference still exists - %s", v.Name)
+				mapExists = true
+			}
 		}
+		if mapExists == false {
+			return nil
+		}
+
+		log.Warn().Msgf("VerifyMetricsMapsVanish: bpf map reference still exists - %s, checking again after a second", b.Program.Name)
+		time.Sleep(1 * time.Second)
 	}
 
-	cdbKVStore, err := VersionAnnouncerFromCDB(b.Ctx, machineHostname,
-		daemonName, netNamespace, b.Program.ConfigFilePath, b.DataCenter, "", false, false, producer)
-	if err != nil {
-		return fmt.Errorf("error in KFConfig %s version announcer: %v", b.Program.Name, err)
-	}
-	emit := emitter.NewKVStoreChangeEmitter(cdbKVStore)
-
-	_, err = NewKFCfgs(emit, b.FilePath, &b.Program)
-	if err != nil {
-		return fmt.Errorf("failed to start monitoring KF specific config %v", err)
-	}
-
-	select {
-	case <-b.Done:
-		log.Info().Msgf("KF config %s kv emitter close invoked", b.Program.Name)
-		emit.Close()
-		return nil
-	}
+	err := fmt.Errorf("metrics maps are never removed by Kernel %s", b.Program.Name)
+	log.Error().Err(err).Msg("")
+	return err
 }

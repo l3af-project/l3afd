@@ -9,20 +9,17 @@ import (
 	"encoding/json"
 	"os"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
-	"tbd/admind/models"
-	"tbd/cfgdist/kvstores"
-	"tbd/cfgdist/kvstores/emitter"
-
 	"tbd/l3afd/config"
+	"tbd/l3afd/models"
 
 	"github.com/rs/zerolog/log"
 )
 
 var (
-	emit            *mockKeyChangeEmitter
 	machineHostname string
 	pMon            *pCheck
 	mMon            *kfMetrics
@@ -36,33 +33,8 @@ var (
 	seqID           int
 )
 
-type mockKeyChangeEmitter struct {
-	pairs   [][2]string
-	handler emitter.EventHandler
-}
-
-func newMockEventEmitter(pairs [][2]string) *mockKeyChangeEmitter {
-	return &mockKeyChangeEmitter{pairs: pairs}
-}
-
-func (m *mockKeyChangeEmitter) RegisterHandler(handler emitter.EventHandler) error {
-	m.handler = handler
-	for _, pair := range m.pairs {
-		if err := m.handler.HandleAdded([]byte(pair[0]), []byte(pair[1])); err != nil {
-			m.handler.HandleError(err, kvstores.Added, []byte(pair[0]), []byte(pair[1]))
-		}
-	}
-	return nil
-}
-
-func (m *mockKeyChangeEmitter) Close() error {
-	return nil
-}
-
 func setupDBTest() {
 	machineHostname, _ = os.Hostname()
-	var pairs [][2]string
-	emit = newMockEventEmitter(pairs)
 	pMon = NewpCheck(3, true, 10)
 	mMon = NewpKFMetrics(true, 30)
 
@@ -160,7 +132,6 @@ func setupValStatusChange() {
 
 func TestNewNFConfigs(t *testing.T) {
 	type args struct {
-		emit     *mockKeyChangeEmitter //emitter.KeyChangeEmitter
 		host     string
 		hostConf *config.Config
 		pMon     *pCheck
@@ -175,7 +146,7 @@ func TestNewNFConfigs(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "EmptyConfig",
-			args: args{emit: emit,
+			args: args{
 				host:     machineHostname,
 				hostConf: nil,
 				pMon:     pMon,
@@ -187,13 +158,14 @@ func TestNewNFConfigs(t *testing.T) {
 				hostConfig:     nil,
 				processMon:     pMon,
 				kfMetricsMon:   mMon,
+				mu:             new(sync.Mutex),
 			},
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewNFConfigs(tt.args.ctx, tt.args.emit, tt.args.host, tt.args.hostConf, tt.args.pMon, tt.args.mMon)
+			got, err := NewNFConfigs(tt.args.ctx, tt.args.host, tt.args.hostConf, tt.args.pMon, tt.args.mMon)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewNFConfigs() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -255,7 +227,7 @@ func TestNFConfigs_HandleAdded(t *testing.T) {
 				processMon:     tt.fields.processMon,
 				kfMetricsMon:   tt.fields.metricsMon,
 			}
-			if err := cfg.HandleAdded(tt.args.key, tt.args.val); (err != nil) != tt.wantErr {
+			if err := cfg.HandleUpdated(tt.args.key, tt.args.val); (err != nil) != tt.wantErr {
 				t.Errorf("NFConfigs.HandleAdded() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

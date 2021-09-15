@@ -1,5 +1,8 @@
 // Copyright Contributors to the L3AF Project.
 // SPDX-License-Identifier: Apache-2.0
+//
+// +build configs
+//
 
 // Package kf provides primitives for CDB helpers.
 package kf
@@ -7,24 +10,68 @@ package kf
 import (
 	"context"
 	"fmt"
+	"os"
+	"time"
 
-	"tbd/cfgdist/cdbs"
-	"tbd/cfgdist/kvstores"
-	"tbd/cfgdist/kvstores/cdbkv"
-	"tbd/cfgdist/kvstores/versionannouncer"
-	"tbd/go-shared/nsqbatch"
+	"tbd/Torbit/cfgdist/cdbs"
+	"tbd/Torbit/cfgdist/kvstores"
+	"tbd/Torbit/cfgdist/kvstores/cdbkv"
+	"tbd/Torbit/cfgdist/kvstores/emitter"
+	"tbd/Torbit/cfgdist/kvstores/versionannouncer"
+	"tbd/Torbit/go-shared/nsqbatch"
+	"tbd/Torbit/go-shared/pidfile"
+	"tbd/Torbit/l3afd/config"
+
+	"github.com/rs/zerolog/log"
 )
 
-func VersionAnnouncerFromCDB(ctx context.Context, hostName, daemonName, netNamespace,
-	cdbFile, clusterName, presharedSecretPath string, verifyCDB, invalidIsFatal bool,
-	producer nsqbatch.Producer) (kvstores.IterableWatchableKVStore, error) {
-	cdbStore, err := KVStoreFromCDB(cdbFile, presharedSecretPath, verifyCDB, invalidIsFatal)
+var cdbFile = "/var/tb/cdb/l3afd.cdb"
+
+func StartConfigWatcher(ctx context.Context, hostName, daemonName string, conf *config.Config, nfConfigs *NFConfigs) error {
+	var producer nsqbatch.Producer
+	var err error
+	if prefs := nsqbatch.GetSystemPrefs(); prefs.Enabled {
+		producer, err = nsqbatch.NewProducer(prefs)
+		if err != nil {
+			log.Error().Err(err).Msg("could not set up nsqd")
+			return fmt.Errorf("could not set up nsqd: %v", err)
+		}
+	}
+	netNamespace := os.Getenv("TBNETNAMESPACE")
+	verifyCDB := false
+	invalidIsFatal := false
+	cdbStore, err := KVStoreFromCDB(cdbFile, "", verifyCDB, invalidIsFatal)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to get kv store from cdb: %w", err)
+		return fmt.Errorf("Failed to get kv store from cdb: %w", err)
 	}
 
-	return versionannouncer.NewVersionAnnouncer(ctx, hostName, daemonName,
-		netNamespace, cdbFile, clusterName, cdbStore, producer)
+	cdbKVStore, err := versionannouncer.NewVersionAnnouncer(ctx, hostName, daemonName,
+		netNamespace, cdbFile, conf.DataCenter, cdbStore, producer)
+	if err != nil {
+		log.Fatal().Err(err).Msg("cdb error")
+	}
+
+	emit := emitter.NewKVStoreChangeEmitter(cdbKVStore)
+
+	if err := emit.RegisterHandler(nfConfigs); err != nil {
+		return fmt.Errorf("failed to register nfconfigs: %w", err)
+	}
+
+	pidfile.SetupGracefulShutdown(func() error {
+		if len(nfConfigs.IngressXDPBpfs) > 0 || len(nfConfigs.IngressTCBpfs) > 0 || len(nfConfigs.EgressTCBpfs) > 0 {
+			ctx, cancelfunc := context.WithTimeout(context.Background(), conf.ShutdownTimeout*time.Second)
+			defer cancelfunc()
+			if err := nfConfigs.Close(ctx); err != nil {
+				log.Error().Err(err).Msg("stopping all network functions failed")
+			}
+		}
+		if err := emit.Close(); err != nil {
+			log.Error().Err(err).Msg("kv store emit close failed")
+		}
+		return nil
+	}, conf.ShutdownTimeout, conf.PIDFilename)
+
+	return nil
 }
 
 func KVStoreFromCDB(cdbFile, presharedSecretPath string, verifyCDB,
@@ -75,4 +122,14 @@ func (l *l3afDeleteGuard) goodVal(val []byte) bool {
 	//TODO Need to be implemented
 
 	return true
+}
+
+func (c *NFConfigs) HandleError(err error, et kvstores.EventType, key, val []byte) {
+	if err != nil {
+		log.Error().Err(err).Msgf("error handling event for key %s")
+	}
+}
+
+func (c *NFConfigs) HandleAdded(key, val []byte) error {
+	return c.HandleUpdated(key, val)
 }

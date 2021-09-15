@@ -1,0 +1,146 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "v1/l3afdconfig/l3afdconfig_service.proto",
+    "version": "version not set"
+  },
+  "tags": [
+    {
+      "name": "L3afConfigurator"
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/l3af/configs/v1/update": {
+      "post": {
+        "operationId": "L3afConfigurator_UpdateConfig",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/l3afdconfigL3afdConfigResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/l3afdconfigL3afdConfigRequest"
+            }
+          }
+        ],
+        "tags": [
+          "L3afConfigurator"
+        ]
+      }
+    },
+    "/l3af/health/v1/status": {
+      "get": {
+        "operationId": "L3afConfigurator_HealthCheck",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/l3afdconfigHealthCheckResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "L3afConfigurator"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "HealthCheckResponseServiceStatus": {
+      "type": "string",
+      "enum": [
+        "UNKNOWN",
+        "STARTED",
+        "READY"
+      ],
+      "default": "UNKNOWN"
+    },
+    "l3afdconfigHealthCheckResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/definitions/HealthCheckResponseServiceStatus"
+        }
+      },
+      "title": "HealthCheckResponse is response from l3afd config to report the status"
+    },
+    "l3afdconfigL3afdConfigRequest": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "title": "key is the hostname"
+        },
+        "value": {
+          "type": "string",
+          "title": "value is the set of kernel functions details in json format to be started or updated on the host"
+        }
+      }
+    },
+    "l3afdconfigL3afdConfigResponse": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string"
+        }
+      },
+      "title": "L3afdConfigResponse is response from Update L3afdConfig unary rpc"
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "typeUrl": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "rpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    }
+  }
+}

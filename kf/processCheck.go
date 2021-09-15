@@ -8,8 +8,7 @@ import (
 	"container/list"
 	"time"
 
-	"tbd/admind/models"
-
+	"tbd/l3afd/models"
 	"tbd/l3afd/stats"
 
 	"github.com/rs/zerolog/log"
