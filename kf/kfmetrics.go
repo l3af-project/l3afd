@@ -8,7 +8,7 @@ import (
 	"container/list"
 	"time"
 
-	"tbd/Torbit/l3afd/models"
+	"github.com/l3af-project/l3afd/models"
 
 	"github.com/rs/zerolog/log"
 )

@@ -11,12 +11,12 @@ import (
 	"path/filepath"
 	"sync"
 
-	"tbd/Torbit/cfgdist/cdbs"
-	"tbd/Torbit/cfgdist/kvstores"
-	"tbd/Torbit/cfgdist/kvstores/emitter"
-	"tbd/Torbit/cfgdist/kvstores/versionannouncer"
-	"tbd/Torbit/go-shared/nsqbatch"
-	"tbd/Torbit/l3afd/models"
+	"walmart-internal/cfgdist/cdbs"
+	"walmart-internal/cfgdist/kvstores"
+	"walmart-internal/cfgdist/kvstores/emitter"
+	"walmart-internal/cfgdist/kvstores/versionannouncer"
+	"walmart-internal/go-shared/nsqbatch"
+	"walmart-internal/l3afd/models"
 
 	"github.com/rs/zerolog/log"
 )

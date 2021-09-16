@@ -15,9 +15,10 @@ import (
 
 	"tbd/go-shared/pidfile"
 	version "tbd/go-version"
-	"tbd/l3afd/config"
-	"tbd/l3afd/kf"
-	"tbd/l3afd/stats"
+
+	"github.com/l3af-project/l3afd/config"
+	"github.com/l3af-project/l3afd/kf"
+	"github.com/l3af-project/l3afd/stats"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"

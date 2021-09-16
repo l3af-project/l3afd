@@ -27,11 +27,11 @@ import (
 	"time"
 	"unsafe"
 
-	"tbd/Torbit/l3afd/models"
-	"tbd/Torbit/sys/unix"
+	"tbd/sys/unix"
 
-	"tbd/l3afd/config"
-	"tbd/l3afd/stats"
+	"github.com/l3af-project/l3afd/config"
+	"github.com/l3af-project/l3afd/models"
+	"github.com/l3af-project/l3afd/stats"
 
 	"github.com/cilium/ebpf"
 	ps "github.com/mitchellh/go-ps"

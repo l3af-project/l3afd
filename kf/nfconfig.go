@@ -16,8 +16,8 @@ import (
 	"syscall"
 	"time"
 
-	"tbd/l3afd/config"
-	"tbd/l3afd/models"
+	"github.com/l3af-project/l3afd/config"
+	"github.com/l3af-project/l3afd/models"
 
 	"github.com/rs/zerolog/log"
 	"github.com/safchain/ethtool"

@@ -15,16 +15,15 @@ import (
 	"syscall"
 	"time"
 
-	"tbd/l3afd/config"
-	pb "tbd/l3afd/proto/gen/v1/l3afdconfig"
+	"github.com/l3af-project/l3afd/config"
+	pb "github.com/l3af-project/l3afd/proto/gen/v1/l3afdconfig"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
-
-	"github.com/rs/zerolog/log"
 )
 
 type Server struct {

@@ -10,8 +10,8 @@ import (
 	"reflect"
 	"testing"
 
-	"tbd/Torbit/l3afd/config"
-	"tbd/Torbit/l3afd/models"
+	"github.com/l3af-project/l3afd/config"
+	"github.com/l3af-project/l3afd/models"
 )
 
 var mockedExitStatus = 1

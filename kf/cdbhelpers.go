@@ -13,14 +13,14 @@ import (
 	"os"
 	"time"
 
-	"tbd/Torbit/cfgdist/cdbs"
-	"tbd/Torbit/cfgdist/kvstores"
-	"tbd/Torbit/cfgdist/kvstores/cdbkv"
-	"tbd/Torbit/cfgdist/kvstores/emitter"
-	"tbd/Torbit/cfgdist/kvstores/versionannouncer"
-	"tbd/Torbit/go-shared/nsqbatch"
-	"tbd/Torbit/go-shared/pidfile"
-	"tbd/Torbit/l3afd/config"
+	"walmart-internal/cfgdist/cdbs"
+	"walmart-internal/cfgdist/kvstores"
+	"walmart-internal/cfgdist/kvstores/cdbkv"
+	"walmart-internal/cfgdist/kvstores/emitter"
+	"walmart-internal/cfgdist/kvstores/versionannouncer"
+	"walmart-internal/go-shared/nsqbatch"
+	"walmart-internal/go-shared/pidfile"
+	"walmart-internal/l3afd/config"
 
 	"github.com/rs/zerolog/log"
 )
