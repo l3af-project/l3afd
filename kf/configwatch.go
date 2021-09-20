@@ -121,7 +121,7 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 		}
 		mux := runtime.NewServeMux()
 		dialOptions := []grpc.DialOption{grpc.WithInsecure()}
-		pb.RegisterL3AfConfiguratorHandlerFromEndpoint(ctx, mux, conf.L3afConfigsRestAPIAddr, dialOptions)
+		pb.RegisterL3AfConfiguratorHandlerFromEndpoint(ctx, mux, conf.L3afConfigsgRPCAddr, dialOptions)
 
 		if err := http.Serve(s.HttpLis, mux); err != nil {
 			log.Error().Err(err).Msgf("failed to http serve")

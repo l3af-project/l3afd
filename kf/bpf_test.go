@@ -30,7 +30,6 @@ func TestHelperProcess(t *testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
 	}
-
 	os.Exit(mockedExitStatus)
 }
 
@@ -296,15 +295,16 @@ func TestBPF_isRunning(t *testing.T) {
 		want    bool
 		wantErr bool
 	}{
-		{name: "NoPID",
+		{
+			name: "NoPID",
 			fields: fields{
 				Program:      models.BPFProgram{},
 				Cmd:          nil,
 				FilePath:     "",
 				RestartCount: 0,
 			},
-			want:    false,
-			wantErr: true,
+			want:    true,
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {

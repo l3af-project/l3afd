@@ -451,7 +451,7 @@ func (b *BPF) Update(ifaceName, direction string) error {
 // Status of user program is running
 func (b *BPF) isRunning() (bool, error) {
 	// No user program or may be disabled
-	if !b.Program.IsUserProgram && len(b.Program.CmdStatus) > 1 {
+	if len(b.Program.CmdStatus) > 1 {
 		cmd := filepath.Join(b.FilePath, b.Program.CmdStatus)
 
 		if err := assertExecutable(cmd); err != nil {
@@ -481,6 +481,11 @@ func (b *BPF) isRunning() (bool, error) {
 		}
 
 		return false, fmt.Errorf("l3afd/nf : BPF Program not running %s", errStr)
+	}
+
+	// No running user program and command status is not provided then return true
+	if !b.Program.IsUserProgram {
+		return true, nil
 	}
 
 	if err := b.VerifyProcessObject(); err != nil {
