@@ -13,11 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"tbd/go-shared/pidfile"
-	version "tbd/go-version"
-
 	"github.com/l3af-project/l3afd/config"
 	"github.com/l3af-project/l3afd/kf"
+	"github.com/l3af-project/l3afd/pidfile"
 	"github.com/l3af-project/l3afd/stats"
 
 	"github.com/rs/zerolog"
@@ -64,7 +62,7 @@ func main() {
 	flag.StringVar(&confPath, "config", "config/l3afd.cfg", "config path")
 
 	flag.Parse()
-	version.Init()
+	initVersion()
 	conf, err := config.ReadConfig(confPath)
 	if err != nil {
 		log.Fatal().Err(err).Msgf("Unable to parse config %q", confPath)

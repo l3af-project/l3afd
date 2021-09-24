@@ -19,8 +19,8 @@ import (
 	"walmart-internal/cfgdist/kvstores/emitter"
 	"walmart-internal/cfgdist/kvstores/versionannouncer"
 	"walmart-internal/go-shared/nsqbatch"
-	"walmart-internal/go-shared/pidfile"
 	"walmart-internal/l3afd/config"
+	"walmart-internal/l3afd/pidfile"
 
 	"github.com/rs/zerolog/log"
 )

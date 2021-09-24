@@ -27,8 +27,6 @@ import (
 	"time"
 	"unsafe"
 
-	"tbd/sys/unix"
-
 	"github.com/l3af-project/l3afd/config"
 	"github.com/l3af-project/l3afd/models"
 	"github.com/l3af-project/l3afd/stats"
@@ -36,6 +34,7 @@ import (
 	"github.com/cilium/ebpf"
 	ps "github.com/mitchellh/go-ps"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/sys/unix"
 )
 
 var (
