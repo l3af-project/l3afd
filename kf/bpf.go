@@ -57,7 +57,7 @@ type BPF struct {
 	BpfMaps        map[string]BPFMap         // Config maps passed as map-args, Map name is Key
 	MetricsBpfMaps map[string]*MetricsBPFMap // Metrics map name+key+aggregator is key
 	Ctx            context.Context
-	Done           chan bool
+	Done           chan bool `json:"-"`
 	DataCenter     string
 }
 

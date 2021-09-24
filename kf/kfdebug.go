@@ -19,10 +19,10 @@ func SetupKFDebug(ebpfChainDebugAddr string, kfConfigs *NFConfigs) {
 		http.HandleFunc("/kfs/", ViewHandler)
 
 		// We just need to start a server.
+		log.Info().Msg("Starting KF debug server")
 		if err := http.ListenAndServe(ebpfChainDebugAddr, nil); err != nil {
 			log.Fatal().Err(err).Msg("failed to start KF chain debug server")
 		}
-		log.Info().Msg("KF debug server started")
 	}()
 }
 

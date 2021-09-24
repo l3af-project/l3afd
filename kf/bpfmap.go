@@ -21,7 +21,7 @@ type BPFMap struct {
 	Type  ebpf.MapType
 
 	// BPFProg reference in case of stale map id
-	BPFProg *BPF
+	BPFProg *BPF `json:"-"`
 }
 
 // This stores Metrics map details.
