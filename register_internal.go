@@ -9,7 +9,7 @@
 package main
 
 import (
-	"walmart-internal/l3afd/config"
+	"github.com/l3af-project/l3afd/config"
 
 	"github.com/rs/zerolog/log"
 )
