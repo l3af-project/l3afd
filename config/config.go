@@ -113,6 +113,6 @@ func ReadConfig(configPath string) (*Config, error) {
 		EBPFChainDebugAddr:          LoadOptionalConfigString(confReader, "ebpf-chain-debug", "addr", "0.0.0.0:8899"),
 		EBPFChainDebugEnabled:       LoadOptionalConfigBool(confReader, "ebpf-chain-debug", "enabled", false),
 		L3afConfigsgRPCAddr:         LoadOptionalConfigString(confReader, "l3af-configs", "rpc-addr", "localhost:58898"),
-		L3afConfigsRestAPIAddr:      LoadOptionalConfigString(confReader, "l3af-configs", "restapi-addr", "localhost:3000"),
+		L3afConfigsRestAPIAddr:      LoadOptionalConfigString(confReader, "l3af-configs", "restapi-addr", "localhost:53000"),
 	}, nil
 }
