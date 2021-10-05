@@ -363,7 +363,7 @@ func TestBPF_GetArtifacts(t *testing.T) {
 				RestartCount: 0,
 			},
 			args: args{conf: &config.Config{BPFDir: "/tmp",
-				ProximityUrl: "http://www.example.com"}},
+				KFRepoURL: "http://www.example.com"}},
 			wantErr: true,
 		},
 	}

@@ -18,7 +18,7 @@ type Config struct {
 	BPFLogDir         string
 	MinKernelMajorVer int
 	MinKernelMinorVer int
-	ProximityUrl      string
+	KFRepoURL         string
 	HttpClientTimeout time.Duration
 	MaxNFReStartCount int
 	MaxNFsAttachCount int
@@ -83,7 +83,7 @@ func ReadConfig(configPath string) (*Config, error) {
 		BPFLogDir:                   LoadConfigString(confReader, "l3afd", "bpf-log-dir"),
 		MinKernelMajorVer:           LoadConfigInt(confReader, "l3afd", "kernel-major-version"),
 		MinKernelMinorVer:           LoadConfigInt(confReader, "l3afd", "kernel-minor-version"),
-		ProximityUrl:                LoadConfigString(confReader, "proximity", "url"),
+		KFRepoURL:                   LoadConfigString(confReader, "kf-repo", "url"),
 		HttpClientTimeout:           LoadConfigDuration(confReader, "l3afd", "http-client-timeout"),
 		MaxNFReStartCount:           LoadConfigInt(confReader, "l3afd", "max-nf-restart-count"),
 		MaxNFsAttachCount:           LoadConfigInt(confReader, "l3afd", "max-nfs-attach-count"),

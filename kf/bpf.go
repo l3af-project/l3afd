@@ -551,18 +551,18 @@ func (b *BPF) VerifyAndGetArtifacts(conf *config.Config) error {
 func (b *BPF) GetArtifacts(conf *config.Config) error {
 	var fPath = ""
 
-	proximityURL, err := url.Parse(conf.ProximityUrl)
+	kfRepoURL, err := url.Parse(conf.KFRepoURL)
 	if err != nil {
-		return fmt.Errorf("unknown proximity url format: %w", err)
+		return fmt.Errorf("unknown KF repo url format: %w", err)
 	}
 
 	linuxDist, err := LinuxDistribution()
 	if err != nil {
-		return fmt.Errorf("failed to find proximity download path: %w", err)
+		return fmt.Errorf("failed to find KF repo download path: %w", err)
 	}
 
-	proximityURL.Path = path.Join(proximityURL.Path, b.Program.Name, b.Program.Version, linuxDist, b.Program.Artifact)
-	log.Info().Msgf("Downloading - %s", proximityURL)
+	kfRepoURL.Path = path.Join(kfRepoURL.Path, b.Program.Name, b.Program.Version, linuxDist, b.Program.Artifact)
+	log.Info().Msgf("Downloading - %s", kfRepoURL)
 
 	timeOut := time.Duration(conf.HttpClientTimeout) * time.Second
 	var netTransport = &http.Transport{
@@ -571,7 +571,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 	client := http.Client{Transport: netTransport, Timeout: timeOut}
 
 	// Get the data
-	resp, err := client.Get(proximityURL.String())
+	resp, err := client.Get(kfRepoURL.String())
 	if err != nil {
 		return fmt.Errorf("Download failed: %w", err)
 	}
