@@ -1,6 +1,6 @@
 # L3AFD: Lightweight eBPF Application Foundation Daemon
 
-![L3AF_Logo](https://raw.githubusercontent.com/l3af-project/l3af-arch/54e95037f1a51b924ec2ce0eee3d3bb27f488878/images/logos/Color/L3AF_logo.svg?token=AABDYXUSFCV66FZRJ6IFMLDBL7AZ6&raw=true)
+![L3AF_Logo](https://github.com/l3af-project/l3af-arch/blob/main/images/logos/Color/L3AF_logo.svg)
 
 L3AFD is a crucial part of the L3AF ecosystem. For more information on L3AF see
 https://l3af.io/
@@ -18,7 +18,7 @@ However, we envision the creation of a community-driven Kernel Function
 Marketplace where L3AF users can obtain a variety of Kernel Functions developed
 by multiple sources.
 
-![L3AF Platform](https://raw.githubusercontent.com/l3af-project/l3af-arch/main/images/L3AF_platform.png?token=AABDYXU5OXHBOC2E4PEPUKLBL7BEW&raw=true)
+![L3AF Platform](https://github.com/l3af-project/l3af-arch/blob/main/images/L3AF_platform.png)
 
 # Try it out
 
