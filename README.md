@@ -22,4 +22,5 @@ by multiple sources.
 
 # Try it out
 
-TODO
+See our [L3AF Development Environment](https://github.com/l3af-project/l3af-arch/tree/main/dev_environment)
+for a quick and easy way to try out L3AF on your local machine.
