@@ -11,6 +11,42 @@ Below is the detailed documentation for each field:
 |key|string|`"bpfdev-sc5"`|Name of host running L3AFD|
 |value|string of [value](#value) object|See [value example](#value-example)|Which eBPF programs to run and how to run them|
 
+NOTICE: The structure of the API payload is due to historical reasons. Soon,
+we will be restructuring the payload such that the string values are unpacked
+to valid JSON objects. For example, instead of:
+
+``json
+{
+"key": "l3af-local-test",
+"value":"{\"bpf_programs\":{\"enp0s3\":{\"xdpingress\":{\"1\":{\"name\":\"ratelimiting\",\"seq_id\":1,\"artifact\":\"l3af_ratelimiting.tar.gz\",\"map_name\":\"/sys/fs/bpf/xdp_rl_ingress_next_prog\",\"cmd_start\":\"ratelimiting\",\"version\":\"latest\",\"is_user_program\":true,\"admin_status\":\"enabled\",\"ebpf_type\":\"xdp\",\"cfg_version\":1,\"start_args\":[{\"key\":\"ports\",\"value\":\"8080,8081\"},{\"key\":\"rate\",\"value\":\"2\"}],\"monitor_maps\":[{\"name\":\"rl_drop_count_map\",\"key\":0,\"aggregator\":\"scalar\"},{\"name\":\"rl_recv_count_map\",\"key\":0,\"aggregator\":\"max-rate\"}]}}}}}"
+}
+``
+
+The payload will look more like this standard JSON:
+
+```json
+{
+  "hostname": "l3af-local-test",
+  "bpf_programs": {
+    "enp0s3": {
+      "xdpingress": [
+        {
+          "name": "ratelimiting",
+          "artifact": "l3af_ratelimiting.tar.gz",
+          "map_name": "/sys/fs/bpf/xdp_rl_ingress_next_prog",
+          "...": "..."
+        }
+      ],
+      "monitor_maps": [
+        {
+          "...": "..."
+        }
+      ]
+    }
+  }
+}
+```
+
 ## value
 
 |Key|Type|Example|Description|
@@ -33,26 +69,52 @@ Below is the detailed documentation for each field:
 |map_args|array of [map_args](#map_args) objects||eBPF map to be updated with the value passed in the config|
 |monitor_maps|array of [monitor_maps](#monitor_maps) objects|`[{"name":"cl_drop_count_map","key":0,"aggregator":"scalar"}]`|List of eBPF map names, index and aggregator function(i.e. scalar,max-rate)|
 
+Note: `name`, `version`, the Linux distribution name, and `artifact` are
+combined with the configured KF repo URL into the path that is used to download
+the artifact containing the eBPF program. For example, if
+`name="ratelimiting"`, `version="latest"`, and
+`artifact="l3af_ratelimiting.tar.gz"` and L3AFD is running on Ubuntu 20.04.3
+LTS (Focal Fossa), then we would look for the artifact at:
+
+`http://{kf repo configured in l3afd.cfg}/ratelimiting/latest/focal/l3af_ratelimiting.tar.gz`
+
 ### value example
 
 `"{\"bpf_programs\":{\"enp0s3\":{\"xdpingress\":{\"1\":{\"name\":\"ratelimiting\",\"seq_id\":1,\"artifact\":\"l3af_ratelimiting.tar.gz\",\"map_name\":\"/sys/fs/bpf/xdp_rl_ingress_next_prog\",\"cmd_start\":\"ratelimiting\",\"version\":\"latest\",\"is_user_program\":true,\"admin_status\":\"enabled\",\"ebpf_type\":\"xdp\",\"cfg_version\":1,\"start_args\":[{\"key\":\"ports\",\"value\":\"8080,8081\"},{\"key\":\"rate\",\"value\":\"2\"}],\"monitor_maps\":[{\"name\":\"rl_drop_count_map\",\"key\":0,\"aggregator\":\"scalar\"},{\"name\":\"rl_recv_count_map\",\"key\":0,\"aggregator\":\"max-rate\"}]},\"2\":{\"name\":\"connection-limit\",\"seq_id\":2,\"artifact\":\"l3af_connection_limit.tar.gz\",\"map_name\":\"/sys/fs/bpf/xdp_cl_ingress_next_prog\",\"cmd_start\":\"connection_limit\",\"version\":\"latest\",\"is_user_program\":true,\"is_plugin\":false,\"admin_status\":\"enabled\",\"ebpf_type\":\"xdp\",\"cfg_version\":1,\"start_args\":[{\"key\":\"max-conn\",\"value\":\"5\"},{\"key\":\"ports\",\"value\":\"8080,8081\"}],\"monitor_maps\":[{\"name\":\"cl_conn_count\",\"key\":0,\"aggregator\":\"scalar\"},{\"name\":\"cl_drop_count_map\",\"key\":0,\"aggregator\":\"scalar\"},{\"name\":\"cl_recv_count_map\",\"key\":0,\"aggregator\":\"scalar\"}]}}}}}"`
 
 ## start_args
 
-TODO
+|Key|Type|Example|Description|
+|--- |--- |--- |--- |
+|key|string|`"ports"`|A command-line argument to use when starting the KF userspace program|
+|value|string|`"8080,8081"`|A corresponding command-line argument value to use when starting the KF userspace program|
 
 ## stop_args
 
-TODO
+|Key|Type|Example|Description|
+|--- |--- |--- |--- |
+|key|string|`"ports"`|A command-line argument to use when running cmd_stop|
+|value|string|`"8080,8081"`|A corresponding command-line argument value to use when running cmd_stop|
+
 
 ## status_args
 
-TODO
+|Key|Type|Example|Description|
+|--- |--- |--- |--- |
+|key|string|`"ports"`|A command-line argument to use when running cmd_status|
+|value|string|`"8080,8081"`|A corresponding command-line argument value to use when running cmd_status|
 
 ## map_args
 
-TODO
+|Key|Type|Example|Description|
+|--- |--- |--- |--- |
+|key|string||Name of the map in which to write `value`|
+|value|string||The value to write into the eBPF map named specified by `key`|
 
 ## monitor_maps
 
-TODO
+|Key|Type|Example|Description|
+|--- |--- |--- |--- |
+|name|string|`"rl_drop_count_map"`|The name of the map where metrics are stored|
+|key|number|0|The index in the map specified by `name` where metrics are stored|
+|aggregator|string|scalar|The type of metrics aggregation to use for the configured metric sampling interval. Supported values are `"scalar"`, `"max-rate"`, and `"avg"`.|
