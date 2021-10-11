@@ -1,7 +1,5 @@
 # L3AFD API Documentation
 
-Please note that the L3AFD API is unstable and a work in progress.
-
 See [payload.json](https://github.com/l3af-project/l3af-arch/blob/main/dev_environment/cfg/payload.json) for a full example payload.
 
 Below is the detailed documentation for each field:
@@ -11,9 +9,10 @@ Below is the detailed documentation for each field:
 |key|string|`"bpfdev-sc5"`|Name of host running L3AFD|
 |value|string of [value](#value) object|See [value example](#value-example)|Which eBPF programs to run and how to run them|
 
-NOTICE: The structure of the API payload is due to historical reasons. Soon,
-we will be restructuring the payload such that the string values are unpacked
-to valid JSON objects. For example, instead of:
+NOTICE: Please note that the L3AFD API is unstable and a work in progress. The
+current structure of the API payload is due to historical reasons. Soon, we
+will be restructuring the payload such that the string values are unpacked to
+valid JSON objects. For example, instead of:
 
 ``json
 {
