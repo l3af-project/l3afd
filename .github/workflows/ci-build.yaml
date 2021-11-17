@@ -1,0 +1,29 @@
+name: CI build
+on:
+  pull_request: {}
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: golang:1.16.10-alpine3.14
+    
+    steps:
+      - name: Setup environment
+        run : |
+          apk update
+          apk add gcc libc-dev
+          
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      
+      - name: Build
+        run: |
+          go build .
+      
+      - name: Test
+        run: |
+          go test ./...
