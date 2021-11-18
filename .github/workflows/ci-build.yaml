@@ -12,7 +12,7 @@ jobs:
       image: golang:1.16.10-alpine3.14
     
     steps:
-      - name: Setup environment
+      - name: Set up environment
         run : |
           apk update
           apk add gcc libc-dev
