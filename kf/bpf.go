@@ -1,7 +1,7 @@
 // Copyright Contributors to the L3AF Project.
 // SPDX-License-Identifier: Apache-2.0
 
-// Package nf provides primitives for BPF programs / Network Functions.
+// Package kf provides primitives for BPF programs / Network Functions.
 package kf
 
 import (
@@ -23,7 +23,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 	"unsafe"
 
@@ -34,7 +33,6 @@ import (
 	"github.com/cilium/ebpf"
 	ps "github.com/mitchellh/go-ps"
 	"github.com/rs/zerolog/log"
-	"golang.org/x/sys/unix"
 )
 
 var (
@@ -195,7 +193,10 @@ func StopExternalRunningProcess(processName string) error {
 		if strings.Contains(process.Executable(), psName) {
 			if process.PPid() != myPid {
 				log.Warn().Msgf("found process id %d name %s ppid %d, stopping it", process.Pid(), process.Executable(), process.PPid())
-				err := syscall.Kill(process.Pid(), syscall.SIGTERM)
+				osProcess, err := os.FindProcess(process.Pid())
+				if err == nil {
+					err = osProcess.Kill()
+				}
 				if err != nil {
 					return fmt.Errorf("external BPFProgram stop failed with error: %w", err)
 				}
@@ -242,7 +243,7 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	stats.Set(0.0, stats.NFRunning, b.Program.Name, direction)
 
 	if len(b.Program.CmdStop) < 1 {
-		if err := syscall.Kill(b.Cmd.Process.Pid, syscall.SIGTERM); err != nil {
+		if err := b.Cmd.Process.Kill(); err != nil {
 			return fmt.Errorf("BPFProgram %s syscall.SIGTERM failed with error: %w", b.Program.Name, err)
 		}
 		if b.Cmd != nil {
@@ -507,34 +508,6 @@ func (b *BPF) isRunning() (bool, error) {
 	return true, nil
 }
 
-// Set process resource limits only non-zero value
-func (b *BPF) SetPrLimits() error {
-	var rlimit unix.Rlimit
-
-	if b.Cmd == nil {
-		return errors.New("No Process to set limits")
-	}
-
-	if b.Program.Memory != 0 {
-		rlimit.Cur = uint64(b.Program.Memory)
-		rlimit.Max = uint64(b.Program.Memory)
-
-		if err := prLimit(b.Cmd.Process.Pid, unix.RLIMIT_AS, &rlimit); err != nil {
-			log.Error().Err(err).Msgf("Failed to set Memory limits - %s", b.Program.Name)
-		}
-	}
-
-	if b.Program.CPU != 0 {
-		rlimit.Cur = uint64(b.Program.CPU)
-		rlimit.Max = uint64(b.Program.CPU)
-		if err := prLimit(b.Cmd.Process.Pid, unix.RLIMIT_CPU, &rlimit); err != nil {
-			log.Error().Err(err).Msgf("Failed to set CPU limits - %s", b.Program.Name)
-		}
-	}
-
-	return nil
-}
-
 // Check binary already exists
 func (b *BPF) VerifyAndGetArtifacts(conf *config.Config) error {
 
@@ -626,22 +599,6 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 
 	newDir := strings.Split(b.Program.Artifact, ".")
 	b.FilePath = filepath.Join(tempDir, newDir[0])
-
-	return nil
-}
-
-// prLimit set the memory and cpu limits for the bpf program
-func prLimit(pid int, limit uintptr, rlimit *unix.Rlimit) error {
-	_, _, errno := unix.RawSyscall6(unix.SYS_PRLIMIT64,
-		uintptr(pid),
-		limit,
-		uintptr(unsafe.Pointer(rlimit)),
-		0, 0, 0)
-
-	if errno != 0 {
-		log.Error().Msgf("Failed to set prlimit for process %d and errorno %d", pid, errno)
-		return errors.New("Failed to set prlimit")
-	}
 
 	return nil
 }

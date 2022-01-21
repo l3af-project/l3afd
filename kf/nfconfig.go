@@ -20,7 +20,6 @@ import (
 	"github.com/l3af-project/l3afd/models"
 
 	"github.com/rs/zerolog/log"
-	"github.com/safchain/ethtool"
 )
 
 type NFConfigs struct {
@@ -855,29 +854,5 @@ func (c *NFConfigs) RemoveMissingNetIfacesNBPFProgsInConfigs(cfgbpfProgs map[str
 	}()
 
 	wg.Wait()
-	return nil
-}
-
-// DisableLRO - XDP programs are failing when LRO is enabled, to fix this we use to manually disable.
-// # ethtool -K ens7 lro off
-// # ethtool -k ens7 | grep large-receive-offload
-// large-receive-offload: off
-func DisableLRO(ifaceName string) error {
-	ethHandle, err := ethtool.NewEthtool()
-	if err != nil {
-		err = fmt.Errorf("ethtool failed to get the handle %w", err)
-		log.Error().Err(err).Msg("")
-		return err
-	}
-	defer ethHandle.Close()
-
-	config := make(map[string]bool, 1)
-	config["rx-lro"] = false
-	if err := ethHandle.Change(ifaceName, config); err != nil {
-		err = fmt.Errorf("ethtool failed to disable LRO on %s with err %w", ifaceName, err)
-		log.Error().Err(err).Msg("")
-		return err
-	}
-
 	return nil
 }
