@@ -112,3 +112,19 @@ func VerifyNMountBPFFS() error {
 	}
 	return nil
 }
+
+// This method get the Linux distribution Codename. This logic works on ubuntu
+// Here assumption is all edge nodes are running with lsb modules.
+// It returns empty string in case of error
+func GetPlatform() (string, error) {
+
+	linuxDistrib := execCommand("lsb_release", "-cs")
+	var out bytes.Buffer
+	linuxDistrib.Stdout = &out
+
+	if err := linuxDistrib.Run(); err != nil {
+		return "", fmt.Errorf("l3afd/nf : Failed to run command with error: %w", err)
+	}
+
+	return strings.TrimSpace(string(out.Bytes())), nil
+}

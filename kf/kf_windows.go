@@ -19,3 +19,7 @@ func (b *BPF) SetPrLimits() error {
 func VerifyNMountBPFFS() error {
 	return nil
 }
+
+func GetPlatform() (string, error) {
+    return "Windows", nil
+}

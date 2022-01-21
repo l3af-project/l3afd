@@ -154,22 +154,6 @@ func LoadRootProgram(ifaceName string, direction string, eBPFType string, conf *
 	return rootProgBPF, nil
 }
 
-// This method get the Linux distribution Codename. This logic works on ubuntu
-// Here assumption is all edge nodes are running with lsb modules.
-// It returns empty string in case of error
-func LinuxDistribution() (string, error) {
-
-	linuxDistrib := execCommand("lsb_release", "-cs")
-	var out bytes.Buffer
-	linuxDistrib.Stdout = &out
-
-	if err := linuxDistrib.Run(); err != nil {
-		return "", fmt.Errorf("l3afd/nf : Failed to run command with error: %w", err)
-	}
-
-	return strings.TrimSpace(string(out.Bytes())), nil
-}
-
 // Stop the NF process if running outside l3afd
 func StopExternalRunningProcess(processName string) error {
 	// validate process name
@@ -244,7 +228,7 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 
 	if len(b.Program.CmdStop) < 1 {
 		if err := b.Cmd.Process.Kill(); err != nil {
-			return fmt.Errorf("BPFProgram %s syscall.SIGTERM failed with error: %w", b.Program.Name, err)
+			return fmt.Errorf("BPFProgram %s kill failed with error: %w", b.Program.Name, err)
 		}
 		if b.Cmd != nil {
 			if err := b.Cmd.Wait(); err != nil {
@@ -529,12 +513,12 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 		return fmt.Errorf("unknown KF repo url format: %w", err)
 	}
 
-	linuxDist, err := LinuxDistribution()
+	platform, err := GetPlatform()
 	if err != nil {
 		return fmt.Errorf("failed to find KF repo download path: %w", err)
 	}
 
-	kfRepoURL.Path = path.Join(kfRepoURL.Path, b.Program.Name, b.Program.Version, linuxDist, b.Program.Artifact)
+	kfRepoURL.Path = path.Join(kfRepoURL.Path, b.Program.Name, b.Program.Version, platform, b.Program.Artifact)
 	log.Info().Msgf("Downloading - %s", kfRepoURL)
 
 	timeOut := time.Duration(conf.HttpClientTimeout) * time.Second
