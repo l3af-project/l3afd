@@ -6,22 +6,17 @@
 package kf
 
 import (
-	"container/list"
-	"context"
-	"encoding/json"
+	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
-	"reflect"
 	"strings"
-	"sync"
 	"syscall"
-	"time"
-
-	"github.com/l3af-project/l3afd/config"
-	"github.com/l3af-project/l3afd/models"
+	"unsafe"
 
 	"github.com/rs/zerolog/log"
 	"github.com/safchain/ethtool"
+	"golang.org/x/sys/unix"
 )
 
 // DisableLRO - XDP programs are failing when LRO is enabled, to fix this we use to manually disable.
@@ -129,19 +124,19 @@ func GetPlatform() (string, error) {
 	return strings.TrimSpace(string(out.Bytes())), nil
 }
 
-func IsProcessRunning(pid int, name string) (bool, string) {
-    procState, err := ioutil.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
-    if err != nil {
-        return false, fmt.Errorf("BPF Program not running %s because of error: %w", name, err)
-    }
-    var u1, u2, state string
-    _, err = fmt.Sscanf(string(procState), "%s %s %s", &u1, &u2, &state)
-    if err != nil {
-        return false, fmt.Errorf("Failed to scan proc state with error: %w", err)
-    }
-    if state == "Z" {
-        return false, fmt.Errorf("Process %d in Zombie state", pid)
-    }
+func IsProcessRunning(pid int, name string) (bool, error) {
+	procState, err := ioutil.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
+	if err != nil {
+		return false, fmt.Errorf("BPF Program not running %s because of error: %w", name, err)
+	}
+	var u1, u2, state string
+	_, err = fmt.Sscanf(string(procState), "%s %s %s", &u1, &u2, &state)
+	if err != nil {
+		return false, fmt.Errorf("Failed to scan proc state with error: %w", err)
+	}
+	if state == "Z" {
+		return false, fmt.Errorf("Process %d in Zombie state", pid)
+	}
 
-    return true, nil
+	return true, nil
 }

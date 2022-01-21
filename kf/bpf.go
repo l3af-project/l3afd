@@ -574,18 +574,6 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 	return nil
 }
 
-// assertExecutable checks for executable permissions
-func assertExecutable(fPath string) error {
-	info, err := os.Stat(fPath)
-	if err != nil {
-		return fmt.Errorf("Could not stat file: %s with error: %w", fPath, err)
-	}
-	if (info.Mode()&os.ModePerm)&os.FileMode(executePerm) == 0 {
-		return fmt.Errorf("File: %s, is not executable.", fPath)
-	}
-	return nil
-}
-
 // create rules file
 func (b *BPF) createUpdateRulesFile(direction string) (string, error) {
 
