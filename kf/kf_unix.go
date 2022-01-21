@@ -128,3 +128,20 @@ func GetPlatform() (string, error) {
 
 	return strings.TrimSpace(string(out.Bytes())), nil
 }
+
+func IsProcessRunning(pid int, name string) (bool, string) {
+    procState, err := ioutil.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
+    if err != nil {
+        return false, fmt.Errorf("BPF Program not running %s because of error: %w", name, err)
+    }
+    var u1, u2, state string
+    _, err = fmt.Sscanf(string(procState), "%s %s %s", &u1, &u2, &state)
+    if err != nil {
+        return false, fmt.Errorf("Failed to scan proc state with error: %w", err)
+    }
+    if state == "Z" {
+        return false, fmt.Errorf("Process %d in Zombie state", pid)
+    }
+
+    return true, nil
+}

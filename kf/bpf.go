@@ -476,20 +476,7 @@ func (b *BPF) isRunning() (bool, error) {
 		return false, errors.New("No process id found")
 	}
 
-	procState, err := ioutil.ReadFile(fmt.Sprintf("/proc/%d/stat", b.Cmd.Process.Pid))
-	if err != nil {
-		return false, fmt.Errorf("BPF Program not running %s because of error: %w", b.Program.Name, err)
-	}
-	var u1, u2, state string
-	_, err = fmt.Sscanf(string(procState), "%s %s %s", &u1, &u2, &state)
-	if err != nil {
-		return false, fmt.Errorf("Failed to scan proc state with error: %w", err)
-	}
-	if state == "Z" {
-		return false, fmt.Errorf("Process %d in Zombie state", b.Cmd.Process.Pid)
-	}
-
-	return true, nil
+    return IsProcessRunning(b.Cmd.Process.Pid, b.Program.Name)
 }
 
 // Check binary already exists
