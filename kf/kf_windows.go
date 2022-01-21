@@ -14,3 +14,8 @@ func DisableLRO(ifaceName string) error {
 func (b *BPF) SetPrLimits() error {
 	return nil
 }
+
+// VerifyNMountBPFFS - Mounting bpf filesystem
+func VerifyNMountBPFFS() error {
+	return nil
+}

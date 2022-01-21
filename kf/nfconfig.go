@@ -9,11 +9,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"reflect"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/l3af-project/l3afd/config"
@@ -681,27 +679,6 @@ func (c *NFConfigs) StopRootProgram(ifaceName, direction string) error {
 		return fmt.Errorf("unknown direction type")
 	}
 
-	return nil
-}
-
-// VerifyNMountBPFFS - Mounting bpf filesystem
-func VerifyNMountBPFFS() error {
-	dstPath := "/sys/fs/bpf"
-	srcPath := "bpffs"
-	fstype := "bpf"
-	flags := 0
-
-	mnts, err := ioutil.ReadFile("/proc/mounts")
-	if err != nil {
-		return fmt.Errorf("failed to read procfs: %v", err)
-	}
-
-	if strings.Contains(string(mnts), dstPath) == false {
-		log.Warn().Msg("bpf filesystem is not mounted going to mount")
-		if err = syscall.Mount(srcPath, dstPath, fstype, uintptr(flags), ""); err != nil {
-			return fmt.Errorf("unable to mount %s at %s: %s", srcPath, dstPath, err)
-		}
-	}
 	return nil
 }
 

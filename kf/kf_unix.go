@@ -91,3 +91,24 @@ func (b *BPF) SetPrLimits() error {
 
 	return nil
 }
+
+// VerifyNMountBPFFS - Mounting bpf filesystem
+func VerifyNMountBPFFS() error {
+	dstPath := "/sys/fs/bpf"
+	srcPath := "bpffs"
+	fstype := "bpf"
+	flags := 0
+
+	mnts, err := ioutil.ReadFile("/proc/mounts")
+	if err != nil {
+		return fmt.Errorf("failed to read procfs: %v", err)
+	}
+
+	if strings.Contains(string(mnts), dstPath) == false {
+		log.Warn().Msg("bpf filesystem is not mounted going to mount")
+		if err = syscall.Mount(srcPath, dstPath, fstype, uintptr(flags), ""); err != nil {
+			return fmt.Errorf("unable to mount %s at %s: %s", srcPath, dstPath, err)
+		}
+	}
+	return nil
+}
