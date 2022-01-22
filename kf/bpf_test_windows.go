@@ -11,15 +11,15 @@ import (
 )
 
 func GetTestNonexecutablePathName() string {
-	return "/windows/system32/drivers/etc/host"
+    return "c:/windows/system32/drivers/etc/host"
 }
 
 func GetTestExecutablePathName() string {
-	return "/windows/system32/net.exe"
+    return "c:/windows/system32/net.exe"
 }
 
 func GetTestExecutablePath() string {
-	return "/windows/system32"
+    return "c:/windows/system32"
 }
 
 func GetTestExecutableName() string {
