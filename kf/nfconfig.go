@@ -173,53 +173,60 @@ func (c *NFConfigs) Get(key string) ([]*models.L3afDNFConfigDetail, bool) {
 	return bpfList, true
 }
 
-// This method to stop all the network functions and delete elements in the list
+// Close stop all the network functions and delete elements in the list
 func (c *NFConfigs) Close(ctx context.Context) error {
 	ticker := time.NewTicker(shutdownInterval)
 	defer ticker.Stop()
-	for {
-		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for ifaceName, _ := range c.IngressXDPBpfs {
-				if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.XDPIngressType); err != nil {
-					log.Warn().Err(err).Msg("failed to Close Ingress XDP BPF Program")
-				}
-				delete(c.IngressXDPBpfs, ifaceName)
-			}
-		}()
+	doneCh := make(chan struct{})
+	var wg sync.WaitGroup
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for ifaceName, _ := range c.IngressTCBpfs {
-				if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.IngressType); err != nil {
-					log.Warn().Err(err).Msg("failed to Close Ingress TC BPF Program")
-				}
-				delete(c.IngressTCBpfs, ifaceName)
-			}
-		}()
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for ifaceName, _ := range c.EgressTCBpfs {
-				if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.EgressType); err != nil {
-					log.Warn().Err(err).Msg("failed to Close Egress TC BPF Program")
-				}
-				delete(c.EgressTCBpfs, ifaceName)
-			}
-		}()
-
-		// Wait for all NF's to stop.
+	// wait for waitGroup to shut down
+	go func() {
 		wg.Wait()
+		close(doneCh)
+	}()
 
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-ticker.C:
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for ifaceName, _ := range c.IngressXDPBpfs {
+			if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.XDPIngressType); err != nil {
+				log.Warn().Err(err).Msg("failed to Close Ingress XDP BPF Program")
+			}
+			delete(c.IngressXDPBpfs, ifaceName)
 		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for ifaceName, _ := range c.IngressTCBpfs {
+			if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.IngressType); err != nil {
+				log.Warn().Err(err).Msg("failed to Close Ingress TC BPF Program")
+			}
+			delete(c.IngressTCBpfs, ifaceName)
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for ifaceName, _ := range c.EgressTCBpfs {
+			if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.EgressType); err != nil {
+				log.Warn().Err(err).Msg("failed to Close Egress TC BPF Program")
+			}
+			delete(c.EgressTCBpfs, ifaceName)
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-ticker.C:
+		// didn't close successfully
+		return fmt.Errorf("nfconfig close didn't got processed in shutdownInterval ms %v", shutdownInterval)
+	case <-doneCh:
+		// we deleted successfully
 	}
 
 	return nil
