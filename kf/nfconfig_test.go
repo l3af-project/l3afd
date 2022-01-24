@@ -501,7 +501,7 @@ func TestNFConfigs_Close(t *testing.T) {
 				hostConfig:     nil,
 				processMon:     pMon,
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
