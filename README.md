@@ -24,3 +24,8 @@ by multiple sources.
 
 See our [L3AF Development Environment](https://github.com/l3af-project/l3af-arch/tree/main/dev_environment)
 for a quick and easy way to try out L3AF on your local machine.
+
+# Contributing
+
+Contributing to L3afd is fun. To get started:
+- [Contributing guide](https://github.com/l3af-project/l3af-arch/blob/main/CONTRIBUTING.md)
