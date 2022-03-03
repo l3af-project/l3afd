@@ -1,7 +1,7 @@
 // Copyright Contributors to the L3AF Project.
 // SPDX-License-Identifier: Apache-2.0
 
-// Package nf provides primitives for BPF programs / Network Functions.
+// Package kf provides primitives for BPF programs / Network Functions.
 package kf
 
 import (
@@ -23,7 +23,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 	"unsafe"
 
@@ -34,7 +33,6 @@ import (
 	"github.com/cilium/ebpf"
 	ps "github.com/mitchellh/go-ps"
 	"github.com/rs/zerolog/log"
-	"golang.org/x/sys/unix"
 )
 
 var (
@@ -156,22 +154,6 @@ func LoadRootProgram(ifaceName string, direction string, eBPFType string, conf *
 	return rootProgBPF, nil
 }
 
-// This method get the Linux distribution Codename. This logic works on ubuntu
-// Here assumption is all edge nodes are running with lsb modules.
-// It returns empty string in case of error
-func LinuxDistribution() (string, error) {
-
-	linuxDistrib := execCommand("lsb_release", "-cs")
-	var out bytes.Buffer
-	linuxDistrib.Stdout = &out
-
-	if err := linuxDistrib.Run(); err != nil {
-		return "", fmt.Errorf("l3afd/nf : Failed to run command with error: %w", err)
-	}
-
-	return strings.TrimSpace(string(out.Bytes())), nil
-}
-
 // Stop the NF process if running outside l3afd
 func StopExternalRunningProcess(processName string) error {
 	// validate process name
@@ -195,7 +177,10 @@ func StopExternalRunningProcess(processName string) error {
 		if strings.Contains(process.Executable(), psName) {
 			if process.PPid() != myPid {
 				log.Warn().Msgf("found process id %d name %s ppid %d, stopping it", process.Pid(), process.Executable(), process.PPid())
-				err := syscall.Kill(process.Pid(), syscall.SIGTERM)
+				osProcess, err := os.FindProcess(process.Pid())
+				if err == nil {
+					err = osProcess.Kill()
+				}
 				if err != nil {
 					return fmt.Errorf("external BPFProgram stop failed with error: %w", err)
 				}
@@ -242,8 +227,8 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	stats.Set(0.0, stats.NFRunning, b.Program.Name, direction)
 
 	if len(b.Program.CmdStop) < 1 {
-		if err := syscall.Kill(b.Cmd.Process.Pid, syscall.SIGTERM); err != nil {
-			return fmt.Errorf("BPFProgram %s syscall.SIGTERM failed with error: %w", b.Program.Name, err)
+		if err := b.Cmd.Process.Kill(); err != nil {
+			return fmt.Errorf("BPFProgram %s kill failed with error: %w", b.Program.Name, err)
 		}
 		if b.Cmd != nil {
 			if err := b.Cmd.Wait(); err != nil {
@@ -491,48 +476,7 @@ func (b *BPF) isRunning() (bool, error) {
 		return false, errors.New("No process id found")
 	}
 
-	procState, err := ioutil.ReadFile(fmt.Sprintf("/proc/%d/stat", b.Cmd.Process.Pid))
-	if err != nil {
-		return false, fmt.Errorf("BPF Program not running %s because of error: %w", b.Program.Name, err)
-	}
-	var u1, u2, state string
-	_, err = fmt.Sscanf(string(procState), "%s %s %s", &u1, &u2, &state)
-	if err != nil {
-		return false, fmt.Errorf("Failed to scan proc state with error: %w", err)
-	}
-	if state == "Z" {
-		return false, fmt.Errorf("Process %d in Zombie state", b.Cmd.Process.Pid)
-	}
-
-	return true, nil
-}
-
-// Set process resource limits only non-zero value
-func (b *BPF) SetPrLimits() error {
-	var rlimit unix.Rlimit
-
-	if b.Cmd == nil {
-		return errors.New("No Process to set limits")
-	}
-
-	if b.Program.Memory != 0 {
-		rlimit.Cur = uint64(b.Program.Memory)
-		rlimit.Max = uint64(b.Program.Memory)
-
-		if err := prLimit(b.Cmd.Process.Pid, unix.RLIMIT_AS, &rlimit); err != nil {
-			log.Error().Err(err).Msgf("Failed to set Memory limits - %s", b.Program.Name)
-		}
-	}
-
-	if b.Program.CPU != 0 {
-		rlimit.Cur = uint64(b.Program.CPU)
-		rlimit.Max = uint64(b.Program.CPU)
-		if err := prLimit(b.Cmd.Process.Pid, unix.RLIMIT_CPU, &rlimit); err != nil {
-			log.Error().Err(err).Msgf("Failed to set CPU limits - %s", b.Program.Name)
-		}
-	}
-
-	return nil
+    return IsProcessRunning(b.Cmd.Process.Pid, b.Program.Name)
 }
 
 // Check binary already exists
@@ -556,12 +500,12 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 		return fmt.Errorf("unknown KF repo url format: %w", err)
 	}
 
-	linuxDist, err := LinuxDistribution()
+	platform, err := GetPlatform()
 	if err != nil {
 		return fmt.Errorf("failed to find KF repo download path: %w", err)
 	}
 
-	kfRepoURL.Path = path.Join(kfRepoURL.Path, b.Program.Name, b.Program.Version, linuxDist, b.Program.Artifact)
+	kfRepoURL.Path = path.Join(kfRepoURL.Path, b.Program.Name, b.Program.Version, platform, b.Program.Artifact)
 	log.Info().Msgf("Downloading - %s", kfRepoURL)
 
 	timeOut := time.Duration(conf.HttpClientTimeout) * time.Second
@@ -627,34 +571,6 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 	newDir := strings.Split(b.Program.Artifact, ".")
 	b.FilePath = filepath.Join(tempDir, newDir[0])
 
-	return nil
-}
-
-// prLimit set the memory and cpu limits for the bpf program
-func prLimit(pid int, limit uintptr, rlimit *unix.Rlimit) error {
-	_, _, errno := unix.RawSyscall6(unix.SYS_PRLIMIT64,
-		uintptr(pid),
-		limit,
-		uintptr(unsafe.Pointer(rlimit)),
-		0, 0, 0)
-
-	if errno != 0 {
-		log.Error().Msgf("Failed to set prlimit for process %d and errorno %d", pid, errno)
-		return errors.New("Failed to set prlimit")
-	}
-
-	return nil
-}
-
-// assertExecutable checks for executable permissions
-func assertExecutable(fPath string) error {
-	info, err := os.Stat(fPath)
-	if err != nil {
-		return fmt.Errorf("Could not stat file: %s with error: %w", fPath, err)
-	}
-	if (info.Mode()&os.ModePerm)&os.FileMode(executePerm) == 0 {
-		return fmt.Errorf("File: %s, is not executable.", fPath)
-	}
 	return nil
 }
 

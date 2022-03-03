@@ -166,13 +166,13 @@ func TestBPF_Stop(t *testing.T) {
 				Program: models.BPFProgram{
 					Name:          "nfprogram",
 					Artifact:      "ls.tar.gz",
-					CmdStart:      "ls",
-					CmdStop:       "ls",
+					CmdStart:      GetTestExecutableName(),
+					CmdStop:       GetTestExecutableName(),
 					IsUserProgram: false,
 					AdminStatus:   "enabled",
 				},
-				Cmd:          fakeExecCommand("/bin/ls"),
-				FilePath:     "/bin",
+				Cmd:          fakeExecCommand(GetTestExecutablePathName()),
+				FilePath:     GetTestExecutablePath(),
 				RestartCount: 3,
 			},
 			wantErr: false,
@@ -221,13 +221,13 @@ func TestBPF_Start(t *testing.T) {
 				Program: models.BPFProgram{
 					Name:          "nfprogram",
 					Artifact:      "ls.tar.gz",
-					CmdStart:      "ls",
-					CmdStop:       "ls",
+					CmdStart:      GetTestExecutableName(),
+					CmdStop:       GetTestExecutableName(),
 					IsUserProgram: true,
 					AdminStatus:   "enabled",
 				},
 				Cmd:          nil,
-				FilePath:     "/bin",
+				FilePath:     GetTestExecutablePath(),
 				RestartCount: 0,
 			},
 			wantErr: false,
@@ -237,13 +237,13 @@ func TestBPF_Start(t *testing.T) {
 				Program: models.BPFProgram{
 					Name:          "nfprogram",
 					Artifact:      "ls.tar.gz",
-					CmdStart:      "ls",
-					CmdStop:       "ls",
+					CmdStart:      GetTestExecutableName(),
+					CmdStop:       GetTestExecutableName(),
 					IsUserProgram: false,
 					AdminStatus:   "enabled",
 				},
-				Cmd:          fakeExecCommand("/bin/ls"),
-				FilePath:     "/bin",
+				Cmd:          fakeExecCommand(GetTestExecutablePathName()),
+				FilePath:     GetTestExecutablePath(),
 				RestartCount: 0,
 			},
 			wantErr: true,
@@ -253,15 +253,15 @@ func TestBPF_Start(t *testing.T) {
 				Program: models.BPFProgram{
 					Name:          "nfprogram",
 					Artifact:      "ls.tar.gz",
-					CmdStart:      "ls",
-					CmdStop:       "ls",
+					CmdStart:      GetTestExecutableName(),
+					CmdStop:       GetTestExecutableName(),
 					IsUserProgram: true,
 					AdminStatus:   "enabled",
 					CPU:           100,
 					Memory:        1024,
 				},
-				Cmd:          fakeExecCommand("/bin/ls"),
-				FilePath:     "/bin",
+				Cmd:          fakeExecCommand(GetTestExecutablePathName()),
+				FilePath:     GetTestExecutablePath(),
 				RestartCount: 0,
 			},
 			wantErr: false,
@@ -343,7 +343,7 @@ func TestBPF_GetArtifacts(t *testing.T) {
 		args    args
 		wantErr bool
 	}{
-		{name: "EmptyArtifcat",
+		{name: "EmptyArtifact",
 			fields: fields{
 				Program:      models.BPFProgram{},
 				Cmd:          nil,
@@ -353,7 +353,7 @@ func TestBPF_GetArtifacts(t *testing.T) {
 			args:    args{conf: &config.Config{BPFDir: "/tmp"}},
 			wantErr: true,
 		},
-		{name: "DummyArtifcat",
+		{name: "DummyArtifact",
 			fields: fields{
 				Program: models.BPFProgram{
 					Artifact: "dummy.tar.gz",
@@ -452,14 +452,14 @@ func Test_assertExecute(t *testing.T) {
 		{
 			name: "ValidFilepath",
 			args: args{
-				filepath: "/bin/ps",
+				filepath: GetTestExecutablePathName(),
 			},
 			wantErr: false,
 		},
 		{
 			name: "ValidFilepathWihoutExecute",
 			args: args{
-				filepath: "/var/log/syslog",
+				filepath: GetTestNonexecutablePathName(),
 			},
 			wantErr: true,
 		},
