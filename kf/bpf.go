@@ -130,8 +130,11 @@ func LoadRootProgram(ifaceName string, direction string, eBPFType string, conf *
 	}
 
 	// Loading default arguments
-	rootProgBPF.Program.AddStartArgs(models.L3afDNFArgs{Key: "cmd", Value: models.StartType})
-	rootProgBPF.Program.AddStopArgs(models.L3afDNFArgs{Key: "cmd", Value: models.StopType})
+	//rootProgBPF.Program.AddStartArgs(models.L3afDNFArgs{Key: "cmd", Value: models.StartType})
+	rootProgBPF.Program.StartArgs["cmd"] = models.StartType
+	rootProgBPF.Program.StopArgs["cmd"] = models.StopType
+
+	//rootProgBPF.Program.AddStopArgs(models.L3afDNFArgs{Key: "cmd", Value: models.StopType})
 
 	if err := rootProgBPF.VerifyAndGetArtifacts(conf); err != nil {
 		log.Error().Err(err).Msg("failed to get root artifacts")
@@ -262,8 +265,18 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	args = append(args, "--iface="+ifaceName)     // detaching from iface
 	args = append(args, "--direction="+direction) // xdpingress or ingress or egress
 
-	for _, val := range b.Program.StopArgs {
-		args = append(args, "--"+val.Key+"="+val.Value)
+	//for _, val := range b.Program.StopArgs {
+	//	args = append(args, "--"+val.Key+"="+val.Value)
+	//}
+
+	for k, val := range b.Program.StopArgs {
+		if v, ok := val.(string); !ok {
+			err := fmt.Errorf("stop args is not a string for the ebpf program %s", b.Program.Name)
+			log.Error().Err(err).Msgf("failed to convert stop args value into string for program %s", b.Program.Name)
+			return err
+		} else {
+			args = append(args, "--"+k+"="+v)
+		}
 	}
 
 	log.Info().Msgf("bpf program stop command : %s %v", cmd, args)
@@ -336,8 +349,18 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		}
 	}
 
-	for _, val := range b.Program.StartArgs {
-		args = append(args, "--"+val.Key+"="+val.Value)
+	//for _, val := range b.Program.StartArgs {
+	//	args = append(args, "--"+val.Key+"="+val.Value)
+	//}
+
+	for k, val := range b.Program.StartArgs {
+		if v, ok := val.(string); !ok {
+			err := fmt.Errorf("start args is not a string for the ebpf program %s", b.Program.Name)
+			log.Error().Err(err).Msgf("failed to convert start args value into string for program %s", b.Program.Name)
+			return err
+		} else {
+			args = append(args, "--"+k+"="+v)
+		}
 	}
 
 	log.Info().Msgf("BPF Program start command : %s %v", cmd, args)
@@ -415,18 +438,37 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 
 // Updates the config map_args
 func (b *BPF) Update(ifaceName, direction string) error {
-	for _, val := range b.Program.MapArgs {
-		log.Info().Msgf("Update map args key %s val %s", val.Key, val.Value)
-		// fetch the key in
-		bpfMap, ok := b.BpfMaps[val.Key]
-		if !ok {
-			if err := b.AddBPFMap(val.Key); err != nil {
-				return err
+	for k, val := range b.Program.MapArgs {
+
+		if v, ok := val.(string); !ok {
+			err := fmt.Errorf("update map args is not a string for the ebpf program %s", b.Program.Name)
+			log.Error().Err(err).Msgf("failed to convert map args value into string for program %s", b.Program.Name)
+			return err
+		} else {
+			log.Info().Msgf("Update map args key %s val %s", k, v)
+
+			bpfMap, ok := b.BpfMaps[k]
+			if !ok {
+				if err := b.AddBPFMap(k); err != nil {
+					return err
+				}
+				bpfMap, _ = b.BpfMaps[k]
 			}
-			bpfMap, _ = b.BpfMaps[val.Key]
+			bpfMap.Update(v)
 		}
 
-		bpfMap.Update(val.Value)
+		//log.Info().Msgf("Update map args key %s val %s", k, val)
+		//// fetch the key in
+		//bpfMap, ok := b.BpfMaps[k]
+		//if !ok {
+		//	if err := b.AddBPFMap(k); err != nil {
+		//		return err
+		//	}
+		//	bpfMap, _ = b.BpfMaps[k]
+		//}
+		//
+		//
+		//bpfMap.Update(val)
 	}
 	stats.Incr(stats.NFUpdateCount, b.Program.Name, direction)
 	return nil
@@ -444,10 +486,27 @@ func (b *BPF) isRunning() (bool, error) {
 
 		args := make([]string, 0, len(b.Program.StatusArgs)<<1)
 
-		for _, val := range b.Program.StatusArgs {
-			args = append(args, "--"+val.Key)
-			if len(val.Value) > 0 {
-				args = append(args, "="+val.Value)
+		//for _, val := range b.Program.StatusArgs {
+		//	args = append(args, "--"+val.Key)
+		//	if len(val.Value) > 0 {
+		//		args = append(args, "="+val.Value)
+		//	}
+		//}
+
+		//for k, val := range b.Program.StatusArgs {
+		//	args = append(args, "--"+k)
+		//	if len(val) > 0 {
+		//		args = append(args, "="+val)
+		//	}
+		//}
+
+		for k, val := range b.Program.StatusArgs {
+			if v, ok := val.(string); !ok {
+				err := fmt.Errorf("status args is not a string for the ebpf program %s", b.Program.Name)
+				log.Error().Err(err).Msgf("failed to convert status args value into string for program %s", b.Program.Name)
+				return false, err
+			} else {
+				args = append(args, "--"+k+"="+v)
 			}
 		}
 

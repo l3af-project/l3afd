@@ -1,3 +1,6 @@
+// Copyright Contributors to the L3AF Project.
+// SPDX-License-Identifier: Apache-2.0
+
 package models
 
 // l3afd constants
@@ -19,19 +22,21 @@ const (
 	XDPIngressType = "xdpingress"
 )
 
+type L3afDNFArgs map[string]interface{}
+
 // L3afDNFArgs defines NF program arguments
-type L3afDNFArgs struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
-}
+//type L3afDNFArgs struct {
+//	Key   string `json:"key"`
+//	Value string `json:"value"`
+//}
 
 // Equal compares two L3afDNFArgs for equality
-func (l *L3afDNFArgs) Equal(arg L3afDNFArgs) bool {
-	if l.Key != arg.Key || l.Value != arg.Value {
-		return false
-	}
-	return true
-}
+//func (l *L3afDNFArgs) Equal(arg L3afDNFArgs) bool {
+//	if l.Key != arg.Key || l.Value != arg.Value {
+//		return false
+//	}
+//	return true
+//}
 
 // BPFProgram defines BPF Program for specific host
 type BPFProgram struct {
@@ -55,37 +60,37 @@ type BPFProgram struct {
 	Rules          string              `json:"rules"`
 	ConfigFilePath string              `json:"config_file_path"`
 	CfgVersion     int                 `json:"cfg_version"`
-	StartArgs      []L3afDNFArgs       `json:"start_args"`
-	StopArgs       []L3afDNFArgs       `json:"stop_args"`
-	StatusArgs     []L3afDNFArgs       `json:"status_args"`
-	MapArgs        []L3afDNFArgs       `json:"map_args"`
-	ConfigArgs     []L3afDNFArgs       `json:"config_args"`
+	StartArgs      L3afDNFArgs         `json:"start_args"`
+	StopArgs       L3afDNFArgs         `json:"stop_args"`
+	StatusArgs     L3afDNFArgs         `json:"status_args"`
+	MapArgs        L3afDNFArgs         `json:"map_args"`
+	ConfigArgs     L3afDNFArgs         `json:"config_args"`
 	MonitorMaps    []L3afDNFMetricsMap `json:"monitor_maps"`
 }
 
-// AddStartArgs adds start arguments to a BPFProgram
-func (bpf *BPFProgram) AddStartArgs(args L3afDNFArgs) []L3afDNFArgs {
-	bpf.StartArgs = append(bpf.StartArgs, args)
-	return bpf.StartArgs
-}
-
-// AddStopArgs adds stop arguments to a BPFProgram
-func (bpf *BPFProgram) AddStopArgs(args L3afDNFArgs) []L3afDNFArgs {
-	bpf.StopArgs = append(bpf.StopArgs, args)
-	return bpf.StopArgs
-}
-
-// AddStatusArgs adds status arguments to a BPFProgram
-func (bpf *BPFProgram) AddStatusArgs(args L3afDNFArgs) []L3afDNFArgs {
-	bpf.StatusArgs = append(bpf.StatusArgs, args)
-	return bpf.StatusArgs
-}
-
-// AddMapArgs adds map arguments to a BPFProgram
-func (bpf *BPFProgram) AddMapArgs(args L3afDNFArgs) []L3afDNFArgs {
-	bpf.MapArgs = append(bpf.MapArgs, args)
-	return bpf.MapArgs
-}
+//// AddStartArgs adds start arguments to a BPFProgram
+//func (bpf *BPFProgram) AddStartArgs(args L3afDNFArgs) []L3afDNFArgs {
+//	bpf.StartArgs = append(bpf.StartArgs, args)
+//	return bpf.StartArgs
+//}
+//
+//// AddStopArgs adds stop arguments to a BPFProgram
+//func (bpf *BPFProgram) AddStopArgs(args L3afDNFArgs) []L3afDNFArgs {
+//	bpf.StopArgs = append(bpf.StopArgs, args)
+//	return bpf.StopArgs
+//}
+//
+//// AddStatusArgs adds status arguments to a BPFProgram
+//func (bpf *BPFProgram) AddStatusArgs(args L3afDNFArgs) []L3afDNFArgs {
+//	bpf.StatusArgs = append(bpf.StatusArgs, args)
+//	return bpf.StatusArgs
+//}
+//
+//// AddMapArgs adds map arguments to a BPFProgram
+//func (bpf *BPFProgram) AddMapArgs(args L3afDNFArgs) []L3afDNFArgs {
+//	bpf.MapArgs = append(bpf.MapArgs, args)
+//	return bpf.MapArgs
+//}
 
 // L3afDNFConfigDetail defines map of host specific NF configurations
 type L3afDNFConfigDetail struct {
@@ -98,4 +103,16 @@ type L3afDNFMetricsMap struct {
 	Name       string `json:"name"`
 	Key        int    `json:"key"`
 	Aggregator string `json:"aggregator"`
+}
+
+type L3afBPFPrograms struct {
+	HostName    string       `json:"host_name"`    // host name or pod name
+	Version     string       `json:"version"`      // API version
+	BpfPrograms *BPFPrograms `json:"bpf_programs"` // list of bpf programs
+}
+
+type BPFPrograms struct {
+	XdpIngress []*BPFProgram `json:"xdp_ingress"` // list of xdp bpf programs
+	TCIngress  []*BPFProgram `json:"tc_ingress"`  // list of tc ingress bpf programs
+	TCEgress   []*BPFProgram `json:"tc_egress"`   // list of tc egress bpf programs
 }

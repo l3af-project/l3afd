@@ -840,3 +840,131 @@ func (c *NFConfigs) RemoveMissingNetIfacesNBPFProgsInConfigs(cfgbpfProgs map[str
 	wg.Wait()
 	return nil
 }
+
+// DisableLRO - XDP programs are failing when LRO is enabled, to fix this we use to manually disable.
+// # ethtool -K ens7 lro off
+// # ethtool -k ens7 | grep large-receive-offload
+// large-receive-offload: off
+func DisableLRO(ifaceName string) error {
+	ethHandle, err := ethtool.NewEthtool()
+	if err != nil {
+		err = fmt.Errorf("ethtool failed to get the handle %w", err)
+		log.Error().Err(err).Msg("")
+		return err
+	}
+	defer ethHandle.Close()
+
+	config := make(map[string]bool, 1)
+	config["rx-lro"] = false
+	if err := ethHandle.Change(ifaceName, config); err != nil {
+		err = fmt.Errorf("ethtool failed to disable LRO on %s with err %w", ifaceName, err)
+		log.Error().Err(err).Msg("")
+		return err
+	}
+
+	return nil
+}
+
+func (c *NFConfigs) DeployKF(ifaceName string, bpfProgs *models.BPFPrograms) error {
+	fmt.Printf("Iface : %s", ifaceName)
+	fmt.Println("Bpf :", bpfProgs)
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for _, bpfProg := range bpfProgs.XdpIngress {
+		if c.IngressXDPBpfs[ifaceName] == nil {
+			if bpfProg.AdminStatus == models.Enabled {
+				c.IngressXDPBpfs[ifaceName] = list.New()
+				if err := c.VerifyAndStartXDPRootProgram(ifaceName, bpfProg.EBPFType); err != nil {
+					c.IngressXDPBpfs[ifaceName] = nil
+					return fmt.Errorf("failed to chain XDP BPF programs: %w", err)
+				}
+				log.Info().Msgf("Push Back and Start XDP program : %s seq_id : %d", bpfProg.Name, bpfProg.SeqID)
+				if err := c.PushBackAndStartBPF(bpfProg, ifaceName, bpfProg.EBPFType); err != nil {
+					return fmt.Errorf("failed to update BPF Program: %w", err)
+				}
+			}
+		} else if err := c.VerifyNUpdateBPFProgram(bpfProg, ifaceName, bpfProg.EBPFType); err != nil {
+			return fmt.Errorf("failed to update xdp BPF Program: %w", err)
+		}
+	}
+
+	for _, bpfProg := range bpfProgs.TCIngress {
+		if c.IngressTCBpfs[ifaceName] == nil {
+			if bpfProg.AdminStatus == models.Enabled {
+				c.IngressTCBpfs[ifaceName] = list.New()
+				if err := c.VerifyAndStartTCRootProgram(ifaceName, bpfProg.EBPFType); err != nil {
+					c.IngressTCBpfs[ifaceName] = nil
+					return fmt.Errorf("failed to chain ingress tc bpf programs: %w", err)
+				}
+				if err := c.PushBackAndStartBPF(bpfProg, ifaceName, bpfProg.EBPFType); err != nil {
+					return fmt.Errorf("failed to update BPF Program: %w", err)
+				}
+			}
+		} else if err := c.VerifyNUpdateBPFProgram(bpfProg, ifaceName, bpfProg.EBPFType); err != nil {
+			return fmt.Errorf("failed to update BPF Program: %w", err)
+		}
+	}
+
+	for _, bpfProg := range bpfProgs.TCEgress {
+
+	}
+
+	for _, bpfProg := range bpfProgs {
+		switch bpfProg.EBPFType {
+		case models.XDPIngressType:
+			if c.IngressXDPBpfs[ifaceName] == nil {
+				if bpfProg.AdminStatus == models.Enabled {
+					c.IngressXDPBpfs[ifaceName] = list.New()
+					if err := c.VerifyAndStartXDPRootProgram(ifaceName, bpfProg.EBPFType); err != nil {
+						c.IngressXDPBpfs[ifaceName] = nil
+						return fmt.Errorf("failed to chain XDP BPF programs: %w", err)
+					}
+					log.Info().Msgf("Push Back and Start XDP program : %s seq_id : %d", bpfProg.Name, bpfProg.SeqID)
+					if err := c.PushBackAndStartBPF(bpfProg, ifaceName, bpfProg.EBPFType); err != nil {
+						return fmt.Errorf("failed to update BPF Program: %w", err)
+					}
+				}
+			} else if err := c.VerifyNUpdateBPFProgram(bpfProg, ifaceName, bpfProg.EBPFType); err != nil {
+				return fmt.Errorf("failed to update xdp BPF Program: %w", err)
+			}
+		case models.IngressType:
+			if c.IngressTCBpfs[ifaceName] == nil {
+				if bpfProg.AdminStatus == models.Enabled {
+					c.IngressTCBpfs[ifaceName] = list.New()
+					if err := c.VerifyAndStartTCRootProgram(ifaceName, bpfProg.EBPFType); err != nil {
+						c.IngressTCBpfs[ifaceName] = nil
+						return fmt.Errorf("failed to chain ingress tc bpf programs: %w", err)
+					}
+					if err := c.PushBackAndStartBPF(bpfProg, ifaceName, bpfProg.EBPFType); err != nil {
+						return fmt.Errorf("failed to update BPF Program: %w", err)
+					}
+				}
+			} else if err := c.VerifyNUpdateBPFProgram(bpfProg, ifaceName, bpfProg.EBPFType); err != nil {
+				return fmt.Errorf("failed to update BPF Program: %w", err)
+			}
+		case models.EgressType:
+			if c.EgressTCBpfs[ifaceName] == nil {
+				if bpfProg.AdminStatus == models.Enabled {
+					c.EgressTCBpfs[ifaceName] = list.New()
+					if err := c.VerifyAndStartTCRootProgram(ifaceName, bpfProg.EBPFType); err != nil {
+						c.EgressTCBpfs[ifaceName] = nil
+						return fmt.Errorf("failed to chain ingress tc bpf programs: %w", err)
+					}
+					if err := c.PushBackAndStartBPF(bpfProg, ifaceName, bpfProg.EBPFType); err != nil {
+						return fmt.Errorf("failed to update BPF Program: %w", err)
+					}
+				}
+			} else if err := c.VerifyNUpdateBPFProgram(bpfProg, ifaceName, bpfProg.EBPFType); err != nil {
+				return fmt.Errorf("failed to update BPF Program: %w", err)
+			}
+		}
+	}
+
+	// implement in config bridge
+	//if err := c.RemoveMissingNetIfacesNBPFProgsInConfigs(cfgbpfProgs); err != nil {
+	//      return fmt.Errorf("failed to remove missing network interfaces: %w", err)
+	//}
+	return nil
+}

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/l3af-project/l3afd/apis"
 	"github.com/l3af-project/l3afd/config"
 	"github.com/l3af-project/l3afd/kf"
 	"github.com/l3af-project/l3afd/pidfile"
@@ -112,7 +113,7 @@ func SetupNFConfigs(ctx context.Context, conf *config.Config) (*kf.NFConfigs, er
 		return nil, fmt.Errorf("error in NewNFConfigs setup: %v", err)
 	}
 
-	if err := kf.StartConfigWatcher(ctx, machineHostname, daemonName, conf, nfConfigs); err != nil {
+	if err := apis.StartConfigWatcher(ctx, machineHostname, daemonName, conf, nfConfigs); err != nil {
 		return nil, fmt.Errorf("error in version announcer: %v", err)
 	}
 
