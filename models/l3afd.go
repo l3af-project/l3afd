@@ -8,11 +8,8 @@ const (
 	Enabled  = "enabled"
 	Disabled = "disabled"
 
-	StartType  = "start"
-	StopType   = "stop"
-	StatusType = "status"
-	MapType    = "map"
-	ConfigType = "config"
+	StartType = "start"
+	StopType  = "stop"
 
 	XDPType = "xdp"
 	TCType  = "tc"
@@ -23,20 +20,6 @@ const (
 )
 
 type L3afDNFArgs map[string]interface{}
-
-// L3afDNFArgs defines NF program arguments
-//type L3afDNFArgs struct {
-//	Key   string `json:"key"`
-//	Value string `json:"value"`
-//}
-
-// Equal compares two L3afDNFArgs for equality
-//func (l *L3afDNFArgs) Equal(arg L3afDNFArgs) bool {
-//	if l.Key != arg.Key || l.Value != arg.Value {
-//		return false
-//	}
-//	return true
-//}
 
 // BPFProgram defines BPF Program for specific host
 type BPFProgram struct {
@@ -68,30 +51,6 @@ type BPFProgram struct {
 	MonitorMaps    []L3afDNFMetricsMap `json:"monitor_maps"`
 }
 
-//// AddStartArgs adds start arguments to a BPFProgram
-//func (bpf *BPFProgram) AddStartArgs(args L3afDNFArgs) []L3afDNFArgs {
-//	bpf.StartArgs = append(bpf.StartArgs, args)
-//	return bpf.StartArgs
-//}
-//
-//// AddStopArgs adds stop arguments to a BPFProgram
-//func (bpf *BPFProgram) AddStopArgs(args L3afDNFArgs) []L3afDNFArgs {
-//	bpf.StopArgs = append(bpf.StopArgs, args)
-//	return bpf.StopArgs
-//}
-//
-//// AddStatusArgs adds status arguments to a BPFProgram
-//func (bpf *BPFProgram) AddStatusArgs(args L3afDNFArgs) []L3afDNFArgs {
-//	bpf.StatusArgs = append(bpf.StatusArgs, args)
-//	return bpf.StatusArgs
-//}
-//
-//// AddMapArgs adds map arguments to a BPFProgram
-//func (bpf *BPFProgram) AddMapArgs(args L3afDNFArgs) []L3afDNFArgs {
-//	bpf.MapArgs = append(bpf.MapArgs, args)
-//	return bpf.MapArgs
-//}
-
 // L3afDNFConfigDetail defines map of host specific NF configurations
 type L3afDNFConfigDetail struct {
 	HostName          string                                    `json:"host_name"`
@@ -107,7 +66,7 @@ type L3afDNFMetricsMap struct {
 
 type L3afBPFPrograms struct {
 	HostName    string       `json:"host_name"`    // host name or pod name
-	Version     string       `json:"version"`      // API version
+	Iface       string       `json:"iface"`        // Interface name
 	BpfPrograms *BPFPrograms `json:"bpf_programs"` // list of bpf programs
 }
 

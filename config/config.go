@@ -63,11 +63,13 @@ type Config struct {
 	EBPFChainDebugEnabled bool
 
 	// l3af configs to listen addrs
-	L3afConfigsgRPCAddr    string
 	L3afConfigsRestAPIAddr string
+
+	// l3af config store
+	L3afConfigStoreFileName string
 }
 
-//ReadConfig - Initializes configuration from file
+// ReadConfig - Initializes configuration from file
 func ReadConfig(configPath string) (*Config, error) {
 
 	log.Info().Msgf("Reading configuration from: %s", configPath)
@@ -112,7 +114,7 @@ func ReadConfig(configPath string) (*Config, error) {
 		TCRootProgramIsUserProgram:  LoadOptionalConfigBool(confReader, "tc-root-program", "is-user-program", false),
 		EBPFChainDebugAddr:          LoadOptionalConfigString(confReader, "ebpf-chain-debug", "addr", "0.0.0.0:8899"),
 		EBPFChainDebugEnabled:       LoadOptionalConfigBool(confReader, "ebpf-chain-debug", "enabled", false),
-		L3afConfigsgRPCAddr:         LoadOptionalConfigString(confReader, "l3af-configs", "rpc-addr", "localhost:58898"),
 		L3afConfigsRestAPIAddr:      LoadOptionalConfigString(confReader, "l3af-configs", "restapi-addr", "localhost:53000"),
+		L3afConfigStoreFileName:     LoadOptionalConfigString(confReader, "l3af-config-store", "filename", "/etc/tb/l3afd/l3af-config.json"),
 	}, nil
 }

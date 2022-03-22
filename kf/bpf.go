@@ -75,7 +75,7 @@ func NewBpfProgram(ctx context.Context, program models.BPFProgram, logDir, dataC
 	return bpf
 }
 
-// Loading the Root Program for a given interface.
+// LoadRootProgram - Loading the Root Program for a given interface.
 func LoadRootProgram(ifaceName string, direction string, eBPFType string, conf *config.Config) (*BPF, error) {
 
 	log.Info().Msgf("LoadRootProgram iface %s direction %s ebpfType %s", ifaceName, direction, eBPFType)
@@ -95,6 +95,9 @@ func LoadRootProgram(ifaceName string, direction string, eBPFType string, conf *
 				CmdStatus:     "",
 				AdminStatus:   models.Enabled,
 				SeqID:         0,
+				StartArgs:     map[string]interface{}{},
+				StopArgs:      map[string]interface{}{},
+				StatusArgs:    map[string]interface{}{},
 			},
 			RestartCount: 0,
 			Cmd:          nil,
@@ -113,6 +116,9 @@ func LoadRootProgram(ifaceName string, direction string, eBPFType string, conf *
 				CmdStop:       conf.TCRootProgramCommand,
 				CmdStatus:     "",
 				AdminStatus:   models.Enabled,
+				StartArgs:     map[string]interface{}{},
+				StopArgs:      map[string]interface{}{},
+				StatusArgs:    map[string]interface{}{},
 			},
 			RestartCount: 0,
 			Cmd:          nil,
@@ -130,11 +136,8 @@ func LoadRootProgram(ifaceName string, direction string, eBPFType string, conf *
 	}
 
 	// Loading default arguments
-	//rootProgBPF.Program.AddStartArgs(models.L3afDNFArgs{Key: "cmd", Value: models.StartType})
 	rootProgBPF.Program.StartArgs["cmd"] = models.StartType
 	rootProgBPF.Program.StopArgs["cmd"] = models.StopType
-
-	//rootProgBPF.Program.AddStopArgs(models.L3afDNFArgs{Key: "cmd", Value: models.StopType})
 
 	if err := rootProgBPF.VerifyAndGetArtifacts(conf); err != nil {
 		log.Error().Err(err).Msg("failed to get root artifacts")
@@ -265,10 +268,6 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	args = append(args, "--iface="+ifaceName)     // detaching from iface
 	args = append(args, "--direction="+direction) // xdpingress or ingress or egress
 
-	//for _, val := range b.Program.StopArgs {
-	//	args = append(args, "--"+val.Key+"="+val.Value)
-	//}
-
 	for k, val := range b.Program.StopArgs {
 		if v, ok := val.(string); !ok {
 			err := fmt.Errorf("stop args is not a string for the ebpf program %s", b.Program.Name)
@@ -348,10 +347,6 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 			args = append(args, "--rules-file="+fileName)
 		}
 	}
-
-	//for _, val := range b.Program.StartArgs {
-	//	args = append(args, "--"+val.Key+"="+val.Value)
-	//}
 
 	for k, val := range b.Program.StartArgs {
 		if v, ok := val.(string); !ok {
@@ -456,19 +451,6 @@ func (b *BPF) Update(ifaceName, direction string) error {
 			}
 			bpfMap.Update(v)
 		}
-
-		//log.Info().Msgf("Update map args key %s val %s", k, val)
-		//// fetch the key in
-		//bpfMap, ok := b.BpfMaps[k]
-		//if !ok {
-		//	if err := b.AddBPFMap(k); err != nil {
-		//		return err
-		//	}
-		//	bpfMap, _ = b.BpfMaps[k]
-		//}
-		//
-		//
-		//bpfMap.Update(val)
 	}
 	stats.Incr(stats.NFUpdateCount, b.Program.Name, direction)
 	return nil
@@ -485,20 +467,6 @@ func (b *BPF) isRunning() (bool, error) {
 		}
 
 		args := make([]string, 0, len(b.Program.StatusArgs)<<1)
-
-		//for _, val := range b.Program.StatusArgs {
-		//	args = append(args, "--"+val.Key)
-		//	if len(val.Value) > 0 {
-		//		args = append(args, "="+val.Value)
-		//	}
-		//}
-
-		//for k, val := range b.Program.StatusArgs {
-		//	args = append(args, "--"+k)
-		//	if len(val) > 0 {
-		//		args = append(args, "="+val)
-		//	}
-		//}
 
 		for k, val := range b.Program.StatusArgs {
 			if v, ok := val.(string); !ok {

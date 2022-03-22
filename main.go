@@ -5,8 +5,12 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
+	"github.com/l3af-project/l3afd/apis/handlers"
+	"github.com/l3af-project/l3afd/models"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -89,6 +93,21 @@ func main() {
 		log.Fatal().Err(err).Msg("L3afd failed to start")
 	}
 
+	t, err := ReadConfigsFromConfigStore(conf)
+	if err != nil {
+		log.Error().Err(err).Msg("L3afd read configs from store failed")
+	}
+
+	if t != nil {
+		if err := kfConfigs.DeployeBPFPrograms(t); err != nil {
+			log.Error().Err(err).Msg("L3afd filed to deploy persistent configs from store")
+		}
+	}
+
+	if err := handlers.InitConfigs(kfConfigs); err != nil {
+		log.Fatal().Err(err).Msg("L3afd failed to initialise configs")
+	}
+
 	if conf.EBPFChainDebugEnabled {
 		kf.SetupKFDebug(conf.EBPFChainDebugAddr, kfConfigs)
 	}
@@ -164,4 +183,32 @@ func getKernelVersion() (string, error) {
 	}
 
 	return kernelVersion, nil
+}
+
+func ReadConfigsFromConfigStore(conf *config.Config) ([]models.L3afBPFPrograms, error) {
+
+	// check for persistent file
+	if _, err := os.Stat(conf.L3afConfigStoreFileName); errors.Is(err, os.ErrNotExist) {
+		log.Warn().Msgf("no persistent config exists")
+		return nil, nil
+	}
+
+	file, err := os.OpenFile(conf.L3afConfigStoreFileName, os.O_RDONLY, os.ModePerm)
+	defer file.Close()
+	if err != nil {
+		return nil, fmt.Errorf("failed to open persistent fil (%s): %v", conf.L3afConfigStoreFileName, err)
+	}
+
+	byteValue, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read persistent file (%s): %v", conf.L3afConfigStoreFileName, err)
+	}
+
+	var t []models.L3afBPFPrograms
+	if err = json.Unmarshal(byteValue, &t); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal persistent config json: %v", err)
+
+	}
+
+	return t, nil
 }

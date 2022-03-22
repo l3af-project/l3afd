@@ -6,7 +6,6 @@ package kf
 import (
 	"container/list"
 	"context"
-	"encoding/json"
 	"os"
 	"reflect"
 	"sync"
@@ -21,20 +20,24 @@ import (
 
 var (
 	machineHostname string
+	hostInterfaces  map[string]bool
 	pMon            *pCheck
 	mMon            *kfMetrics
 	val             []byte
-	valVerChange    []byte
-	valStatusChange []byte
+	valVerChange    *models.BPFPrograms
+	valStatusChange *models.BPFPrograms
 	ingressXDPBpfs  map[string]*list.List
 	ingressTCBpfs   map[string]*list.List
 	egressTCBpfs    map[string]*list.List
 	ifaceName       string
 	seqID           int
+	bpfProgs        *models.BPFPrograms
 )
 
 func setupDBTest() {
 	machineHostname, _ = os.Hostname()
+	hostInterfaces = make(map[string]bool)
+	hostInterfaces["enp0s3"] = true
 	pMon = NewpCheck(3, true, 10)
 	mMon = NewpKFMetrics(true, 30)
 
@@ -67,12 +70,12 @@ func setupValidBPF() {
 	return
 }
 
-func setupValData() {
-	cfg := make(map[string][]*models.BPFProgram)
+func setupBPFProgramData() {
+	bpfProgsTmp := &models.BPFPrograms{}
 	ifaceName = "dummy"
 	seqID = 1
 
-	bpfProg := models.BPFProgram{
+	bpfProg := &models.BPFProgram{
 		ID:            1,
 		Name:          "foo",
 		Artifact:      "foo.tar.gz",
@@ -81,19 +84,19 @@ func setupValData() {
 		Version:       "1.0",
 		IsUserProgram: true,
 		AdminStatus:   "ENABLED",
+		SeqID:         1,
 	}
-	cfg[ifaceName] = make([]*models.BPFProgram, 5)
-	cfg[ifaceName][seqID] = &bpfProg
-	val, _ = json.Marshal(cfg)
+	bpfProgsTmp.XdpIngress = append(bpfProgsTmp.XdpIngress, bpfProg)
+
+	bpfProgs = bpfProgsTmp
 }
 
-func setupValVersionChange() {
-
-	cfg := make(map[string]map[int]*models.BPFProgram)
+func setupBPFProgramVersionChange() {
+	bpfProgsTmp := &models.BPFPrograms{}
 	ifaceName = "dummy"
 	seqID = 1
 
-	bpfProg := models.BPFProgram{
+	bpfProg := &models.BPFProgram{
 		ID:            1,
 		Name:          "foo",
 		Artifact:      "foo.tar.gz",
@@ -103,18 +106,18 @@ func setupValVersionChange() {
 		IsUserProgram: true,
 		AdminStatus:   "ENABLED",
 	}
-	cfg[ifaceName] = make(map[int]*models.BPFProgram)
-	cfg[ifaceName][seqID] = &bpfProg
-	valVerChange, _ = json.Marshal(cfg)
+	bpfProgsTmp.XdpIngress = append(bpfProgsTmp.XdpIngress, bpfProg)
+	valVerChange = bpfProgsTmp
 }
 
-func setupValStatusChange() {
+func setupBPFProgramStatusChange() {
 
-	cfg := make(map[string][]*models.BPFProgram)
+	bpfProgsTmp := &models.BPFPrograms{}
+	//cfg := make(map[string][]*models.BPFProgram)
 	ifaceName = "dummy"
 	seqID = 1
 
-	bpfProg := models.BPFProgram{
+	bpfProg := &models.BPFProgram{
 		ID:            1,
 		Name:          "foo",
 		Artifact:      "foo.tar.gz",
@@ -124,10 +127,8 @@ func setupValStatusChange() {
 		IsUserProgram: true,
 		AdminStatus:   "DISABLED",
 	}
-	cfg[ifaceName] = make([]*models.BPFProgram, 5)
-
-	cfg[ifaceName][seqID] = &bpfProg
-	valStatusChange, _ = json.Marshal(cfg)
+	bpfProgsTmp.XdpIngress = append(bpfProgsTmp.XdpIngress, bpfProg)
+	valStatusChange = bpfProgsTmp
 }
 
 func TestNewNFConfigs(t *testing.T) {
@@ -139,6 +140,7 @@ func TestNewNFConfigs(t *testing.T) {
 		ctx      context.Context
 	}
 	setupDBTest()
+	hostIfaces, _ := getHostInterfaces()
 	tests := []struct {
 		name    string
 		args    args
@@ -152,6 +154,7 @@ func TestNewNFConfigs(t *testing.T) {
 				pMon:     pMon,
 				mMon:     mMon},
 			want: &NFConfigs{hostName: machineHostname,
+				hostInterfaces: hostIfaces,
 				IngressXDPBpfs: ingressXDPBpfs,
 				IngressTCBpfs:  ingressTCBpfs,
 				EgressTCBpfs:   egressTCBpfs,
@@ -177,9 +180,10 @@ func TestNewNFConfigs(t *testing.T) {
 	}
 }
 
-func TestNFConfigs_HandleAdded(t *testing.T) {
+func TestNFConfigs_Deploy(t *testing.T) {
 	type fields struct {
 		hostName       string
+		hostInterfaces map[string]bool
 		ingressXDPBpfs map[string]*list.List
 		ingressTCBpfs  map[string]*list.List
 		egressTCBpfs   map[string]*list.List
@@ -188,72 +192,16 @@ func TestNFConfigs_HandleAdded(t *testing.T) {
 		metricsMon     *kfMetrics
 	}
 	type args struct {
-		key []byte
-		val []byte
-	}
-	setupDBTest()
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		{
-			name: "EmptyBPFs",
-			fields: fields{
-				hostName:       machineHostname,
-				ingressXDPBpfs: make(map[string]*list.List),
-				ingressTCBpfs:  make(map[string]*list.List),
-				egressTCBpfs:   make(map[string]*list.List),
-				hostConfig:     nil,
-				processMon:     pMon,
-				metricsMon:     mMon,
-			},
-			args: args{
-				key: nil,
-				val: nil,
-			},
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := &NFConfigs{
-				hostName:       tt.fields.hostName,
-				IngressXDPBpfs: tt.fields.ingressXDPBpfs,
-				IngressTCBpfs:  tt.fields.ingressTCBpfs,
-				EgressTCBpfs:   tt.fields.egressTCBpfs,
-				hostConfig:     tt.fields.hostConfig,
-				processMon:     tt.fields.processMon,
-				kfMetricsMon:   tt.fields.metricsMon,
-			}
-			if err := cfg.HandleUpdated(tt.args.key, tt.args.val); (err != nil) != tt.wantErr {
-				t.Errorf("NFConfigs.HandleAdded() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestNFConfigs_HandleUpdated(t *testing.T) {
-	type fields struct {
-		hostName       string
-		ingressXDPBpfs map[string]*list.List
-		ingressTCBpfs  map[string]*list.List
-		egressTCBpfs   map[string]*list.List
-		hostConfig     *config.Config
-		processMon     *pCheck
-		metricsMon     *kfMetrics
-	}
-	type args struct {
-		key []byte
-		val []byte
+		iface    string
+		hostName string
+		bpfProgs *models.BPFPrograms
 	}
 
 	setupDBTest()
 	setupValidBPF()
-	setupValData()
-	setupValVersionChange()
-	setupValStatusChange()
+	setupBPFProgramData()
+	setupBPFProgramVersionChange()
+	setupBPFProgramStatusChange()
 
 	tests := []struct {
 		name    string
@@ -273,13 +221,14 @@ func TestNFConfigs_HandleUpdated(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				key: nil,
-				val: nil,
+				iface:    "",
+				hostName: machineHostname,
+				bpfProgs: nil,
 			},
-			wantErr: false,
+			wantErr: true,
 		},
 		{
-			name: "InvalidKey",
+			name: "InvalidHostName",
 			fields: fields{
 				hostName:       machineHostname,
 				ingressXDPBpfs: make(map[string]*list.List),
@@ -290,13 +239,14 @@ func TestNFConfigs_HandleUpdated(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				key: []byte("dummy"),
-				val: val,
+				iface:    "dummy",
+				hostName: "dummy",
+				bpfProgs: bpfProgs,
 			},
-			wantErr: false,
+			wantErr: true,
 		},
 		{
-			name: "ValidKeyInvalidVal",
+			name: "ValidHostNameInvalidIfaceName",
 			fields: fields{
 				hostName:       machineHostname,
 				ingressXDPBpfs: make(map[string]*list.List),
@@ -307,33 +257,36 @@ func TestNFConfigs_HandleUpdated(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				key: []byte("machineHostname"),
-				val: nil,
+				iface:    "dummy",
+				hostName: machineHostname,
+				bpfProgs: &models.BPFPrograms{},
 			},
-			wantErr: false,
+			wantErr: true,
 		},
 		{
-			name: "ValidKeyNVal",
+			name: "ValidHostNameValidIfaceName",
 			fields: fields{
 				hostName:       machineHostname,
+				hostInterfaces: map[string]bool{"enp0s3": true},
 				ingressXDPBpfs: make(map[string]*list.List),
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
-
-				hostConfig: &config.Config{BPFDir: "/tmp", KFRepoURL: "http://www.example.com"},
-				processMon: pMon,
-				metricsMon: mMon,
+				hostConfig:     nil,
+				processMon:     pMon,
+				metricsMon:     mMon,
 			},
 			args: args{
-				key: []byte("bpf_programs"),
-				val: val,
+				iface:    "enp0s3",
+				hostName: machineHostname,
+				bpfProgs: &models.BPFPrograms{},
 			},
 			wantErr: false,
 		},
 		{
-			name: "PrePopulatedBPF",
+			name: "TestEBPFRepoDownload",
 			fields: fields{
 				hostName:       machineHostname,
+				hostInterfaces: map[string]bool{"enp0s3": true},
 				ingressXDPBpfs: make(map[string]*list.List),
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
@@ -342,8 +295,9 @@ func TestNFConfigs_HandleUpdated(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				key: []byte("dummy"),
-				val: val,
+				iface:    "enp0s3",
+				hostName: machineHostname,
+				bpfProgs: bpfProgs,
 			},
 			wantErr: false,
 		},
@@ -351,6 +305,7 @@ func TestNFConfigs_HandleUpdated(t *testing.T) {
 			name: "NewBPFWithVersionChange",
 			fields: fields{
 				hostName:       machineHostname,
+				hostInterfaces: map[string]bool{"enp0s3": true},
 				ingressXDPBpfs: make(map[string]*list.List),
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
@@ -359,8 +314,9 @@ func TestNFConfigs_HandleUpdated(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				key: []byte("dummy"),
-				val: valVerChange,
+				iface:    "enp0s3",
+				hostName: machineHostname,
+				bpfProgs: valVerChange,
 			},
 			wantErr: false,
 		},
@@ -368,6 +324,7 @@ func TestNFConfigs_HandleUpdated(t *testing.T) {
 			name: "NewBPFWithStatusChange",
 			fields: fields{
 				hostName:       machineHostname,
+				hostInterfaces: map[string]bool{"enp0s3": true},
 				ingressXDPBpfs: make(map[string]*list.List),
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
@@ -376,8 +333,9 @@ func TestNFConfigs_HandleUpdated(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				key: []byte("nf"),
-				val: valStatusChange,
+				iface:    "enp0s3",
+				hostName: machineHostname,
+				bpfProgs: valStatusChange,
 			},
 			wantErr: false,
 		},
@@ -387,91 +345,16 @@ func TestNFConfigs_HandleUpdated(t *testing.T) {
 			cfg := &NFConfigs{
 				hostName: tt.fields.hostName,
 				//				configs:    tt.fields.configs,
+				hostInterfaces: tt.fields.hostInterfaces,
 				IngressXDPBpfs: tt.fields.ingressXDPBpfs,
 				IngressTCBpfs:  tt.fields.ingressTCBpfs,
 				EgressTCBpfs:   tt.fields.egressTCBpfs,
 				hostConfig:     tt.fields.hostConfig,
 				processMon:     tt.fields.processMon,
+				mu:             new(sync.Mutex),
 			}
-			if err := cfg.HandleUpdated(tt.args.key, tt.args.val); (err != nil) != tt.wantErr {
-				t.Errorf("NFConfigs.HandleUpdated() error = %#v, wantErr %#v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestNFConfigs_Get(t *testing.T) {
-	type fields struct {
-		hostName       string
-		ingressXDPBpfs map[string]*list.List
-		ingressTCBpfs  map[string]*list.List
-		egressTCBpfs   map[string]*list.List
-		hostConfig     *config.Config
-		processMon     *pCheck
-	}
-	type args struct {
-		key string
-	}
-
-	setupDBTest()
-	setupValidBPF()
-
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   []*models.L3afDNFConfigDetail
-		want1  bool
-	}{
-		{
-			name: "InValidKey",
-			fields: fields{
-				hostName:       machineHostname,
-				ingressXDPBpfs: ingressXDPBpfs,
-				ingressTCBpfs:  ingressTCBpfs,
-				egressTCBpfs:   egressTCBpfs,
-				hostConfig:     nil,
-				processMon:     pMon,
-			},
-			args: args{
-				key: "dummy123",
-			},
-			want:  nil,
-			want1: false,
-		},
-		{
-			name: "ValidKeyEmptyVal",
-			fields: fields{
-				hostName:       machineHostname,
-				ingressXDPBpfs: ingressXDPBpfs,
-				ingressTCBpfs:  ingressTCBpfs,
-				egressTCBpfs:   egressTCBpfs,
-				hostConfig:     nil,
-				processMon:     pMon,
-			},
-			args: args{
-				key: "nf",
-			},
-			want:  nil,
-			want1: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := &NFConfigs{
-				hostName:       tt.fields.hostName,
-				IngressXDPBpfs: tt.fields.ingressXDPBpfs,
-				IngressTCBpfs:  tt.fields.ingressTCBpfs,
-				EgressTCBpfs:   tt.fields.egressTCBpfs,
-				hostConfig:     tt.fields.hostConfig,
-				processMon:     tt.fields.processMon,
-			}
-			got, got1 := cfg.Get(tt.args.key)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NFConfigs.Get() got = %v, want %v", got, tt.want)
-			}
-			if got1 != tt.want1 {
-				t.Errorf("NFConfigs.Get() got1 = %v, want %v", got1, tt.want1)
+			if err := cfg.Deploy(tt.args.iface, tt.args.hostName, tt.args.bpfProgs); (err != nil) != tt.wantErr {
+				t.Errorf("NFConfigs.Deploy() error = %#v, wantErr %#v", err, tt.wantErr)
 			}
 		})
 	}
