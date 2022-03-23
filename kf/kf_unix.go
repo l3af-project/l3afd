@@ -87,14 +87,6 @@ func (b *BPF) SetPrLimits() error {
 	return nil
 }
 
-// ProcessTerminate - Send sigterm to the process
-func (b *BPF) ProcessTerminate() error {
-	if err := syscall.Kill(b.Cmd.Process.Pid, syscall.SIGTERM); err != nil {
-		return fmt.Errorf("BPFProgram %s SIGTERM failed with error: %w", b.Program.Name, err)
-	}
-	return nil
-}
-
 // VerifyNMountBPFFS - Mounting bpf filesystem
 func VerifyNMountBPFFS() error {
 	dstPath := "/sys/fs/bpf"
