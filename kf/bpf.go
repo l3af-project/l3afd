@@ -23,7 +23,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 	"unsafe"
 
@@ -228,7 +227,7 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	stats.Set(0.0, stats.NFRunning, b.Program.Name, direction)
 
 	if len(b.Program.CmdStop) < 1 {
-		if err := b.Cmd.Process.Signal(syscall.SIGTERM); err != nil {
+		if err := b.ProcessTerminate(); err != nil {
 			return fmt.Errorf("BPFProgram %s process terminate failed with error: %w", b.Program.Name, err)
 		}
 		if b.Cmd != nil {
