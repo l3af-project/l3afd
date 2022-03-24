@@ -227,8 +227,8 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	stats.Set(0.0, stats.NFRunning, b.Program.Name, direction)
 
 	if len(b.Program.CmdStop) < 1 {
-		if err := b.Cmd.Process.Kill(); err != nil {
-			return fmt.Errorf("BPFProgram %s kill failed with error: %w", b.Program.Name, err)
+		if err := b.ProcessTerminate(); err != nil {
+			return fmt.Errorf("BPFProgram %s process terminate failed with error: %w", b.Program.Name, err)
 		}
 		if b.Cmd != nil {
 			if err := b.Cmd.Wait(); err != nil {
@@ -476,7 +476,7 @@ func (b *BPF) isRunning() (bool, error) {
 		return false, errors.New("No process id found")
 	}
 
-    return IsProcessRunning(b.Cmd.Process.Pid, b.Program.Name)
+	return IsProcessRunning(b.Cmd.Process.Pid, b.Program.Name)
 }
 
 // Check binary already exists
