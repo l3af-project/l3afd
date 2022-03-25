@@ -1,9 +1,9 @@
 package routes
 
 import (
-	"github.com/go-chi/chi"
 	"time"
 
+	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/cors"
 	"github.com/rs/zerolog/log"

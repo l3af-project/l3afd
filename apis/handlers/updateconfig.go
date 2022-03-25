@@ -7,10 +7,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/rs/zerolog/log"
 
 	"io/ioutil"
 	"net/http"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/l3af-project/l3afd/kf"
 	"github.com/l3af-project/l3afd/models"

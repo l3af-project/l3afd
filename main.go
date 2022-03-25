@@ -9,8 +9,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/l3af-project/l3afd/apis/handlers"
-	"github.com/l3af-project/l3afd/models"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -18,8 +16,10 @@ import (
 	"time"
 
 	"github.com/l3af-project/l3afd/apis"
+	"github.com/l3af-project/l3afd/apis/handlers"
 	"github.com/l3af-project/l3afd/config"
 	"github.com/l3af-project/l3afd/kf"
+	"github.com/l3af-project/l3afd/models"
 	"github.com/l3af-project/l3afd/pidfile"
 	"github.com/l3af-project/l3afd/stats"
 

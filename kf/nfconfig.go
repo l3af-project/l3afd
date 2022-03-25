@@ -792,6 +792,18 @@ func (c *NFConfigs) EBPFPrograms(iface string) models.L3afBPFPrograms {
 	return BPFProgram
 }
 
+// EBPFProgramsAll - Method provides list of eBPF Programs running on all ifaces on the host
+func (c *NFConfigs) EBPFProgramsAll() []models.L3afBPFPrograms {
+
+	BPFPrograms := make([]models.L3afBPFPrograms, 0)
+	for iface := range c.ifaces {
+		BPFProgram := c.EBPFPrograms(iface)
+		BPFPrograms = append(BPFPrograms, BPFProgram)
+	}
+
+	return BPFPrograms
+}
+
 // RemoveMissingNetIfacesNBPFProgsInConfig - Stops running eBPF programs which are missing in the config
 func (c *NFConfigs) RemoveMissingNetIfacesNBPFProgsInConfig(bpfProgCfgs []models.L3afBPFPrograms) error {
 
