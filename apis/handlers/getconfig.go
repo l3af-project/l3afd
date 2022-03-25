@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/go-chi/chi"
+	chi "github.com/go-chi/chi/v5"
 	"github.com/l3af-project/l3afd/kf"
 	"github.com/rs/zerolog/log"
 )
