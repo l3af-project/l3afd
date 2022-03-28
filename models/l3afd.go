@@ -38,7 +38,7 @@ type BPFProgram struct {
 	CPU            int                 `json:"cpu"`
 	Memory         int                 `json:"memory"`
 	AdminStatus    string              `json:"admin_status"`
-	EBPFType       string              `json:"ebpf_type"`
+	ProgType       string              `json:"prog_type"`
 	RulesFile      string              `json:"rules_file"`
 	Rules          string              `json:"rules"`
 	ConfigFilePath string              `json:"config_file_path"`

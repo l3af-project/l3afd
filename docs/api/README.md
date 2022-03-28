@@ -10,7 +10,7 @@ The payload will look more like this standard JSON:
 [
   {
     "host_name" : "l3af-local-test",
-    "Iface" : "enp0s3",
+    "iface" : "enp0s3",
     "bpf_programs" : {
       "xdp_ingress" : [
         {
@@ -44,25 +44,25 @@ The payload will look more like this standard JSON:
 
 ## value
 
-|Key|Type| Example                                                                    | Description                                                                                                                      |
-|--- |--- |----------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------|
-|name|string| ratelimiting                                                               | Name of the eBPF Program                                                                                                         |
-|seq_id|number| `1`                                                                        | Position of the eBPF program in the chain. Count starts at 1.                                                                    |
-|artifact|string| `"l3af_ratelimiting.tar.gz"`                                               | Userspace eBPF program binary and kernel eBPF byte code in tar.gz format                                                         |
-|map_name|string| `"/sys/fs/bpf/ep1_next_prog_array"`                                        | Chaining program map in the file system with path. This should match the eBPF program code.                                      |
-|cmd_start|string| `"ratelimiting"`                                                           | The command used to start the eBPF program. Usually the userspace eBPF program binary name.                                      |
-|cmd_stop|string|| The command used stop the eBPF program                                     |
-|cmd_status|string|| The command used to get the status the eBPF program                        |
-|version|string| `"latest"`                                                                 | The version of the eBPF Program                                                                                                  |
-|is_user_program|boolean| `true` or `false`                                                          | Whether the userspace eBPF program continues running after the kernel eBPF is started                                            |
-|admin_status|string| `"enabled"` or `"disabled"`                                                | This represents the program status. `"enabled"` means to be started if not running.  `"disabled"` means to be stopped if running |
-|ebpf_type|string| `"XDP"` or `"TC"`                                                          | Type of eBPF program. Currently only XDP and TC network programs are supported.                                                  |
-|cfg_version|number| `1`                                                                        | Payload version number                                                                                                           |
-|start_args|array of [start_args](#start_args) objects| `[{"collector_ip": "10.10.10.2", "verbose":"2"}`]                          | Argument list passed while starting the eBPF Program                                                                             |
-|stop_args|array of [stop_args](#stop_args) objects|| Argument list passed while stopping the eBPF Program                       |
-|status_args|array of [status_args](#status_args) objects|| Argument list passed while checking the running status of the eBPF Program |
-|map_args|array of [map_args](#map_args) objects|| eBPF map to be updated with the value passed in the config                 |
-|monitor_maps|array of [monitor_maps](#monitor_maps) objects| `[{"name":"cl_drop_count_map","key":0,"aggregator":"scalar"}]`             | The eBPF maps to monitor for metrics and how to aggregate metrics information at each interval metrics are sampled               |
+| Key             |Type| Example                                                                    | Description                                                                                                                      |
+|-----------------|--- |----------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------|
+| name            |string| ratelimiting                                                               | Name of the eBPF Program                                                                                                         |
+| seq_id          |number| `1`                                                                        | Position of the eBPF program in the chain. Count starts at 1.                                                                    |
+| artifact        |string| `"l3af_ratelimiting.tar.gz"`                                               | Userspace eBPF program binary and kernel eBPF byte code in tar.gz format                                                         |
+| map_name        |string| `"/sys/fs/bpf/ep1_next_prog_array"`                                        | Chaining program map in the file system with path. This should match the eBPF program code.                                      |
+| cmd_start       |string| `"ratelimiting"`                                                           | The command used to start the eBPF program. Usually the userspace eBPF program binary name.                                      |
+| cmd_stop        |string|| The command used stop the eBPF program                                     |
+| cmd_status      |string|| The command used to get the status the eBPF program                        |
+| version         |string| `"latest"`                                                                 | The version of the eBPF Program                                                                                                  |
+| is_user_program |boolean| `true` or `false`                                                          | Whether the userspace eBPF program continues running after the kernel eBPF is started                                            |
+| admin_status    |string| `"enabled"` or `"disabled"`                                                | This represents the program status. `"enabled"` means to be started if not running.  `"disabled"` means to be stopped if running |
+| prog_type       |string| `"xdp"` or `"tc"`                                                          | Type of eBPF program. Currently only XDP and TC network programs are supported.                                                  |
+| cfg_version     |number| `1`                                                                        | Payload version number                                                                                                           |
+| start_args      |array of [start_args](#start_args) objects| `[{"collector_ip": "10.10.10.2", "verbose":"2"}`]                          | Argument list passed while starting the eBPF Program                                                                             |
+| stop_args       |array of [stop_args](#stop_args) objects|| Argument list passed while stopping the eBPF Program                       |
+| status_args     |array of [status_args](#status_args) objects|| Argument list passed while checking the running status of the eBPF Program |
+| map_args        |array of [map_args](#map_args) objects|| eBPF map to be updated with the value passed in the config                 |
+| monitor_maps    |array of [monitor_maps](#monitor_maps) objects| `[{"name":"cl_drop_count_map","key":0,"aggregator":"scalar"}]`             | The eBPF maps to monitor for metrics and how to aggregate metrics information at each interval metrics are sampled               |
 
 Note: `name`, `version`, the Linux distribution name, and `artifact` are
 combined with the configured KF repo URL into the path that is used to download

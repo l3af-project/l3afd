@@ -76,12 +76,12 @@ func NewBpfProgram(ctx context.Context, program models.BPFProgram, logDir, dataC
 }
 
 // LoadRootProgram - Loading the Root Program for a given interface.
-func LoadRootProgram(ifaceName string, direction string, eBPFType string, conf *config.Config) (*BPF, error) {
+func LoadRootProgram(ifaceName string, direction string, progType string, conf *config.Config) (*BPF, error) {
 
-	log.Info().Msgf("LoadRootProgram iface %s direction %s ebpfType %s", ifaceName, direction, eBPFType)
+	log.Info().Msgf("LoadRootProgram iface %s direction %s progType %s", ifaceName, direction, progType)
 	var rootProgBPF *BPF
 
-	switch eBPFType {
+	switch progType {
 	case models.XDPType:
 		rootProgBPF = &BPF{
 			Program: models.BPFProgram{
@@ -648,7 +648,7 @@ func (b *BPF) GetBPFMap(mapName string) (*BPFMap, error) {
 	var newBPFMap BPFMap
 
 	// TC maps are pinned by default
-	if b.Program.EBPFType == models.TCType {
+	if b.Program.ProgType == models.TCType {
 		ebpfMap, err := ebpf.LoadPinnedMap(mapName, nil)
 		if err != nil {
 			return nil, fmt.Errorf("ebpf LoadPinnedMap failed %v", err)
@@ -672,7 +672,7 @@ func (b *BPF) GetBPFMap(mapName string) (*BPFMap, error) {
 			BPFProg: b,
 		}
 
-	} else if b.Program.EBPFType == models.XDPType {
+	} else if b.Program.ProgType == models.XDPType {
 
 		// XDP maps
 		// map names are truncated to 15 chars
@@ -882,7 +882,7 @@ func (b *BPF) VerifyPinnedMapExists(chain bool) error {
 // making sure XDP program fd map's pinned file is removed
 func (b *BPF) VerifyPinnedMapVanish(chain bool) error {
 
-	if len(b.Program.MapName) <= 0 || b.Program.EBPFType != models.XDPType || chain == false {
+	if len(b.Program.MapName) <= 0 || b.Program.ProgType != models.XDPType || chain == false {
 		return nil
 	}
 
