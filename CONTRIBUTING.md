@@ -1,6 +1,5 @@
 # How To Contribute
 
-
 ## Some Ways to Contribute
 - Report potential bugs
 - Suggest product enhancements
