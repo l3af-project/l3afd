@@ -545,6 +545,11 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 		} else if err != nil {
 			return fmt.Errorf("Untar failed: %w", err)
 		}
+
+		if strings.Contains(header.Name, "..") {
+			return fmt.Errorf("zipped file contians filepath (%s) that includes (..)", header.Name)
+		}
+
 		fPath = filepath.Join(tempDir, header.Name)
 		info := header.FileInfo()
 		if info.IsDir() {
