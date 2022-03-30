@@ -22,7 +22,7 @@ jobs:
 
       - name: Format
         run: |
-          res="$(gofmt -l .)"
+          res="$(gofmt -s -l .)"
           if [ "$(echo "$res" | tr -d '\n' | wc -l)" -gt 0 ]; then
           echo "Unformatted source code:"
           echo "$res"

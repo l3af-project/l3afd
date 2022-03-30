@@ -18,13 +18,16 @@ jobs:
     runs-on: windows-latest
     
     steps:
+      - name: Set up git env
+        run: |
+          git config --global core.autocrlf false
+
       - name: Checkout repository
         uses: actions/checkout@v2
       
       - name: Format
         run: |
-          go version
-          $res = (gofmt -l .)
+          $res = (gofmt -s -l .) -replace "$_"
           if ($res -ne "") {
             echo $res
             exit 1
@@ -32,7 +35,7 @@ jobs:
 
       - name: Vet
         run: |
-          go vet ./...
+          go vet -tags WINDOWS ./...
       
       - name: Test
         run: |
