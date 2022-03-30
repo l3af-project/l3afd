@@ -22,7 +22,7 @@ The payload will look more like this standard JSON:
           "version": "latest",
           "is_user_program": true,
           "admin_status": "enabled",
-          "ebpf_type": "xdp",
+          "prog_type": "xdp",
           "cfg_version": 1,
           "start_args": { "ports": "8080,8081", "rate": "2" },
           "monitor_maps": [

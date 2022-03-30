@@ -51,12 +51,6 @@ type BPFProgram struct {
 	MonitorMaps    []L3afDNFMetricsMap `json:"monitor_maps"`
 }
 
-// L3afDNFConfigDetail defines map of host specific NF configurations
-type L3afDNFConfigDetail struct {
-	HostName          string                                    `json:"host_name"`
-	HostProgramConfig map[string]map[string]map[int]*BPFProgram `json:"bpf_programs"` // map of iface name (string), map of direction (igress/egress) and seq_id
-}
-
 // L3afDNFMetricsMap defines KF map for CDB
 type L3afDNFMetricsMap struct {
 	Name       string `json:"name"`

@@ -14,17 +14,17 @@ import (
 func apiRoutes(ctx context.Context, kfcfg *kf.NFConfigs) []routes.Route {
 
 	r := []routes.Route{
-		routes.Route{
+		{
 			Method:      "POST",
 			Path:        "/l3af/configs/{version}/update",
 			HandlerFunc: handlers.UpdateConfig(ctx, kfcfg),
 		},
-		routes.Route{
+		{
 			Method:      "GET",
 			Path:        "/l3af/configs/{version}/{iface}",
 			HandlerFunc: handlers.GetConfig,
 		},
-		routes.Route{
+		{
 			Method:      "GET",
 			Path:        "/l3af/configs/{version}",
 			HandlerFunc: handlers.GetConfigAll,

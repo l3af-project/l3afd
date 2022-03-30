@@ -33,10 +33,16 @@ func UpdateConfig(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFunc {
 			}
 		}(&mesg, &statusCode)
 
-		bodyBuffer, _ := ioutil.ReadAll(r.Body)
-		var t []models.L3afBPFPrograms
-		err := json.Unmarshal(bodyBuffer, &t)
+		bodyBuffer, err := ioutil.ReadAll(r.Body)
 		if err != nil {
+			mesg = fmt.Sprintf("failed to read request body: %v", err)
+			log.Error().Msg(mesg)
+			statusCode = http.StatusInternalServerError
+			return
+		}
+
+		var t []models.L3afBPFPrograms
+		if err := json.Unmarshal(bodyBuffer, &t); err != nil {
 			mesg = fmt.Sprintf("failed to unmarshal payload: %v", err)
 			log.Error().Msg(mesg)
 			statusCode = http.StatusInternalServerError

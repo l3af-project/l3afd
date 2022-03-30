@@ -95,7 +95,7 @@ func main() {
 
 	t, err := ReadConfigsFromConfigStore(conf)
 	if err != nil {
-		log.Error().Err(err).Msg("L3afd read configs from store failed")
+		log.Error().Err(err).Msg("L3afd failed to read configs from store")
 	}
 
 	if t != nil {
@@ -196,7 +196,7 @@ func ReadConfigsFromConfigStore(conf *config.Config) ([]models.L3afBPFPrograms, 
 	file, err := os.OpenFile(conf.L3afConfigStoreFileName, os.O_RDONLY, os.ModePerm)
 	defer file.Close()
 	if err != nil {
-		return nil, fmt.Errorf("failed to open persistent fil (%s): %v", conf.L3afConfigStoreFileName, err)
+		return nil, fmt.Errorf("failed to open persistent file (%s): %v", conf.L3afConfigStoreFileName, err)
 	}
 
 	byteValue, err := ioutil.ReadAll(file)

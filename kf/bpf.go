@@ -679,6 +679,7 @@ func (b *BPF) GetBPFMap(mapName string) (*BPFMap, error) {
 		mpName := mapName
 		if len(mapName) > 15 {
 			mpName = mapName[:15]
+			log.Warn().Msgf("searching map name of first 15 chars %s", mpName)
 		}
 		var mpId ebpf.MapID = 0
 
