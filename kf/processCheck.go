@@ -1,7 +1,7 @@
 // Copyright Contributors to the L3AF Project.
 // SPDX-License-Identifier: Apache-2.0
 
-// Package nf provides primitives for NF process monitoring.
+// Package kf provides primitives for NF process monitoring.
 package kf
 
 import (

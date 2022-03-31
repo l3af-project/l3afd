@@ -25,6 +25,33 @@ by multiple sources.
 See our [L3AF Development Environment](https://github.com/l3af-project/l3af-arch/tree/main/dev_environment)
 for a quick and easy way to try out L3AF on your local machine.
 
+# Building
+
+To build on your local machine, do the following.
+
+For Linux:
+```
+go build .
+```
+
+For Windows:
+```
+go build -tags WINDOWS .
+```
+
+# Testing
+
+To test on your local machine, do the following.
+
+For Linux:
+```
+go test ./...
+```
+
+For Windows:
+```
+go test -tags WINDOWS ./...
+```
 # Contributing
 
 Contributing to L3afd is fun. To get started:
