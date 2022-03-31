@@ -85,19 +85,19 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 	case models.XDPType:
 		rootProgBPF = &BPF{
 			Program: models.BPFProgram{
-				Name:          conf.XDPRootProgramName,
-				Artifact:      conf.XDPRootProgramArtifact,
-				MapName:       conf.XDPRootProgramMapName,
-				Version:       conf.XDPRootProgramVersion,
-				IsUserProgram: conf.XDPRootProgramIsUserProgram,
-				CmdStart:      conf.XDPRootProgramCommand,
-				CmdStop:       conf.XDPRootProgramCommand,
-				CmdStatus:     "",
-				AdminStatus:   models.Enabled,
-				SeqID:         0,
-				StartArgs:     map[string]interface{}{},
-				StopArgs:      map[string]interface{}{},
-				StatusArgs:    map[string]interface{}{},
+				Name:              conf.XDPRootProgramName,
+				Artifact:          conf.XDPRootProgramArtifact,
+				MapName:           conf.XDPRootProgramMapName,
+				Version:           conf.XDPRootProgramVersion,
+				UserProgramDaemon: conf.XDPRootProgramUserProgramDaemon,
+				CmdStart:          conf.XDPRootProgramCommand,
+				CmdStop:           conf.XDPRootProgramCommand,
+				CmdStatus:         "",
+				AdminStatus:       models.Enabled,
+				SeqID:             0,
+				StartArgs:         map[string]interface{}{},
+				StopArgs:          map[string]interface{}{},
+				StatusArgs:        map[string]interface{}{},
 			},
 			RestartCount: 0,
 			Cmd:          nil,
@@ -108,17 +108,17 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 	case models.TCType:
 		rootProgBPF = &BPF{
 			Program: models.BPFProgram{
-				Name:          conf.TCRootProgramName,
-				Artifact:      conf.TCRootProgramArtifact,
-				Version:       conf.TCRootProgramVersion,
-				IsUserProgram: conf.TCRootProgramIsUserProgram,
-				CmdStart:      conf.TCRootProgramCommand,
-				CmdStop:       conf.TCRootProgramCommand,
-				CmdStatus:     "",
-				AdminStatus:   models.Enabled,
-				StartArgs:     map[string]interface{}{},
-				StopArgs:      map[string]interface{}{},
-				StatusArgs:    map[string]interface{}{},
+				Name:              conf.TCRootProgramName,
+				Artifact:          conf.TCRootProgramArtifact,
+				Version:           conf.TCRootProgramVersion,
+				UserProgramDaemon: conf.TCRootProgramUserProgramDaemon,
+				CmdStart:          conf.TCRootProgramCommand,
+				CmdStop:           conf.TCRootProgramCommand,
+				CmdStatus:         "",
+				AdminStatus:       models.Enabled,
+				StartArgs:         map[string]interface{}{},
+				StopArgs:          map[string]interface{}{},
+				StatusArgs:        map[string]interface{}{},
 			},
 			RestartCount: 0,
 			Cmd:          nil,
@@ -200,7 +200,7 @@ func StopExternalRunningProcess(processName string) error {
 // Clean up all map handles.
 // Verify next program pinned map file is removed
 func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
-	if b.Program.IsUserProgram && b.Cmd == nil {
+	if b.Program.UserProgramDaemon && b.Cmd == nil {
 		return fmt.Errorf("BPFProgram is not running %s", b.Program.Name)
 	}
 
@@ -364,7 +364,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		log.Info().Err(err).Msgf("user mode BPF program failed - %s", b.Program.Name)
 		return fmt.Errorf("failed to start : %s %v", cmd, args)
 	}
-	if !b.Program.IsUserProgram {
+	if !b.Program.UserProgramDaemon {
 		log.Info().Msgf("no user mode BPF program - %s No Pid", b.Program.Name)
 		if err := b.Cmd.Wait(); err != nil {
 			return fmt.Errorf("cmd wait at starting of bpf program returned with error %w", err)
@@ -495,7 +495,7 @@ func (b *BPF) isRunning() (bool, error) {
 	}
 
 	// No running user program and command status is not provided then return true
-	if !b.Program.IsUserProgram {
+	if !b.Program.UserProgramDaemon {
 		return true, nil
 	}
 

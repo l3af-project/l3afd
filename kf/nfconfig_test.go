@@ -50,14 +50,14 @@ func setupDBTest() {
 func setupValidBPF() {
 	bpf := BPF{
 		Program: models.BPFProgram{
-			ID:            1,
-			Name:          "foo",
-			Artifact:      "foo.tar.gz",
-			CmdStart:      "foo",
-			CmdStop:       "",
-			Version:       "1.0",
-			IsUserProgram: true,
-			AdminStatus:   "DISABLED",
+			ID:                1,
+			Name:              "foo",
+			Artifact:          "foo.tar.gz",
+			CmdStart:          "foo",
+			CmdStop:           "",
+			Version:           "1.0",
+			UserProgramDaemon: true,
+			AdminStatus:       "DISABLED",
 		},
 		Cmd:          nil,
 		FilePath:     "",
@@ -76,17 +76,17 @@ func setupBPFProgramData() {
 	seqID = 1
 
 	bpfProg := &models.BPFProgram{
-		ID:            1,
-		Name:          "foo",
-		Artifact:      "foo.tar.gz",
-		CmdStart:      "foo",
-		CmdStop:       "",
-		Version:       "1.0",
-		IsUserProgram: true,
-		AdminStatus:   "ENABLED",
-		SeqID:         1,
+		ID:                1,
+		Name:              "foo",
+		Artifact:          "foo.tar.gz",
+		CmdStart:          "foo",
+		CmdStop:           "",
+		Version:           "1.0",
+		UserProgramDaemon: true,
+		AdminStatus:       "ENABLED",
+		SeqID:             1,
 	}
-	bpfProgsTmp.XdpIngress = append(bpfProgsTmp.XdpIngress, bpfProg)
+	bpfProgsTmp.XDPIngress = append(bpfProgsTmp.XDPIngress, bpfProg)
 
 	bpfProgs = bpfProgsTmp
 }
@@ -97,16 +97,16 @@ func setupBPFProgramVersionChange() {
 	seqID = 1
 
 	bpfProg := &models.BPFProgram{
-		ID:            1,
-		Name:          "foo",
-		Artifact:      "foo.tar.gz",
-		CmdStart:      "foo",
-		CmdStop:       "",
-		Version:       "2.0",
-		IsUserProgram: true,
-		AdminStatus:   "ENABLED",
+		ID:                1,
+		Name:              "foo",
+		Artifact:          "foo.tar.gz",
+		CmdStart:          "foo",
+		CmdStop:           "",
+		Version:           "2.0",
+		UserProgramDaemon: true,
+		AdminStatus:       "ENABLED",
 	}
-	bpfProgsTmp.XdpIngress = append(bpfProgsTmp.XdpIngress, bpfProg)
+	bpfProgsTmp.XDPIngress = append(bpfProgsTmp.XDPIngress, bpfProg)
 	valVerChange = bpfProgsTmp
 }
 
@@ -118,16 +118,16 @@ func setupBPFProgramStatusChange() {
 	seqID = 1
 
 	bpfProg := &models.BPFProgram{
-		ID:            1,
-		Name:          "foo",
-		Artifact:      "foo.tar.gz",
-		CmdStart:      "foo",
-		CmdStop:       "",
-		Version:       "2.0",
-		IsUserProgram: true,
-		AdminStatus:   "DISABLED",
+		ID:                1,
+		Name:              "foo",
+		Artifact:          "foo.tar.gz",
+		CmdStart:          "foo",
+		CmdStop:           "",
+		Version:           "2.0",
+		UserProgramDaemon: true,
+		AdminStatus:       "DISABLED",
 	}
-	bpfProgsTmp.XdpIngress = append(bpfProgsTmp.XdpIngress, bpfProg)
+	bpfProgsTmp.XDPIngress = append(bpfProgsTmp.XDPIngress, bpfProg)
 	valStatusChange = bpfProgsTmp
 }
 

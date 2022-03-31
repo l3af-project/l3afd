@@ -649,7 +649,7 @@ func (c *NFConfigs) Deploy(ifaceName, hostName string, bpfProgs *models.BPFProgr
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	for _, bpfProg := range bpfProgs.XdpIngress {
+	for _, bpfProg := range bpfProgs.XDPIngress {
 		if c.IngressXDPBpfs[ifaceName] == nil {
 			if bpfProg.AdminStatus == models.Enabled {
 				c.IngressXDPBpfs[ifaceName] = list.New()
@@ -765,7 +765,7 @@ func (c *NFConfigs) EBPFPrograms(iface string) models.L3afBPFPrograms {
 			e = e.Next()
 		}
 		for ; e != nil; e = e.Next() {
-			BPFProgram.BpfPrograms.XdpIngress = append(BPFProgram.BpfPrograms.XdpIngress, &e.Value.(*BPF).Program)
+			BPFProgram.BpfPrograms.XDPIngress = append(BPFProgram.BpfPrograms.XDPIngress, &e.Value.(*BPF).Program)
 		}
 	}
 	bpfList = c.IngressTCBpfs[iface]
@@ -872,7 +872,7 @@ func (c *NFConfigs) RemoveMissingBPFProgramsInConfig(bpfProg models.L3afBPFProgr
 	var bpfList *list.List
 	switch direction {
 	case models.XDPIngressType:
-		bpfProgArr = bpfProg.BpfPrograms.XdpIngress
+		bpfProgArr = bpfProg.BpfPrograms.XDPIngress
 		bpfList = c.IngressXDPBpfs[ifaceName]
 	case models.IngressType:
 		bpfProgArr = bpfProg.BpfPrograms.TCIngress
@@ -917,7 +917,7 @@ func (c *NFConfigs) RemoveMissingBPFProgramsInConfig(bpfProg models.L3afBPFProgr
 				log.Info().Msgf("no network functions are running, stopping root program")
 
 				if err := c.StopRootProgram(ifaceName, direction); err != nil {
-					return fmt.Errorf("failed to stop to root program of iface %s direction xdpIngress", ifaceName)
+					return fmt.Errorf("failed to stop to root program of iface %s direction XDP Ingress", ifaceName)
 				}
 			}
 		}
