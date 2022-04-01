@@ -186,7 +186,7 @@ func (c *NFConfigs) Close(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for ifaceName, _ := range c.IngressXDPBpfs {
+		for ifaceName := range c.IngressXDPBpfs {
 			if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.XDPIngressType); err != nil {
 				log.Warn().Err(err).Msg("failed to Close Ingress XDP BPF Program")
 			}
@@ -197,7 +197,7 @@ func (c *NFConfigs) Close(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for ifaceName, _ := range c.IngressTCBpfs {
+		for ifaceName := range c.IngressTCBpfs {
 			if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.IngressType); err != nil {
 				log.Warn().Err(err).Msg("failed to Close Ingress TC BPF Program")
 			}
@@ -208,7 +208,7 @@ func (c *NFConfigs) Close(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for ifaceName, _ := range c.EgressTCBpfs {
+		for ifaceName := range c.EgressTCBpfs {
 			if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.EgressType); err != nil {
 				log.Warn().Err(err).Msg("failed to Close Egress TC BPF Program")
 			}
@@ -810,7 +810,7 @@ func (c *NFConfigs) RemoveMissingNetIfacesNBPFProgsInConfigs(cfgbpfProgs map[str
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for ifaceName, _ := range c.IngressXDPBpfs {
+		for ifaceName := range c.IngressXDPBpfs {
 			if err := c.RemoveMissingBPFProgramsInConfigs(cfgbpfProgs, ifaceName, models.XDPIngressType); err != nil {
 				log.Error().Err(err).Msgf("Failed to stop missing program for network interface %s direction XDPIngress", ifaceName)
 			}

@@ -41,10 +41,10 @@ func CheckPIDConflict(pidFilename string) error {
 	log.Info().Msgf("Found PID file with PID: %s; checking if process is running...", oldPIDString)
 	process, err := os.FindProcess(oldPID)
 	if err == nil {
-	    //On Linux, if sig is 0, then no signal is sent, but error checking is still performed;
-	    //this can be used to check for the existence of a process ID or process  group ID.
-	    //See: man 2 kill
-	    err = process.Signal(syscall.Signal(0))
+		//On Linux, if sig is 0, then no signal is sent, but error checking is still performed;
+		//this can be used to check for the existence of a process ID or process  group ID.
+		//See: man 2 kill
+		err = process.Signal(syscall.Signal(0))
 	}
 	if err != nil {
 		log.Info().Msgf("Process was not running, removing PID file.")
