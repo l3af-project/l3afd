@@ -2,8 +2,6 @@
 
 See [payload.json](https://github.com/l3af-project/l3af-arch/blob/main/dev_environment/cfg/payload.json) for a full example payload.
 
-Below is the detailed documentation for each field:
-
 The payload will look more like this standard JSON:
 
 ```
@@ -20,7 +18,7 @@ The payload will look more like this standard JSON:
           "map_name": "/sys/fs/bpf/xdp_rl_ingress_next_prog",
           "cmd_start": "ratelimiting",
           "version": "latest",
-          "is_user_program": true,
+          "user_program_daemon": true,
           "admin_status": "enabled",
           "prog_type": "xdp",
           "cfg_version": 1,
@@ -42,7 +40,7 @@ The payload will look more like this standard JSON:
 ]
 ```
 
-## value
+### Below is the detailed documentation for each field
 
 | Key                 | Type                                           | Example                                                        | Description                                                                                                                      |
 |---------------------|------------------------------------------------|----------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------|

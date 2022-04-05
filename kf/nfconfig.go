@@ -38,7 +38,7 @@ type NFConfigs struct {
 	processMon   *pCheck
 	kfMetricsMon *kfMetrics
 
-	// keep track of Ifaces
+	// keep track of interfaces
 	ifaces map[string]string
 
 	mu *sync.Mutex
