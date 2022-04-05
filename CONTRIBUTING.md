@@ -34,7 +34,6 @@ Then open a new GitHub pull request with the patch.
 * Ensure the PR description clearly describes the problem and solution.
   Include the relevant issue number if applicable.
 
-
 ## New Features
 
 You can request a new feature by [submitting a GitHub Issue](https://github.com/l3af-project/l3afd/issues/new).
@@ -67,3 +66,8 @@ The [Developer Certificate of Origin](https://developercertificate.org/) is a li
 to certify that they wrote or otherwise have the right to submit the code they are contributing to the project.
 This App enforces the Developer Certificate of Origin on Pull Requests. It requires all commit messages to contain
 the ```Signed-off-by``` line with an email address that matches the commit author.
+
+## Governance
+
+Please refer to the [governance repo](https://github.com/l3af-project/governance) for Project Charter, Code of Conduct,
+Release Process, and Committee Members.
