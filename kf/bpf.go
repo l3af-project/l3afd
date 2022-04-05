@@ -154,7 +154,7 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 	}
 
 	if err := rootProgBPF.Start(ifaceName, direction, conf.BpfChainingEnabled); err != nil {
-		return nil, fmt.Errorf("failed to start root program on interface %s", ifaceName)
+		return nil, fmt.Errorf("failed to start root program on interface %s, err: %v", ifaceName, err)
 	}
 
 	return rootProgBPF, nil
@@ -880,7 +880,7 @@ func (b *BPF) VerifyPinnedMapExists(chain bool) error {
 	return nil
 }
 
-// making sure XDP program fd map's pinned file is removed
+// VerifyPinnedMapVanish - making sure XDP program fd map's pinned file is removed
 func (b *BPF) VerifyPinnedMapVanish(chain bool) error {
 
 	if len(b.Program.MapName) <= 0 || b.Program.ProgType != models.XDPType || chain == false {
