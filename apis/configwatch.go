@@ -11,12 +11,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/l3af-project/l3afd/config"
 	"github.com/l3af-project/l3afd/kf"
 	"github.com/l3af-project/l3afd/routes"
+	"github.com/l3af-project/l3afd/signals"
+
 	"github.com/rs/zerolog/log"
 )
 
@@ -34,7 +35,7 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 	}
 
 	term := make(chan os.Signal)
-	signal.Notify(term, syscall.SIGTERM, syscall.SIGINT)
+	signal.Notify(term, signals.ShutdownSignals...)
 	go func() {
 		<-term
 		s.GracefulStop(conf.ShutdownTimeout)
