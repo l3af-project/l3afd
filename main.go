@@ -144,21 +144,21 @@ func checkKernelVersion(conf *config.Config) error {
 
 	kernelVersion, err := getKernelVersion()
 	if err != nil {
-		return fmt.Errorf("Failed to find kernel version: %v", err)
+		return fmt.Errorf("failed to find kernel version: %v", err)
 	}
 
 	//validate version
 	ver := strings.Split(kernelVersion, ".")
 	if len(ver) < minVerLen {
-		return fmt.Errorf("Expected minimum kernel version length %d and got %d, ver %+q", minVerLen, len(ver), ver)
+		return fmt.Errorf("expected minimum kernel version length %d and got %d, ver %+q", minVerLen, len(ver), ver)
 	}
 	major_ver, err := strconv.Atoi(ver[0])
 	if err != nil {
-		return fmt.Errorf("Failed to find kernel major version: %v", err)
+		return fmt.Errorf("failed to find kernel major version: %v", err)
 	}
 	minor_ver, err := strconv.Atoi(ver[1])
 	if err != nil {
-		return fmt.Errorf("Failed to find kernel minor version: %v", err)
+		return fmt.Errorf("failed to find kernel minor version: %v", err)
 	}
 
 	if major_ver > conf.MinKernelMajorVer {
@@ -168,18 +168,18 @@ func checkKernelVersion(conf *config.Config) error {
 		return nil
 	}
 
-	return fmt.Errorf("Expected Kernel version >=  %d.%d", conf.MinKernelMajorVer, conf.MinKernelMinorVer)
+	return fmt.Errorf("expected Kernel version >=  %d.%d", conf.MinKernelMajorVer, conf.MinKernelMinorVer)
 }
 
 func getKernelVersion() (string, error) {
 	osVersion, err := ioutil.ReadFile("/proc/version")
 	if err != nil {
-		return "", fmt.Errorf("Failed to read procfs: %v", err)
+		return "", fmt.Errorf("failed to read procfs: %v", err)
 	}
 	var u1, u2, kernelVersion string
 	_, err = fmt.Sscanf(string(osVersion), "%s %s %s", &u1, &u2, &kernelVersion)
 	if err != nil {
-		return "", fmt.Errorf("Failed to scan procfs version: %v", err)
+		return "", fmt.Errorf("failed to scan procfs version: %v", err)
 	}
 
 	return kernelVersion, nil

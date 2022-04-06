@@ -33,7 +33,6 @@ func (c *pCheck) pCheckStart(xdpProgs, ingressTCProgs, egressTCProgs map[string]
 	go c.pMonitorWorker(xdpProgs, models.XDPIngressType)
 	go c.pMonitorWorker(ingressTCProgs, models.IngressType)
 	go c.pMonitorWorker(egressTCProgs, models.EgressType)
-	return
 }
 
 func (c *pCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string) {
@@ -51,7 +50,7 @@ func (c *pCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string
 					continue
 				}
 				isRunning, _ := bpf.isRunning()
-				if isRunning == true {
+				if isRunning {
 					stats.Set(1.0, stats.NFRunning, bpf.Program.Name, direction)
 					continue
 				}

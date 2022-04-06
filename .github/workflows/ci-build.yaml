@@ -15,7 +15,7 @@ jobs:
       - name: Set up environment
         run : |
           apk update
-          apk add gcc libc-dev
+          apk add gcc libc-dev bash perl curl
           
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -35,7 +35,12 @@ jobs:
 
       - name: Test
         run: |
-          go test ./...      
+          go test ./...
+
+      - uses: dominikh/staticcheck-action@v1.1.0
+        with:
+          version: "2021.1.2"
+          install-go: false
 
       - name: Build
         run: |
