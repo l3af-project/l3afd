@@ -27,8 +27,11 @@ jobs:
       
       - name: Format
         run: |
-          $res = (gofmt -s -l .) -replace "$_"
+          go install golang.org/x/tools/cmd/goimports@latest
+          $goimp = (Join-path -Path (go env GOPATH) -ChildPath "\bin\goimports")
+          $res = (&$goimp -l .) -replace "$_"      
           if ($res -ne "") {
+            echo "Unformatted source code:" 
             echo $res
             exit 1
           }
