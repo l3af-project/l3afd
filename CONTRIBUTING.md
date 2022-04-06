@@ -14,19 +14,17 @@
 First, **ensure the bug was not already reported** by searching on GitHub under
 [Issues](https://github.com/l3af-project/l3afd/issues).
 
-If you found a related bug, you can help us by
+If you did not find a related bug, you can help us by
 [submitting a GitHub Issue](https://github.com/l3af-project/l3afd/issues/new).
-The best bug reports provide a detailed description of the issue and step-by-step instructions
+A good bug report provides a detailed description of the issue and step-by-step instructions
 for reliably reproducing the issue.
 
 We will aim to triage issues in weekly TSC meetings. In case we are unable to repro the issue,
-we will request more information from you, the filer. There will be a waiting period of 2 weeks
+we will request more information from you. There will be a waiting period of 2 weeks
 for the requested information and if there is no response, the issue will be closed. If this happens,
-please reopen the issue if you do get a repro and collect the requested information.
+please reopen the issue if you do get a repro and provide the requested information.
 
-However, in the best case, we would love it if you can submit a Pull Request with a fix.
-
-### Did you write a patch that fixes a bug?
+### Submitting a patch that fixes a bug
 
 Fork the repo and make your changes.
 Then open a new GitHub pull request with the patch.
@@ -34,17 +32,7 @@ Then open a new GitHub pull request with the patch.
 * Ensure the PR description clearly describes the problem and solution.
   Include the relevant issue number if applicable.
 
-## New Features
-
-You can request a new feature by [submitting a GitHub Issue](https://github.com/l3af-project/l3afd/issues/new).
-
-If you would like to implement a new feature, please first
-[submit a GitHub Issue](https://github.com/l3af-project/l3afd/issues/new) and
-communicate your proposal so that the L3AF community can review and provide feedback. Getting
-early feedback will help ensure your implementation work is accepted by the community.
-This will also allow us to better coordinate our efforts and minimize duplicated effort.
-
-## Pull Requests guidelines
+## Guidelines for pull Requests
 
 Great, you want to directly contribute to the l3af project and submit a pull request.
 It is recommended prior to working on a PR to submit an issue in github for the change you want
@@ -58,7 +46,17 @@ feel free to reach out to the l3af team via [Slack](https://app.slack.com/client
 - List any relevant dependencies linked to this change
 - Describe the tests that you ran to verify your changes and add/update test cases
 - Update relevant docs, especially if you've change API's
-- Ensure all tests pass and that your code lints
+- Ensure all GitHub CI/CD checks pass
+
+## New Features
+
+You can request a new feature by [submitting a GitHub Issue](https://github.com/l3af-project/l3afd/issues/new).
+
+If you would like to implement a new feature, please first
+[submit a GitHub Issue](https://github.com/l3af-project/l3afd/issues/new) and
+communicate your proposal so that the L3AF community can review and provide feedback. Getting
+early feedback will help ensure your implementation work is accepted by the community.
+This will also allow us to better coordinate our efforts and minimize duplicated effort.
 
 ## Developer Certificate of Origin (DCO)
 
