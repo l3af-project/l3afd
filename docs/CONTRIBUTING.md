@@ -1,6 +1,7 @@
 # How To Contribute
 
 ## Some Ways to Contribute
+- Getting started with [L3AF](https://wiki.lfnetworking.org/display/L3AF/Getting+Started+with+L3AF)
 - Report potential bugs
 - Suggest product enhancements
 - Increase our test coverage
@@ -24,13 +25,14 @@ we will request more information from you. There will be a waiting period of 2 w
 for the requested information and if there is no response, the issue will be closed. If this happens,
 please reopen the issue if you do get a repro and provide the requested information.
 
+If you found a security issue, please do not open a GitHub Issue, and instead [email](main@lists.l3af.io) it in detail.
+
 ### Submitting a patch that fixes a bug
 
-Fork the repo and make your changes.
-Then open a new GitHub pull request with the patch.
+Fork the repo and make your changes. Then open a new GitHub pull request with the patch.
 
-* Ensure the PR description clearly describes the problem and solution.
-  Include the relevant issue number if applicable.
+* Ensure the PR description clearly describes the problem and solution. Include the relevant issue number
+  if applicable.
 
 ## Guidelines for pull Requests
 
@@ -47,6 +49,10 @@ feel free to reach out to the l3af team via [Slack](https://app.slack.com/client
 - Describe the tests that you ran to verify your changes and add/update test cases
 - Update relevant docs, especially if you've change API's
 - Ensure all GitHub CI/CD checks pass
+
+## Coding Style
+
+Follow [uber-go](https://github.com/uber-go/guide/blob/master/style.md) coding style
 
 ## New Features
 
