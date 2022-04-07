@@ -1,0 +1,46 @@
+# Copyright Contributors to the L3AF Project.
+# SPDX-License-Identifier: Apache-2.0
+#
+# For documentation on the github environment, see
+# https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners
+#
+# For documentation on the syntax of this file, see
+# https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions
+name: CI Windows build
+on:
+  pull_request: {}
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Set up git env
+        run: |
+          git config --global core.autocrlf false
+
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      
+      - name: Format
+        run: |
+          $res = (gofmt -s -l .) -replace "$_"
+          if ($res -ne "") {
+            echo $res
+            exit 1
+          }
+
+      - name: Vet
+        run: |
+          go vet -tags WINDOWS ./...
+      
+      - name: Test
+        run: |
+          go test -tags WINDOWS ./...
+
+      - name: Build
+        run: |
+          go build -tags WINDOWS .

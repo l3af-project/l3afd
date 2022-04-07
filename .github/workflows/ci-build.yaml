@@ -1,4 +1,4 @@
-name: CI build
+name: CI Ubuntu build
 on:
   pull_request: {}
   push:
@@ -19,11 +19,24 @@ jobs:
           
       - name: Checkout repository
         uses: actions/checkout@v2
-      
+
+      - name: Format
+        run: |
+          res="$(gofmt -s -l .)"
+          if [ "$(echo "$res" | tr -d '\n' | wc -l)" -gt 0 ]; then
+          echo "Unformatted source code:"
+          echo "$res"
+          exit 1
+          fi
+ 
+      - name: Vet
+        run: |
+          go vet ./...
+
+      - name: Test
+        run: |
+          go test ./...      
+
       - name: Build
         run: |
           go build .
-      
-      - name: Test
-        run: |
-          go test ./...
