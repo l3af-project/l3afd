@@ -75,26 +75,29 @@ func NewBpfProgram(ctx context.Context, program models.BPFProgram, logDir, dataC
 	return bpf
 }
 
-// Loading the Root Program for a given interface.
-func LoadRootProgram(ifaceName string, direction string, eBPFType string, conf *config.Config) (*BPF, error) {
+// LoadRootProgram - Loading the Root Program for a given interface.
+func LoadRootProgram(ifaceName string, direction string, progType string, conf *config.Config) (*BPF, error) {
 
-	log.Info().Msgf("LoadRootProgram iface %s direction %s ebpfType %s", ifaceName, direction, eBPFType)
+	log.Info().Msgf("LoadRootProgram iface %s direction %s progType %s", ifaceName, direction, progType)
 	var rootProgBPF *BPF
 
-	switch eBPFType {
+	switch progType {
 	case models.XDPType:
 		rootProgBPF = &BPF{
 			Program: models.BPFProgram{
-				Name:          conf.XDPRootProgramName,
-				Artifact:      conf.XDPRootProgramArtifact,
-				MapName:       conf.XDPRootProgramMapName,
-				Version:       conf.XDPRootProgramVersion,
-				IsUserProgram: conf.XDPRootProgramIsUserProgram,
-				CmdStart:      conf.XDPRootProgramCommand,
-				CmdStop:       conf.XDPRootProgramCommand,
-				CmdStatus:     "",
-				AdminStatus:   models.Enabled,
-				SeqID:         0,
+				Name:              conf.XDPRootProgramName,
+				Artifact:          conf.XDPRootProgramArtifact,
+				MapName:           conf.XDPRootProgramMapName,
+				Version:           conf.XDPRootProgramVersion,
+				UserProgramDaemon: conf.XDPRootProgramUserProgramDaemon,
+				CmdStart:          conf.XDPRootProgramCommand,
+				CmdStop:           conf.XDPRootProgramCommand,
+				CmdStatus:         "",
+				AdminStatus:       models.Enabled,
+				SeqID:             0,
+				StartArgs:         map[string]interface{}{},
+				StopArgs:          map[string]interface{}{},
+				StatusArgs:        map[string]interface{}{},
 			},
 			RestartCount: 0,
 			Cmd:          nil,
@@ -105,14 +108,17 @@ func LoadRootProgram(ifaceName string, direction string, eBPFType string, conf *
 	case models.TCType:
 		rootProgBPF = &BPF{
 			Program: models.BPFProgram{
-				Name:          conf.TCRootProgramName,
-				Artifact:      conf.TCRootProgramArtifact,
-				Version:       conf.TCRootProgramVersion,
-				IsUserProgram: conf.TCRootProgramIsUserProgram,
-				CmdStart:      conf.TCRootProgramCommand,
-				CmdStop:       conf.TCRootProgramCommand,
-				CmdStatus:     "",
-				AdminStatus:   models.Enabled,
+				Name:              conf.TCRootProgramName,
+				Artifact:          conf.TCRootProgramArtifact,
+				Version:           conf.TCRootProgramVersion,
+				UserProgramDaemon: conf.TCRootProgramUserProgramDaemon,
+				CmdStart:          conf.TCRootProgramCommand,
+				CmdStop:           conf.TCRootProgramCommand,
+				CmdStatus:         "",
+				AdminStatus:       models.Enabled,
+				StartArgs:         map[string]interface{}{},
+				StopArgs:          map[string]interface{}{},
+				StatusArgs:        map[string]interface{}{},
 			},
 			RestartCount: 0,
 			Cmd:          nil,
@@ -130,8 +136,8 @@ func LoadRootProgram(ifaceName string, direction string, eBPFType string, conf *
 	}
 
 	// Loading default arguments
-	rootProgBPF.Program.AddStartArgs(models.L3afDNFArgs{Key: "cmd", Value: models.StartType})
-	rootProgBPF.Program.AddStopArgs(models.L3afDNFArgs{Key: "cmd", Value: models.StopType})
+	rootProgBPF.Program.StartArgs["cmd"] = models.StartType
+	rootProgBPF.Program.StopArgs["cmd"] = models.StopType
 
 	if err := rootProgBPF.VerifyAndGetArtifacts(conf); err != nil {
 		log.Error().Err(err).Msg("failed to get root artifacts")
@@ -148,7 +154,7 @@ func LoadRootProgram(ifaceName string, direction string, eBPFType string, conf *
 	}
 
 	if err := rootProgBPF.Start(ifaceName, direction, conf.BpfChainingEnabled); err != nil {
-		return nil, fmt.Errorf("failed to start root program on interface %s", ifaceName)
+		return nil, fmt.Errorf("failed to start root program on interface %s, err: %v", ifaceName, err)
 	}
 
 	return rootProgBPF, nil
@@ -194,7 +200,7 @@ func StopExternalRunningProcess(processName string) error {
 // Clean up all map handles.
 // Verify next program pinned map file is removed
 func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
-	if b.Program.IsUserProgram && b.Cmd == nil {
+	if b.Program.UserProgramDaemon && b.Cmd == nil {
 		return fmt.Errorf("BPFProgram is not running %s", b.Program.Name)
 	}
 
@@ -262,8 +268,14 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	args = append(args, "--iface="+ifaceName)     // detaching from iface
 	args = append(args, "--direction="+direction) // xdpingress or ingress or egress
 
-	for _, val := range b.Program.StopArgs {
-		args = append(args, "--"+val.Key+"="+val.Value)
+	for k, val := range b.Program.StopArgs {
+		if v, ok := val.(string); !ok {
+			err := fmt.Errorf("stop args is not a string for the ebpf program %s", b.Program.Name)
+			log.Error().Err(err).Msgf("failed to convert stop args value into string for program %s", b.Program.Name)
+			return err
+		} else {
+			args = append(args, "--"+k+"="+v)
+		}
 	}
 
 	log.Info().Msgf("bpf program stop command : %s %v", cmd, args)
@@ -336,8 +348,14 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		}
 	}
 
-	for _, val := range b.Program.StartArgs {
-		args = append(args, "--"+val.Key+"="+val.Value)
+	for k, val := range b.Program.StartArgs {
+		if v, ok := val.(string); !ok {
+			err := fmt.Errorf("start args is not a string for the ebpf program %s", b.Program.Name)
+			log.Error().Err(err).Msgf("failed to convert start args value into string for program %s", b.Program.Name)
+			return err
+		} else {
+			args = append(args, "--"+k+"="+v)
+		}
 	}
 
 	log.Info().Msgf("BPF Program start command : %s %v", cmd, args)
@@ -346,7 +364,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		log.Info().Err(err).Msgf("user mode BPF program failed - %s", b.Program.Name)
 		return fmt.Errorf("failed to start : %s %v", cmd, args)
 	}
-	if !b.Program.IsUserProgram {
+	if !b.Program.UserProgramDaemon {
 		log.Info().Msgf("no user mode BPF program - %s No Pid", b.Program.Name)
 		if err := b.Cmd.Wait(); err != nil {
 			return fmt.Errorf("cmd wait at starting of bpf program returned with error %w", err)
@@ -415,18 +433,24 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 
 // Updates the config map_args
 func (b *BPF) Update(ifaceName, direction string) error {
-	for _, val := range b.Program.MapArgs {
-		log.Info().Msgf("Update map args key %s val %s", val.Key, val.Value)
-		// fetch the key in
-		bpfMap, ok := b.BpfMaps[val.Key]
-		if !ok {
-			if err := b.AddBPFMap(val.Key); err != nil {
-				return err
-			}
-			bpfMap, _ = b.BpfMaps[val.Key]
-		}
+	for k, val := range b.Program.MapArgs {
 
-		bpfMap.Update(val.Value)
+		if v, ok := val.(string); !ok {
+			err := fmt.Errorf("update map args is not a string for the ebpf program %s", b.Program.Name)
+			log.Error().Err(err).Msgf("failed to convert map args value into string for program %s", b.Program.Name)
+			return err
+		} else {
+			log.Info().Msgf("Update map args key %s val %s", k, v)
+
+			bpfMap, ok := b.BpfMaps[k]
+			if !ok {
+				if err := b.AddBPFMap(k); err != nil {
+					return err
+				}
+				bpfMap, _ = b.BpfMaps[k]
+			}
+			bpfMap.Update(v)
+		}
 	}
 	stats.Incr(stats.NFUpdateCount, b.Program.Name, direction)
 	return nil
@@ -444,10 +468,13 @@ func (b *BPF) isRunning() (bool, error) {
 
 		args := make([]string, 0, len(b.Program.StatusArgs)<<1)
 
-		for _, val := range b.Program.StatusArgs {
-			args = append(args, "--"+val.Key)
-			if len(val.Value) > 0 {
-				args = append(args, "="+val.Value)
+		for k, val := range b.Program.StatusArgs {
+			if v, ok := val.(string); !ok {
+				err := fmt.Errorf("status args is not a string for the ebpf program %s", b.Program.Name)
+				log.Error().Err(err).Msgf("failed to convert status args value into string for program %s", b.Program.Name)
+				return false, err
+			} else {
+				args = append(args, "--"+k+"="+v)
 			}
 		}
 
@@ -468,7 +495,7 @@ func (b *BPF) isRunning() (bool, error) {
 	}
 
 	// No running user program and command status is not provided then return true
-	if !b.Program.IsUserProgram {
+	if !b.Program.UserProgramDaemon {
 		return true, nil
 	}
 
@@ -621,7 +648,7 @@ func (b *BPF) GetBPFMap(mapName string) (*BPFMap, error) {
 	var newBPFMap BPFMap
 
 	// TC maps are pinned by default
-	if b.Program.EBPFType == models.TCType {
+	if b.Program.ProgType == models.TCType {
 		ebpfMap, err := ebpf.LoadPinnedMap(mapName, nil)
 		if err != nil {
 			return nil, fmt.Errorf("ebpf LoadPinnedMap failed %v", err)
@@ -645,13 +672,14 @@ func (b *BPF) GetBPFMap(mapName string) (*BPFMap, error) {
 			BPFProg: b,
 		}
 
-	} else if b.Program.EBPFType == models.XDPType {
+	} else if b.Program.ProgType == models.XDPType {
 
 		// XDP maps
 		// map names are truncated to 15 chars
 		mpName := mapName
 		if len(mapName) > 15 {
 			mpName = mapName[:15]
+			log.Warn().Msgf("searching map name of first 15 chars %s", mpName)
 		}
 		var mpId ebpf.MapID = 0
 
@@ -852,10 +880,10 @@ func (b *BPF) VerifyPinnedMapExists(chain bool) error {
 	return nil
 }
 
-// making sure XDP program fd map's pinned file is removed
+// VerifyPinnedMapVanish - making sure XDP program fd map's pinned file is removed
 func (b *BPF) VerifyPinnedMapVanish(chain bool) error {
 
-	if len(b.Program.MapName) <= 0 || b.Program.EBPFType != models.XDPType || chain == false {
+	if len(b.Program.MapName) <= 0 || b.Program.ProgType != models.XDPType || chain == false {
 		return nil
 	}
 
