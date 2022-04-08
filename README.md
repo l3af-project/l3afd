@@ -55,4 +55,4 @@ go test -tags WINDOWS ./...
 # Contributing
 
 Contributing to L3afd is fun. To get started:
-- [Contributing guide](https://github.com/l3af-project/l3af-arch/blob/main/CONTRIBUTING.md)
+- [Contributing guide](docs/CONTRIBUTING.md)
