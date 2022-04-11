@@ -13,6 +13,8 @@ import (
 	"os/signal"
 	"time"
 
+	httpSwagger "github.com/swaggo/http-swagger"
+
 	"github.com/l3af-project/l3afd/config"
 	"github.com/l3af-project/l3afd/kf"
 	"github.com/l3af-project/l3afd/routes"
@@ -26,6 +28,11 @@ type Server struct {
 	HostName    string
 }
 
+// @title L3AFD APIs
+// @version 1.0
+// @description Configuration APIs to deploy and get the details of the eBPF Programs on the node
+// @host
+// @BasePath /
 func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *config.Config, kfrtconfg *kf.NFConfigs) error {
 	log.Info().Msgf("%s config server setup started on host %s", daemonName, hostname)
 
@@ -45,7 +52,7 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 
 	go func() {
 		r := routes.NewRouter(apiRoutes(ctx, kfrtconfg))
-
+		r.Mount("/swagger", httpSwagger.WrapHandler)
 		if err := http.ListenAndServe(conf.L3afConfigsRestAPIAddr, r); err != nil {
 			log.Error().Err(err).Msgf("failed to http serve")
 		}

@@ -23,6 +23,7 @@ import (
 	"github.com/l3af-project/l3afd/pidfile"
 	"github.com/l3af-project/l3afd/stats"
 
+	_ "github.com/l3af-project/l3afd/docs"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
