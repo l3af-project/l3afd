@@ -1,0 +1,164 @@
+basePath: /
+definitions:
+  models.BPFProgram:
+    properties:
+      admin_status:
+        type: string
+      artifact:
+        type: string
+      cfg_version:
+        type: integer
+      cmd_config:
+        type: string
+      cmd_start:
+        type: string
+      cmd_status:
+        type: string
+      cmd_stop:
+        type: string
+      config_args:
+        $ref: '#/definitions/models.L3afDNFArgs'
+      config_file_path:
+        type: string
+      cpu:
+        type: integer
+      id:
+        type: integer
+      is_plugin:
+        type: boolean
+      map_args:
+        $ref: '#/definitions/models.L3afDNFArgs'
+      map_name:
+        type: string
+      memory:
+        type: integer
+      monitor_maps:
+        items:
+          $ref: '#/definitions/models.L3afDNFMetricsMap'
+        type: array
+      name:
+        type: string
+      prog_type:
+        type: string
+      rules:
+        type: string
+      rules_file:
+        type: string
+      seq_id:
+        type: integer
+      start_args:
+        $ref: '#/definitions/models.L3afDNFArgs'
+      status_args:
+        $ref: '#/definitions/models.L3afDNFArgs'
+      stop_args:
+        $ref: '#/definitions/models.L3afDNFArgs'
+      user_program_daemon:
+        type: boolean
+      version:
+        type: string
+    type: object
+  models.BPFPrograms:
+    properties:
+      tc_egress:
+        description: list of tc egress bpf programs
+        items:
+          $ref: '#/definitions/models.BPFProgram'
+        type: array
+      tc_ingress:
+        description: list of tc ingress bpf programs
+        items:
+          $ref: '#/definitions/models.BPFProgram'
+        type: array
+      xdp_ingress:
+        description: list of xdp bpf programs
+        items:
+          $ref: '#/definitions/models.BPFProgram'
+        type: array
+    type: object
+  models.L3afBPFPrograms:
+    properties:
+      bpf_programs:
+        $ref: '#/definitions/models.BPFPrograms'
+        description: list of bpf programs
+      host_name:
+        description: host name or pod name
+        type: string
+      iface:
+        description: Interface name
+        type: string
+    type: object
+  models.L3afDNFArgs:
+    additionalProperties: true
+    type: object
+  models.L3afDNFMetricsMap:
+    properties:
+      aggregator:
+        type: string
+      key:
+        type: integer
+      name:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: Configuration APIs to deploy and get the details of the eBPF Programs
+    on the node
+  title: L3AFD APIs
+  version: "1.0"
+paths:
+  /l3af/configs/v1:
+    get:
+      consumes:
+      - application/json
+      description: Returns details of the configuration of eBPF Programs for all interfaces
+        on a node
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ""
+      summary: Returns details of the configuration of eBPF Programs for all interfaces
+        on a node
+      tags:
+      - Retrieve
+  /l3af/configs/v1/{iface}:
+    get:
+      consumes:
+      - application/json
+      description: Returns details of the configuration of eBPF Programs for a given
+        interface
+      parameters:
+      - description: interface name
+        in: path
+        name: iface
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ""
+      summary: Returns details of the configuration of eBPF Programs for a given interface
+      tags:
+      - Retrieve
+  /l3af/configs/v1/update:
+    post:
+      consumes:
+      - application/json
+      description: Update eBPF Programs configuration
+      parameters:
+      - description: BPF programs
+        in: body
+        name: cfgs
+        required: true
+        schema:
+          $ref: '#/definitions/models.L3afBPFPrograms'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ""
+      summary: Update eBPF Programs configuration
+      tags:
+      - Update
+swagger: "2.0"
