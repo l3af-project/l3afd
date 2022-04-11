@@ -26,7 +26,7 @@ type NFConfigs struct {
 	ctx            context.Context
 	hostName       string
 	hostInterfaces map[string]bool
-	configs        sync.Map // key: string, val: *models.L3afDNFConfigDetail
+	//	configs        sync.Map // key: string, val: *models.L3afDNFConfigDetail
 	// These holds bpf programs in the list
 	// map keys are network iface names index's are seq_id, position in the chain
 	// root element will be root program
@@ -885,7 +885,7 @@ func (c *NFConfigs) RemoveMissingBPFProgramsInConfig(bpfProg models.L3afBPFProgr
 	}
 
 	e := bpfList.Front()
-	if e != nil && c.hostConfig.BpfChainingEnabled == true {
+	if e != nil && c.hostConfig.BpfChainingEnabled {
 		e = e.Next()
 	}
 	for ; e != nil; e = e.Next() {

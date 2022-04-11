@@ -194,7 +194,10 @@ func ReadConfigsFromConfigStore(conf *config.Config) ([]models.L3afBPFPrograms, 
 	}
 
 	file, err := os.OpenFile(conf.L3afConfigStoreFileName, os.O_RDONLY, os.ModePerm)
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to open persistent file (%s): %v", conf.L3afConfigStoreFileName, err)
 	}

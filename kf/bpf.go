@@ -448,7 +448,7 @@ func (b *BPF) Update(ifaceName, direction string) error {
 				if err := b.AddBPFMap(k); err != nil {
 					return err
 				}
-				bpfMap, _ = b.BpfMaps[k]
+				bpfMap = b.BpfMaps[k]
 			}
 			bpfMap.Update(v)
 		}
