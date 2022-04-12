@@ -5,6 +5,9 @@
 package config
 
 import (
+	"crypto/tls"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/robfig/config"
@@ -67,6 +70,14 @@ type Config struct {
 
 	// l3af config store
 	L3afConfigStoreFileName string
+
+	// mTLS
+	MTLSEnabled            bool
+	MTLSMinVersion         uint16
+	MTLSCertDir            string
+	MTLSCACertFilename     string
+	MTLSServerCertFilename string
+	MTLSServerKeyFilename  string
 }
 
 // ReadConfig - Initializes configuration from file
@@ -76,6 +87,10 @@ func ReadConfig(configPath string) (*Config, error) {
 	confReader, configErr := config.ReadDefault(configPath)
 	if configErr != nil {
 		log.Fatal().Err(configErr).Msgf("Could not open config file %q", configPath)
+	}
+	minTLSVersion, err := loadTLSVersion(confReader, "min-tls-version")
+	if err != nil {
+		return nil, err
 	}
 
 	return &Config{
@@ -116,5 +131,25 @@ func ReadConfig(configPath string) (*Config, error) {
 		EBPFChainDebugEnabled:           LoadOptionalConfigBool(confReader, "ebpf-chain-debug", "enabled", false),
 		L3afConfigsRestAPIAddr:          LoadOptionalConfigString(confReader, "l3af-configs", "restapi-addr", "localhost:53000"),
 		L3afConfigStoreFileName:         LoadOptionalConfigString(confReader, "l3af-config-store", "filename", "/etc/l3afd/l3af-config.json"),
+		MTLSEnabled:                     LoadOptionalConfigBool(confReader, "mtls", "enabled", true),
+		MTLSMinVersion:                  minTLSVersion,
+		MTLSCertDir:                     LoadOptionalConfigString(confReader, "mtls", "cert-dir", "/etc/l3afd/certs"),
+		MTLSCACertFilename:              LoadOptionalConfigString(confReader, "mtls", "cacert-filename", "ca.pem"),
+		MTLSServerCertFilename:          LoadOptionalConfigString(confReader, "mtls", "server-cert-filename", "server.crt"),
+		MTLSServerKeyFilename:           LoadOptionalConfigString(confReader, "mtls", "server-key-filename", "server.key"),
 	}, nil
+}
+
+func loadTLSVersion(cfgRdr *config.Config, fieldName string) (uint16, error) {
+	ver := strings.TrimSpace(LoadOptionalConfigString(cfgRdr, "mTLS", fieldName, "TLS_1.3"))
+	switch ver {
+	case "", "Default", "default":
+		return tls.VersionTLS13, nil
+	case "TLS_1.2":
+		return tls.VersionTLS12, nil
+	case "TLS_1.3":
+		return tls.VersionTLS13, nil
+	default:
+		return 0, fmt.Errorf("Unsupported TLS version: \"" + ver + "\". Use: TLS_1.{2,3}.")
+	}
 }

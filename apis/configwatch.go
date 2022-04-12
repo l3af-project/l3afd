@@ -8,9 +8,13 @@ package apis
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
+	"path"
 	"time"
 
 	"github.com/l3af-project/l3afd/config"
@@ -24,6 +28,7 @@ import (
 type Server struct {
 	KFRTConfigs *kf.NFConfigs
 	HostName    string
+	l3afdServer *http.Server
 }
 
 func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *config.Config, kfrtconfg *kf.NFConfigs) error {
@@ -32,6 +37,9 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 	s := &Server{
 		KFRTConfigs: kfrtconfg,
 		HostName:    hostname,
+		l3afdServer: &http.Server{
+			Addr: conf.L3afConfigsRestAPIAddr,
+		},
 	}
 
 	term := make(chan os.Signal)
@@ -45,9 +53,32 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 
 	go func() {
 		r := routes.NewRouter(apiRoutes(ctx, kfrtconfg))
+		s.l3afdServer.Handler = r
 
-		if err := http.ListenAndServe(conf.L3afConfigsRestAPIAddr, r); err != nil {
-			log.Error().Err(err).Msgf("failed to http serve")
+		if conf.MTLSEnabled {
+
+			// Create a CA certificate pool and add client ca's to it
+			caCert, err := ioutil.ReadFile(path.Join(conf.MTLSCertDir, conf.MTLSCACertFilename))
+			if err != nil {
+				log.Fatal().Err(err).Msgf("client CA %s file not found", conf.MTLSCACertFilename)
+			}
+			caCertPool := x509.NewCertPool()
+			caCertPool.AppendCertsFromPEM(caCert)
+
+			// Create the TLS Config with the CA pool and enable Client certificate validation
+			s.l3afdServer.TLSConfig = &tls.Config{
+				ClientCAs:  caCertPool,
+				ClientAuth: tls.RequireAndVerifyClientCert,
+				MinVersion: conf.MTLSMinVersion,
+			}
+
+			if err := s.l3afdServer.ListenAndServeTLS(path.Join(conf.MTLSCertDir, conf.MTLSServerCertFilename), path.Join(conf.MTLSCertDir, conf.MTLSServerKeyFilename)); err != nil {
+				log.Fatal().Err(err).Msgf("failed to start L3AFD server with mTLS enabled")
+			}
+		} else {
+			if err := s.l3afdServer.ListenAndServe(); err != nil {
+				log.Fatal().Err(err).Msgf("failed to start L3AFD server")
+			}
 		}
 	}()
 
