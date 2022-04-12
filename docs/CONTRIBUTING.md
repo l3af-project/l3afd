@@ -3,9 +3,9 @@
 ## Some Ways to Contribute
 - [Getting started with L3AF](#getting-started-with-l3af)
 - [Report potential bugs](#report-potential-bugs)
-- [New Features or product enhancements](#new-features-or-product-enhancements)
+- [New features or product enhancements](#new-features-or-product-enhancements)
 - [Submitting a patch that fixes a bug](#submitting-a-patch-that-fixes-a-bug)
-- [Contribute code](#coding-style)
+- [Coding style](#coding-style)
 - [Guidelines for pull requests](#guidelines-for-pull-requests)
 - [Improve our guides and documentation](#improve-our-guides-and-documentation)
 - [Increase our test coverage](#increase-our-test-coverage)
@@ -26,12 +26,12 @@ for reliably reproducing the issue.
 
 We will aim to triage issues in [weekly TSC meetings](https://wiki.lfnetworking.org/display/L3AF/Community+Meetings).
 In case we are unable to repro the issue, we will request more information from you. There will be a waiting period of
-2 weeks   for the requested information and if there is no response, the issue will be closed. If this happens,
+2 weeks for the requested information and if there is no response, the issue will be closed. If this happens,
 please reopen the issue if you do get a repro and provide the requested information.
 
 If you found a security issue, please do not open a GitHub Issue, and instead [email](security@lists.l3af.io) it in detail.
 
-### New Features or product enhancements
+### New features or product enhancements
 
 You can request or implement a new feature by [submitting a GitHub Issue](https://github.com/l3af-project/l3afd/issues/new).
 and communicate your proposal so that the L3AF community can review and provide feedback. Getting
@@ -51,14 +51,14 @@ Great, you want to directly contribute to the l3af project and submit a pull req
 It is recommended prior to working on a PR to submit an issue in github for the change you want
 to make describing the change and context around it. This gives the l3af maintainers a chance to review
 the issue and provide feedback and work with you on the change. If you have any questions, please
-feel free to reach out to the l3af team via [Slack](https://app.slack.com/client/T02GD9YQJUT/C02GRTC0SAD) or
+feel free to reach out to the l3af maintainers via [Slack](https://app.slack.com/client/T02GD9YQJUT/C02GRTC0SAD) or
 [mail](main@lists.l3af.io) group. Below are some general guidelines to help ensure a successful PR approval.
 
 - Provide background why you are making the change and the issue it addresses
 - List what is changing and provide a high-level summary of the change
 - List any relevant dependencies linked to this change
 - Describe the tests that you ran to verify your changes and add/update test cases
-- Update relevant docs, especially if you've change APIs
+- Update relevant docs, especially if you've changed APIs
 - Ensure all GitHub CI/CD checks pass
 
 ### Coding Style
@@ -67,13 +67,13 @@ See [uber-go](https://github.com/uber-go/guide/blob/master/style.md)
 
 ### Improve our guides and documentation
 
-The community look forward to the improvement our guides and documentation. 
+We look forward to contributions improving our guides and documentation.
 Documentation should be written in an inclusive style. The [Google developer documentation](https://developers.google.com/style/inclusive-documentation)
 contains an excellent reference on this topic.
 
 ### Increase our test coverage
 
-Increase the code coverage by adding the tests. PRs are expected to have 100% test coverage for added code. This can be
+Increase the code coverage by adding tests. PRs are expected to have 100% test coverage for added code. This can be
 verified with a coverage build. If your PR cannot have 100% coverage for some reason please clearly explain why when
 you open it. Run your tests and get coverage locally
 
