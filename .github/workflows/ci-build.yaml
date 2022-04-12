@@ -22,11 +22,12 @@ jobs:
 
       - name: Format
         run: |
-          res="$(gofmt -s -l .)"
-          if [ "$(echo "$res" | tr -d '\n' | wc -l)" -gt 0 ]; then
-          echo "Unformatted source code:"
-          echo "$res"
-          exit 1
+          go install golang.org/x/tools/cmd/goimports@latest      
+          res="$(goimports -l .)"
+          if [[ "$(printf '%s' "$res")" != '' ]]; then
+            echo "Unformatted source code:"
+            echo "$res"
+            exit 1
           fi
  
       - name: Vet
