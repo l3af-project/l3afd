@@ -18,7 +18,7 @@ jobs:
           apk add gcc libc-dev bash perl curl
           
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Format
         run: |
