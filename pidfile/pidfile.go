@@ -23,7 +23,7 @@ func CheckPIDConflict(pidFilename string) error {
 			log.Error().Msgf("OK, no PID file already exists at %s.", pidFilename)
 			return nil
 		}
-		return fmt.Errorf("Could not open PID file: %s, please manually remove; error: %v", pidFilename, err)
+		return fmt.Errorf("could not open PID file: %s, please manually remove; error: %v", pidFilename, err)
 	}
 	if len(pidFileContent) < 1 {
 		log.Warn().Msgf("PID file already exists at %s, but it is empty... ignoring.", pidFilename)
@@ -52,7 +52,7 @@ func CheckPIDConflict(pidFilename string) error {
 	if err != nil {
 		log.Info().Msgf("Process was not running, removing PID file.")
 		if err = RemovePID(pidFilename); err != nil {
-			return fmt.Errorf("Removal failed, please manually remove; err: %v", err)
+			return fmt.Errorf("removal failed, please manually remove; err: %v", err)
 		}
 		return nil
 	}
@@ -60,28 +60,28 @@ func CheckPIDConflict(pidFilename string) error {
 	log.Info().Msgf("Process with PID: %s; is running. Comparing process names to ensure it is a true conflict.", oldPIDString)
 	selfProcName, err := ioutil.ReadFile("/proc/self/comm")
 	if err != nil {
-		return fmt.Errorf("Could not read this processes command name from the proc filesystem; err: %v", err)
+		return fmt.Errorf("could not read this processes command name from the proc filesystem; err: %v", err)
 	}
 	conflictProcName, err := ioutil.ReadFile(fmt.Sprintf("/proc/%d/comm", oldPID))
 	if err != nil {
-		return fmt.Errorf("Could not read old processes (PID: %s) command name from the proc filesystem; error: %v", oldPIDString, err)
+		return fmt.Errorf("could not read old processes (PID: %s) command name from the proc filesystem; error: %v", oldPIDString, err)
 	}
 	if string(selfProcName) != string(conflictProcName) {
 		log.Info().Msgf("Old process had command name: %q, not %q, removing PID file.", conflictProcName, selfProcName)
 		if err = RemovePID(pidFilename); err != nil {
-			return fmt.Errorf("Removal failed, please manually remove; error: %v", err)
+			return fmt.Errorf("removal failed, please manually remove; error: %v", err)
 		}
 		return nil
 	}
 
-	return fmt.Errorf("A previous instance of this process (%s) is running with ID %s; please shutdown this process before running.", selfProcName, oldPIDString)
+	return fmt.Errorf("a previous instance of this process (%s) is running with ID %s; please shutdown this process before running", selfProcName, oldPIDString)
 }
 
 func CreatePID(pidFilename string) error {
 	PID := os.Getpid()
 	log.Info().Msgf("Writing process ID %d to %s...", PID, pidFilename)
 	if err := ioutil.WriteFile(pidFilename, []byte(strconv.Itoa(PID)), 0640); err != nil {
-		return fmt.Errorf("Could not write process ID to file: \"%s\"; error: %v", pidFilename, err)
+		return fmt.Errorf("could not write process ID to file: \"%s\"; error: %v", pidFilename, err)
 	}
 	return nil
 }
@@ -89,7 +89,7 @@ func CreatePID(pidFilename string) error {
 func RemovePID(pidFilename string) error {
 	err := os.Remove(pidFilename)
 	if err != nil {
-		err = fmt.Errorf("Could not remove PID file: %s; error: %v", pidFilename, err)
+		err = fmt.Errorf("could not remove PID file: %s; error: %v", pidFilename, err)
 	}
 	return err
 }
@@ -104,7 +104,7 @@ func SetupGracefulShutdown(shutdownHandler func() error, shutdownHandlerTimeout 
 	//We must use a buffered channel or risk missing the signal if we're not
 	//ready to receive when the signal is sent.
 	interruptCh := make(chan os.Signal, 1)
-	signal.Notify(interruptCh, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGINT, syscall.SIGKILL, syscall.SIGQUIT)
+	signal.Notify(interruptCh, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGINT, syscall.SIGQUIT)
 
 	//Start worker that listens for shutdown signal and handles it
 	go func() {

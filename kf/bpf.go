@@ -40,6 +40,7 @@ var (
 	copyBufPool sync.Pool = sync.Pool{New: func() interface{} { return make([]byte, 32*1024) }}
 )
 
+//lint:ignore U1000 avoid false linter error on windows, since this variable is only used in linux code
 const executePerm uint32 = 0111
 const bpfStatus string = "RUNNING"
 
@@ -378,7 +379,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	}
 
 	isRunning, err := b.isRunning()
-	if isRunning == false {
+	if !isRunning {
 		log.Error().Err(err).Msg("eBPF program failed to start")
 		return fmt.Errorf("bpf program %s failed to start %w", b.Program.Name, err)
 	}
@@ -447,7 +448,7 @@ func (b *BPF) Update(ifaceName, direction string) error {
 				if err := b.AddBPFMap(k); err != nil {
 					return err
 				}
-				bpfMap, _ = b.BpfMaps[k]
+				bpfMap = b.BpfMaps[k]
 			}
 			bpfMap.Update(v)
 		}
@@ -463,7 +464,7 @@ func (b *BPF) isRunning() (bool, error) {
 		cmd := filepath.Join(b.FilePath, b.Program.CmdStatus)
 
 		if err := assertExecutable(cmd); err != nil {
-			return false, fmt.Errorf("Failed to execute %s with error: %w", b.Program.CmdStatus, err)
+			return false, fmt.Errorf("failed to execute %s with error: %w", b.Program.CmdStatus, err)
 		}
 
 		args := make([]string, 0, len(b.Program.StatusArgs)<<1)
@@ -486,7 +487,7 @@ func (b *BPF) isRunning() (bool, error) {
 			log.Warn().Err(err).Msgf("l3afd/nf : Failed to execute %s", b.Program.CmdStatus)
 		}
 
-		outStr, errStr := string(out.Bytes()), string(out.Bytes())
+		outStr, errStr := out.String(), out.String()
 		if strings.EqualFold(outStr, bpfStatus) {
 			return true, nil
 		}
@@ -500,7 +501,7 @@ func (b *BPF) isRunning() (bool, error) {
 	}
 
 	if err := b.VerifyProcessObject(); err != nil {
-		return false, errors.New("No process id found")
+		return false, errors.New("no process id found")
 	}
 
 	return IsProcessRunning(b.Cmd.Process.Pid, b.Program.Name)
@@ -544,7 +545,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 	// Get the data
 	resp, err := client.Get(kfRepoURL.String())
 	if err != nil {
-		return fmt.Errorf("Download failed: %w", err)
+		return fmt.Errorf("download failed: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -552,12 +553,12 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 	buf.ReadFrom(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Get request returned unexpected status code: %d (%s), %d was expected\n\tResponse Body: %s\n", resp.StatusCode, http.StatusText(resp.StatusCode), http.StatusOK, buf.Bytes())
+		return fmt.Errorf("get request returned unexpected status code: %d (%s), %d was expected\n\tResponse Body: %s", resp.StatusCode, http.StatusText(resp.StatusCode), http.StatusOK, buf.Bytes())
 	}
 
 	archive, err := gzip.NewReader(buf)
 	if err != nil {
-		return fmt.Errorf("Failed to create Gzip reader: %w", err)
+		return fmt.Errorf("failed to create Gzip reader: %w", err)
 	}
 	defer archive.Close()
 
@@ -570,7 +571,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			return fmt.Errorf("Untar failed: %w", err)
+			return fmt.Errorf("untar failed: %w", err)
 		}
 
 		if strings.Contains(header.Name, "..") {
@@ -581,14 +582,14 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 		info := header.FileInfo()
 		if info.IsDir() {
 			if err = os.MkdirAll(fPath, info.Mode()); err != nil {
-				return fmt.Errorf("Untar failed to create directories: %w", err)
+				return fmt.Errorf("untar failed to create directories: %w", err)
 			}
 			continue
 		}
 
 		file, err := os.OpenFile(fPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, info.Mode())
 		if err != nil {
-			return fmt.Errorf("Untar failed to create file: %w", err)
+			return fmt.Errorf("untar failed to create file: %w", err)
 		}
 		defer file.Close()
 
@@ -597,7 +598,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 		if err != nil {
 			return fmt.Errorf("GetArtifacts failed to copy files: %w", err)
 		}
-		copyBufPool.Put(buf)
+		copyBufPool.Put(&buf)
 	}
 
 	newDir := strings.Split(b.Program.Artifact, ".")
@@ -745,13 +746,13 @@ func (b *BPF) MonitorMaps(ifaceName string, intervals int) error {
 	for _, element := range b.Program.MonitorMaps {
 		log.Debug().Msgf("monitor maps element %s key %d aggregator %s", element.Name, element.Key, element.Aggregator)
 		mapKey := element.Name + strconv.Itoa(element.Key) + element.Aggregator
-		bpfMap, ok := b.MetricsBpfMaps[mapKey]
+		_, ok := b.MetricsBpfMaps[mapKey]
 		if !ok {
 			if err := b.AddMetricsBPFMap(element.Name, element.Aggregator, element.Key, intervals); err != nil {
 				return fmt.Errorf("not able to fetch map %s key %d aggregator %s", element.Name, element.Key, element.Aggregator)
 			}
 		}
-		bpfMap, _ = b.MetricsBpfMaps[mapKey]
+		bpfMap := b.MetricsBpfMaps[mapKey]
 		MetricName := element.Name + "_" + strconv.Itoa(element.Key) + "_" + element.Aggregator
 		stats.SetValue(bpfMap.GetValue(), stats.NFMointorMap, b.Program.Name, MetricName)
 	}
@@ -854,7 +855,7 @@ func (b *BPF) RemovePrevProgFD() error {
 // making sure program fd map's pinned file is created
 func (b *BPF) VerifyPinnedMapExists(chain bool) error {
 
-	if chain == false {
+	if !chain {
 		return nil
 	}
 
@@ -883,7 +884,7 @@ func (b *BPF) VerifyPinnedMapExists(chain bool) error {
 // VerifyPinnedMapVanish - making sure XDP program fd map's pinned file is removed
 func (b *BPF) VerifyPinnedMapVanish(chain bool) error {
 
-	if len(b.Program.MapName) <= 0 || b.Program.ProgType != models.XDPType || chain == false {
+	if len(b.Program.MapName) <= 0 || b.Program.ProgType != models.XDPType || !chain {
 		return nil
 	}
 
@@ -939,7 +940,7 @@ func (b *BPF) VerifyMetricsMapsVanish() error {
 				mapExists = true
 			}
 		}
-		if mapExists == false {
+		if !mapExists {
 			return nil
 		}
 

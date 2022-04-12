@@ -24,7 +24,6 @@ func TestMetricsBPFMapMaxValue(t *testing.T) {
 		key        int
 		Values     *ring.Ring
 		aggregator string
-		lastValue  float64
 	}
 	SetupTestValues()
 	tests := []struct {
@@ -61,7 +60,6 @@ func TestMetricsBPFMapAvgValue(t *testing.T) {
 		key        int
 		Values     *ring.Ring
 		aggregator string
-		lastValue  float64
 	}
 	SetupTestValues()
 	tests := []struct {

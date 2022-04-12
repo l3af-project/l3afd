@@ -19,7 +19,7 @@ func DisableLRO(ifaceName string) error {
 // Set process resource limits only non-zero value
 func (b *BPF) SetPrLimits() error {
 	if b.Cmd == nil {
-		return errors.New("No Process to set limits")
+		return errors.New("no Process to set limits")
 	}
 	return nil
 }

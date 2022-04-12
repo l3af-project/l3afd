@@ -53,7 +53,7 @@ func prLimit(pid int, limit uintptr, rlimit *unix.Rlimit) error {
 
 	if errno != 0 {
 		log.Error().Msgf("Failed to set prlimit for process %d and errorno %d", pid, errno)
-		return errors.New("Failed to set prlimit")
+		return errors.New("failed to set prlimit")
 	}
 
 	return nil
@@ -64,7 +64,7 @@ func (b *BPF) SetPrLimits() error {
 	var rlimit unix.Rlimit
 
 	if b.Cmd == nil {
-		return errors.New("No Process to set limits")
+		return errors.New("no Process to set limits")
 	}
 
 	if b.Program.Memory != 0 {
@@ -107,7 +107,7 @@ func VerifyNMountBPFFS() error {
 		return fmt.Errorf("failed to read procfs: %v", err)
 	}
 
-	if strings.Contains(string(mnts), dstPath) == false {
+	if !strings.Contains(string(mnts), dstPath) {
 		log.Warn().Msg("bpf filesystem is not mounted going to mount")
 		if err = syscall.Mount(srcPath, dstPath, fstype, uintptr(flags), ""); err != nil {
 			return fmt.Errorf("unable to mount %s at %s: %s", srcPath, dstPath, err)
@@ -129,7 +129,7 @@ func GetPlatform() (string, error) {
 		return "", fmt.Errorf("l3afd/nf : Failed to run command with error: %w", err)
 	}
 
-	return strings.TrimSpace(string(out.Bytes())), nil
+	return strings.TrimSpace(out.String()), nil
 }
 
 func IsProcessRunning(pid int, name string) (bool, error) {
@@ -140,10 +140,10 @@ func IsProcessRunning(pid int, name string) (bool, error) {
 	var u1, u2, state string
 	_, err = fmt.Sscanf(string(procState), "%s %s %s", &u1, &u2, &state)
 	if err != nil {
-		return false, fmt.Errorf("Failed to scan proc state with error: %w", err)
+		return false, fmt.Errorf("failed to scan proc state with error: %w", err)
 	}
 	if state == "Z" {
-		return false, fmt.Errorf("Process %d in Zombie state", pid)
+		return false, fmt.Errorf("process %d in Zombie state", pid)
 	}
 
 	return true, nil
