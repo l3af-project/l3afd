@@ -11,10 +11,12 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/l3af-project/l3afd/config"
@@ -55,8 +57,13 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 		r := routes.NewRouter(apiRoutes(ctx, kfrtconfg))
 		s.l3afdServer.Handler = r
 
-		if conf.MTLSEnabled {
+		// As per design discussion when mTLS flag is not set and not listening on loop back or localhost
+		if conf.MTLSEnabled == false && !isLoopback(conf.L3afConfigsRestAPIAddr) {
+			conf.MTLSEnabled = true
+		}
 
+		if conf.MTLSEnabled {
+			log.Info().Msgf("l3afd server listening with mTLS - %s ", conf.L3afConfigsRestAPIAddr)
 			// Create a CA certificate pool and add client ca's to it
 			caCert, err := ioutil.ReadFile(path.Join(conf.MTLSCertDir, conf.MTLSCACertFilename))
 			if err != nil {
@@ -76,6 +83,8 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 				log.Fatal().Err(err).Msgf("failed to start L3AFD server with mTLS enabled")
 			}
 		} else {
+			log.Info().Msgf("l3afd server listening - %s ", conf.L3afConfigsRestAPIAddr)
+
 			if err := s.l3afdServer.ListenAndServe(); err != nil {
 				log.Fatal().Err(err).Msgf("failed to start L3AFD server")
 			}
@@ -100,4 +109,23 @@ func (s *Server) GracefulStop(shutdownTimeout time.Duration) error {
 
 	os.Exit(exitCode)
 	return nil
+}
+
+// isLoopbackAddr - Check for localhost or loop back address
+func isLoopback(addr string) bool {
+
+	if strings.Contains(addr, "localhost:") {
+		return true
+	}
+	httpId := "://"
+	if id := strings.Index(addr, httpId); id > -1 {
+		addr = addr[id+len(httpId):]
+	}
+	if id := strings.LastIndex(addr, ":"); id > -1 {
+		addr = addr[:id]
+	}
+	if ipAddr := net.ParseIP(addr); ipAddr != nil {
+		return ipAddr.IsLoopback()
+	}
+	return false
 }
