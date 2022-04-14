@@ -58,7 +58,7 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 		s.l3afdServer.Handler = r
 
 		// As per design discussion when mTLS flag is not set and not listening on loop back or localhost
-		if conf.MTLSEnabled == false && !isLoopback(conf.L3afConfigsRestAPIAddr) {
+		if !conf.MTLSEnabled && !isLoopback(conf.L3afConfigsRestAPIAddr) {
 			conf.MTLSEnabled = true
 		}
 
