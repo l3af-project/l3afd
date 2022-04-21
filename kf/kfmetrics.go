@@ -30,7 +30,6 @@ func (c *kfMetrics) kfMetricsStart(xdpProgs, ingressTCProgs, egressTCProgs map[s
 	go c.kfMetricsWorker(xdpProgs, models.XDPIngressType)
 	go c.kfMetricsWorker(ingressTCProgs, models.IngressType)
 	go c.kfMetricsWorker(egressTCProgs, models.EgressType)
-	return
 }
 
 func (c *kfMetrics) kfMetricsWorker(bpfProgs map[string]*list.List, direction string) {

@@ -119,8 +119,6 @@ func TestBPF_Stop(t *testing.T) {
 		FilePath     string
 		RestartCount int
 		Direction    string
-		ctx          context.Context
-		datacenter   string
 	}
 	tests := []struct {
 		name    string
@@ -200,7 +198,6 @@ func TestBPF_Start(t *testing.T) {
 		FilePath     string
 		RestartCount int
 		ifaceName    string
-		seqID        int
 	}
 	tests := []struct {
 		name    string

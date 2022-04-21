@@ -23,7 +23,7 @@ var (
 	hostInterfaces  map[string]bool
 	pMon            *pCheck
 	mMon            *kfMetrics
-	val             []byte
+	//	val             []byte
 	valVerChange    *models.BPFPrograms
 	valStatusChange *models.BPFPrograms
 	ingressXDPBpfs  map[string]*list.List
@@ -44,9 +44,8 @@ func setupDBTest() {
 	ingressXDPBpfs = make(map[string]*list.List)
 	ingressTCBpfs = make(map[string]*list.List)
 	egressTCBpfs = make(map[string]*list.List)
-
-	return
 }
+
 func setupValidBPF() {
 	bpf := BPF{
 		Program: models.BPFProgram{
@@ -66,8 +65,6 @@ func setupValidBPF() {
 	ifaceName = "dummy"
 	seqID = 1
 	log.Info().Msg(bpf.Program.Name)
-
-	return
 }
 
 func setupBPFProgramData() {

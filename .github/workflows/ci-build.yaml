@@ -15,18 +15,19 @@ jobs:
       - name: Set up environment
         run : |
           apk update
-          apk add gcc libc-dev
+          apk add gcc libc-dev bash perl curl
           
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Format
         run: |
-          res="$(gofmt -s -l .)"
-          if [ "$(echo "$res" | tr -d '\n' | wc -l)" -gt 0 ]; then
-          echo "Unformatted source code:"
-          echo "$res"
-          exit 1
+          go install golang.org/x/tools/cmd/goimports@latest      
+          res="$(goimports -l .)"
+          if [[ "$(printf '%s' "$res")" != '' ]]; then
+            echo "Unformatted source code:"
+            echo "$res"
+            exit 1
           fi
  
       - name: Vet
@@ -35,7 +36,12 @@ jobs:
 
       - name: Test
         run: |
-          go test ./...      
+          go test ./...
+
+      - uses: dominikh/staticcheck-action@v1.1.0
+        with:
+          version: "2021.1.2"
+          install-go: false
 
       - name: Build
         run: |
