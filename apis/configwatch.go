@@ -34,7 +34,7 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 		HostName:    hostname,
 	}
 
-	term := make(chan os.Signal)
+	term := make(chan os.Signal, 1)
 	signal.Notify(term, signals.ShutdownSignals...)
 	go func() {
 		<-term
