@@ -117,15 +117,12 @@ func isLoopback(addr string) bool {
 	if strings.Contains(addr, "localhost:") {
 		return true
 	}
-	httpId := "://"
-	if id := strings.Index(addr, httpId); id > -1 {
-		addr = addr[id+len(httpId):]
-	}
 	if id := strings.LastIndex(addr, ":"); id > -1 {
 		addr = addr[:id]
 	}
 	if ipAddr := net.ParseIP(addr); ipAddr != nil {
 		return ipAddr.IsLoopback()
 	}
-	return false
+	// :port scenario
+	return true
 }
