@@ -52,7 +52,9 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 
 	go func() {
 		r := routes.NewRouter(apiRoutes(ctx, kfrtconfg))
-		r.Mount("/swagger", httpSwagger.WrapHandler)
+		if conf.SwaggerApiEnabled {
+			r.Mount("/swagger", httpSwagger.WrapHandler)
+		}
 		if err := http.ListenAndServe(conf.L3afConfigsRestAPIAddr, r); err != nil {
 			log.Error().Err(err).Msgf("failed to http serve")
 		}
