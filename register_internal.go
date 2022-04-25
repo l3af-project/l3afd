@@ -1,6 +1,7 @@
 // Copyright Contributors to the L3AF Project.
 // SPDX-License-Identifier: Apache-2.0
 //
+//go:build !admind
 // +build !admind
 
 // This file is used for walmart internal to register with management server.

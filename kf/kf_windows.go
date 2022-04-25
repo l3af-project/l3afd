@@ -1,5 +1,7 @@
 // Copyright Contributors to the L3AF Project.
 // SPDX-License-Identifier: Apache-2.0
+//
+//go:build WINDOWS
 // +build WINDOWS
 
 // Package kf provides primitives for l3afd's network function configs.
@@ -19,7 +21,7 @@ func DisableLRO(ifaceName string) error {
 // Set process resource limits only non-zero value
 func (b *BPF) SetPrLimits() error {
 	if b.Cmd == nil {
-		return errors.New("No Process to set limits")
+		return errors.New("no Process to set limits")
 	}
 	return nil
 }

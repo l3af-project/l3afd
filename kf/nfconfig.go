@@ -26,7 +26,7 @@ type NFConfigs struct {
 	ctx            context.Context
 	hostName       string
 	hostInterfaces map[string]bool
-	configs        sync.Map // key: string, val: *models.L3afDNFConfigDetail
+	//	configs        sync.Map // key: string, val: *models.L3afDNFConfigDetail
 	// These holds bpf programs in the list
 	// map keys are network iface names index's are seq_id, position in the chain
 	// root element will be root program
@@ -305,7 +305,7 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 			continue
 		}
 
-		if reflect.DeepEqual(data.Program, *bpfProg) == true {
+		if reflect.DeepEqual(data.Program, *bpfProg) {
 			// Nothing to do
 			return nil
 		}
@@ -355,7 +355,7 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 		}
 
 		// Version Change
-		if data.Program.Version != bpfProg.Version || reflect.DeepEqual(data.Program.StartArgs, bpfProg.StartArgs) != true {
+		if data.Program.Version != bpfProg.Version || !reflect.DeepEqual(data.Program.StartArgs, bpfProg.StartArgs) {
 			log.Info().Msgf("VerifyNUpdateBPFProgram : version update initiated - current version %s new version %s", data.Program.Version, bpfProg.Version)
 
 			if err := data.Stop(ifaceName, direction, c.hostConfig.BpfChainingEnabled); err != nil {
@@ -377,7 +377,7 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 		}
 
 		// monitor maps change
-		if reflect.DeepEqual(data.Program.MonitorMaps, bpfProg.MonitorMaps) != true {
+		if !reflect.DeepEqual(data.Program.MonitorMaps, bpfProg.MonitorMaps) {
 			log.Info().Msgf("monitor map list is mismatch - updated")
 			data.Program.MonitorMaps = bpfProg.MonitorMaps
 			return nil
@@ -401,7 +401,7 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 			}
 
 			// map arguments change - basically any config change to KF
-			if reflect.DeepEqual(data.Program.MapArgs, bpfProg.MapArgs) != true {
+			if !reflect.DeepEqual(data.Program.MapArgs, bpfProg.MapArgs) {
 				log.Info().Msg("maps_args are mismatched")
 				data.Program.MapArgs = bpfProg.MapArgs
 				data.Update(ifaceName, direction)
@@ -885,7 +885,7 @@ func (c *NFConfigs) RemoveMissingBPFProgramsInConfig(bpfProg models.L3afBPFProgr
 	}
 
 	e := bpfList.Front()
-	if e != nil && c.hostConfig.BpfChainingEnabled == true {
+	if e != nil && c.hostConfig.BpfChainingEnabled {
 		e = e.Next()
 	}
 	for ; e != nil; e = e.Next() {
@@ -897,7 +897,7 @@ func (c *NFConfigs) RemoveMissingBPFProgramsInConfig(bpfProg models.L3afBPFProgr
 				break
 			}
 		}
-		if Found == false {
+		if !Found {
 			log.Info().Msgf("eBPF Program not found in config stopping - %s direction %s", prog.Program.Name, direction)
 			prog.Program.AdminStatus = models.Disabled
 			if err := prog.Stop(ifaceName, direction, c.hostConfig.BpfChainingEnabled); err != nil {

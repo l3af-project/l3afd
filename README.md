@@ -52,3 +52,7 @@ For Windows:
 ```
 go test -tags WINDOWS ./...
 ```
+# Contributing
+
+Contributing to L3afd is fun. To get started:
+- [Contributing guide](docs/CONTRIBUTING.md)

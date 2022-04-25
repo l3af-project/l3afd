@@ -87,7 +87,7 @@ func (b *BPFMap) Update(value string) error {
 			v, _ := strconv.ParseInt(val, 10, 64)
 			log.Info().Msgf("updating map %s key %d mapid %d", b.Name, v, b.MapID)
 			if err := ebpfMap.Update(unsafe.Pointer(&key), unsafe.Pointer(&v), 0); err != nil {
-				return fmt.Errorf("update array map index %d %v\n", key, err)
+				return fmt.Errorf("update array map index %d %v", key, err)
 			}
 		}
 	} else {

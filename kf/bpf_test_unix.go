@@ -1,5 +1,7 @@
 // Copyright Contributors to the L3AF Project.
 // SPDX-License-Identifier: Apache-2.0
+//
+//go:build !WINDOWS
 // +build !WINDOWS
 
 package kf
@@ -29,11 +31,11 @@ func GetTestExecutableName() string {
 func assertExecutable(fPath string) error {
 	info, err := os.Stat(fPath)
 	if err != nil {
-		return fmt.Errorf("Could not stat file: %s with error: %w", fPath, err)
+		return fmt.Errorf("could not stat file: %s with error: %w", fPath, err)
 	}
 
 	if (info.Mode()&os.ModePerm)&os.FileMode(executePerm) == 0 {
-		return fmt.Errorf("File: %s, is not executable.", fPath)
+		return fmt.Errorf("file: %s, is not executable", fPath)
 	}
 	return nil
 }

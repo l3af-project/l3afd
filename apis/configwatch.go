@@ -1,8 +1,8 @@
 // Copyright Contributors to the L3AF Project.
 // SPDX-License-Identifier: Apache-2.0
 //
+//go:build !configs
 // +build !configs
-//
 
 package apis
 
@@ -41,7 +41,7 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 		HostName:    hostname,
 	}
 
-	term := make(chan os.Signal)
+	term := make(chan os.Signal, 1)
 	signal.Notify(term, signals.ShutdownSignals...)
 	go func() {
 		<-term
