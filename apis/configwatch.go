@@ -57,7 +57,7 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 		r := routes.NewRouter(apiRoutes(ctx, kfrtconfg))
 		s.l3afdServer.Handler = r
 
-		// As per design discussion when mTLS flag is not set and not listening on loop back or localhost
+		// As per design discussion when mTLS flag is not set and not listening on loopback or localhost
 		if !conf.MTLSEnabled && !isLoopback(conf.L3afConfigsRestAPIAddr) {
 			conf.MTLSEnabled = true
 		}
@@ -111,7 +111,7 @@ func (s *Server) GracefulStop(shutdownTimeout time.Duration) error {
 	return nil
 }
 
-// isLoopbackAddr - Check for localhost or loop back address
+// isLoopback - Check for localhost or loopback address
 func isLoopback(addr string) bool {
 
 	if strings.Contains(addr, "localhost:") {
