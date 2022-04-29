@@ -34,5 +34,5 @@ If you have not added the annotations, follow these docs
 
 From the root folder of `l3afd` run following command
 ```
-swag init -g ./apis/configwatch.go -o ./docs
+swag init -d "./" -g "apis/configwatch.go"
 ```
