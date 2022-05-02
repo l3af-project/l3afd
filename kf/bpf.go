@@ -37,7 +37,7 @@ import (
 
 var (
 	execCommand           = exec.Command
-	copyBufPool sync.Pool = sync.Pool{New: func() interface{} { return make([]byte, 32*1024) }}
+	copyBufPool sync.Pool = sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
 )
 
 //lint:ignore U1000 avoid false linter error on windows, since this variable is only used in linux code
@@ -593,12 +593,12 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 		}
 		defer file.Close()
 
-		buf := copyBufPool.Get().([]byte)
-		_, err = io.CopyBuffer(file, tarReader, buf)
+		buf := copyBufPool.Get().(*bytes.Buffer)
+		_, err = io.CopyBuffer(file, tarReader, buf.Bytes())
 		if err != nil {
 			return fmt.Errorf("GetArtifacts failed to copy files: %w", err)
 		}
-		copyBufPool.Put(&buf)
+		copyBufPool.Put(buf)
 	}
 
 	newDir := strings.Split(b.Program.Artifact, ".")
