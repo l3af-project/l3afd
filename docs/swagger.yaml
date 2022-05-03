@@ -152,7 +152,9 @@ paths:
         name: cfgs
         required: true
         schema:
-          $ref: '#/definitions/models.L3afBPFPrograms'
+          items:
+            $ref: '#/definitions/models.L3afBPFPrograms'
+          type: array
       produces:
       - application/json
       responses:
