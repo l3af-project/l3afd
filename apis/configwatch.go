@@ -20,6 +20,8 @@ import (
 	"github.com/l3af-project/l3afd/routes"
 	"github.com/l3af-project/l3afd/signals"
 
+	_ "github.com/l3af-project/l3afd/docs"
+
 	"github.com/rs/zerolog/log"
 )
 

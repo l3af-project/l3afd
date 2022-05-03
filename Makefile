@@ -1,5 +1,5 @@
 .PHONY: all
-## build: Compile the packages.
+
 all: swagger build
 
 swagger:

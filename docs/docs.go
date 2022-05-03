@@ -56,7 +56,10 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.L3afBPFPrograms"
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.L3afBPFPrograms"
+                            }
                         }
                     }
                 ],

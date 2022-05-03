@@ -23,7 +23,7 @@ import (
 // @Tags Update
 // @Accept  json
 // @Produce  json
-// @Param cfgs body models.L3afBPFPrograms true "BPF programs"
+// @Param cfgs body []models.L3afBPFPrograms true "BPF programs"
 // @Success 200
 // @Router /l3af/configs/v1/update [post]
 func UpdateConfig(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFunc {
