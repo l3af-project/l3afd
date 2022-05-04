@@ -22,7 +22,6 @@ func InitConfigs(cfgs *kf.NFConfigs) error {
 // GetConfig Returns details of the configuration of eBPF Programs for a given interface
 // @Summary Returns details of the configuration of eBPF Programs for a given interface
 // @Description Returns details of the configuration of eBPF Programs for a given interface
-// @Tags Retrieve
 // @Accept  json
 // @Produce  json
 // @Param iface path string true "interface name"
@@ -63,7 +62,6 @@ func GetConfig(w http.ResponseWriter, r *http.Request) {
 // GetConfigAll Returns details of the configuration of eBPF Programs for all interfaces on a node
 // @Summary Returns details of the configuration of eBPF Programs for all interfaces on a node
 // @Description Returns details of the configuration of eBPF Programs for all interfaces on a node
-// @Tags Retrieve
 // @Accept  json
 // @Produce  json
 // @Success 200

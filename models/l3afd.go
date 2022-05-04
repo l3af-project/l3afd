@@ -53,19 +53,19 @@ type BPFProgram struct {
 
 // L3afDNFMetricsMap defines KF map for CDB
 type L3afDNFMetricsMap struct {
-	Name       string `json:"name"`
-	Key        int    `json:"key"`
-	Aggregator string `json:"aggregator"`
+	Name       string `json:"name"`       // BPF map name
+	Key        int    `json:"key"`        // Index of the bpf map
+	Aggregator string `json:"aggregator"` // Aggregation function names
 }
 
 type L3afBPFPrograms struct {
-	HostName    string       `json:"host_name"`    // host name or pod name
+	HostName    string       `json:"host_name"`    // Host name or pod name
 	Iface       string       `json:"iface"`        // Interface name
-	BpfPrograms *BPFPrograms `json:"bpf_programs"` // list of bpf programs
+	BpfPrograms *BPFPrograms `json:"bpf_programs"` // List of bpf programs
 }
 
 type BPFPrograms struct {
-	XDPIngress []*BPFProgram `json:"xdp_ingress"` // list of xdp bpf programs
+	XDPIngress []*BPFProgram `json:"xdp_ingress"` // list of xdp ingress bpf programs
 	TCIngress  []*BPFProgram `json:"tc_ingress"`  // list of tc ingress bpf programs
 	TCEgress   []*BPFProgram `json:"tc_egress"`   // list of tc egress bpf programs
 }

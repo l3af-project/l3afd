@@ -25,9 +25,6 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
-                "tags": [
-                    "Retrieve"
-                ],
                 "summary": "Returns details of the configuration of eBPF Programs for all interfaces on a node",
                 "responses": {
                     "200": {
@@ -44,9 +41,6 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
-                ],
-                "tags": [
-                    "Update"
                 ],
                 "summary": "Update eBPF Programs configuration",
                 "parameters": [
@@ -78,9 +72,6 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
-                ],
-                "tags": [
-                    "Retrieve"
                 ],
                 "summary": "Returns details of the configuration of eBPF Programs for a given interface",
                 "parameters": [
@@ -205,7 +196,7 @@ const docTemplate = `{
                     }
                 },
                 "xdp_ingress": {
-                    "description": "list of xdp bpf programs",
+                    "description": "list of xdp ingress bpf programs",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.BPFProgram"
@@ -217,11 +208,11 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "bpf_programs": {
-                    "description": "list of bpf programs",
+                    "description": "List of bpf programs",
                     "$ref": "#/definitions/models.BPFPrograms"
                 },
                 "host_name": {
-                    "description": "host name or pod name",
+                    "description": "Host name or pod name",
                     "type": "string"
                 },
                 "iface": {
@@ -238,12 +229,15 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "aggregator": {
+                    "description": "Aggregation function names",
                     "type": "string"
                 },
                 "key": {
+                    "description": "Index of the bpf map",
                     "type": "integer"
                 },
                 "name": {
+                    "description": "BPF map name",
                     "type": "string"
                 }
             }
