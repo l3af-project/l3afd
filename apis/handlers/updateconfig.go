@@ -20,7 +20,6 @@ import (
 // UpdateConfig Update eBPF Programs configuration
 // @Summary Update eBPF Programs configuration
 // @Description Update eBPF Programs configuration
-// @Tags Update
 // @Accept  json
 // @Produce  json
 // @Param cfgs body []models.L3afBPFPrograms true "BPF programs"

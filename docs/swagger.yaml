@@ -70,7 +70,7 @@ definitions:
           $ref: '#/definitions/models.BPFProgram'
         type: array
       xdp_ingress:
-        description: list of xdp bpf programs
+        description: list of xdp ingress bpf programs
         items:
           $ref: '#/definitions/models.BPFProgram'
         type: array
@@ -79,9 +79,9 @@ definitions:
     properties:
       bpf_programs:
         $ref: '#/definitions/models.BPFPrograms'
-        description: list of bpf programs
+        description: List of bpf programs
       host_name:
-        description: host name or pod name
+        description: Host name or pod name
         type: string
       iface:
         description: Interface name
@@ -93,10 +93,13 @@ definitions:
   models.L3afDNFMetricsMap:
     properties:
       aggregator:
+        description: Aggregation function names
         type: string
       key:
+        description: Index of the bpf map
         type: integer
       name:
+        description: BPF map name
         type: string
     type: object
 info:
@@ -119,8 +122,6 @@ paths:
           description: ""
       summary: Returns details of the configuration of eBPF Programs for all interfaces
         on a node
-      tags:
-      - Retrieve
   /l3af/configs/v1/{iface}:
     get:
       consumes:
@@ -139,8 +140,6 @@ paths:
         "200":
           description: ""
       summary: Returns details of the configuration of eBPF Programs for a given interface
-      tags:
-      - Retrieve
   /l3af/configs/v1/update:
     post:
       consumes:
@@ -161,6 +160,4 @@ paths:
         "200":
           description: ""
       summary: Update eBPF Programs configuration
-      tags:
-      - Update
 swagger: "2.0"
