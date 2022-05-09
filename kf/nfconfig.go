@@ -380,35 +380,31 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 		if !reflect.DeepEqual(data.Program.MonitorMaps, bpfProg.MonitorMaps) {
 			log.Info().Msgf("monitor map list is mismatch - updated")
 			data.Program.MonitorMaps = bpfProg.MonitorMaps
-			return nil
 		}
 
-		if data.Program.CfgVersion != bpfProg.CfgVersion {
+		// Update CfgVersion
+		data.Program.CfgVersion = bpfProg.CfgVersion
 
-			// Update CfgVersion
-			data.Program.CfgVersion = bpfProg.CfgVersion
+		// Seq ID Change
+		if data.Program.SeqID != bpfProg.SeqID {
+			log.Info().Msgf("VerifyNUpdateBPFProgram : seq id change detected %s current seq id %d new seq id %d", data.Program.Name, data.Program.SeqID, bpfProg.SeqID)
 
-			// Seq ID Change
-			if data.Program.SeqID != bpfProg.SeqID {
-				log.Info().Msgf("VerifyNUpdateBPFProgram : seq id change detected %s current seq id %d new seq id %d", data.Program.Name, data.Program.SeqID, bpfProg.SeqID)
+			// Update seq id
+			data.Program.SeqID = bpfProg.SeqID
 
-				// Update seq id
-				data.Program.SeqID = bpfProg.SeqID
-
-				if err := c.MoveToLocation(e, bpfList); err != nil {
-					return fmt.Errorf("failed to move to new position in the chain BPF %s version %s iface %s direction %s", bpfProg.Name, bpfProg.Version, ifaceName, direction)
-				}
+			if err := c.MoveToLocation(e, bpfList); err != nil {
+				return fmt.Errorf("failed to move to new position in the chain BPF %s version %s iface %s direction %s", bpfProg.Name, bpfProg.Version, ifaceName, direction)
 			}
-
-			// map arguments change - basically any config change to KF
-			if !reflect.DeepEqual(data.Program.MapArgs, bpfProg.MapArgs) {
-				log.Info().Msg("maps_args are mismatched")
-				data.Program.MapArgs = bpfProg.MapArgs
-				data.Update(ifaceName, direction)
-			}
-
-			return nil
 		}
+
+		// map arguments change - basically any config change to KF
+		if !reflect.DeepEqual(data.Program.MapArgs, bpfProg.MapArgs) {
+			log.Info().Msg("maps_args are mismatched")
+			data.Program.MapArgs = bpfProg.MapArgs
+			data.Update(ifaceName, direction)
+		}
+
+		return nil
 	}
 
 	log.Debug().Msgf("Program is not found in the list name %s", bpfProg.Name)
