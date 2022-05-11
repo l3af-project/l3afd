@@ -8,9 +8,15 @@ package apis
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"path"
+	"strings"
 	"time"
 
 	httpSwagger "github.com/swaggo/http-swagger"
@@ -28,6 +34,7 @@ import (
 type Server struct {
 	KFRTConfigs *kf.NFConfigs
 	HostName    string
+	l3afdServer *http.Server
 }
 
 // @title L3AFD APIs
@@ -41,6 +48,9 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 	s := &Server{
 		KFRTConfigs: kfrtconfg,
 		HostName:    hostname,
+		l3afdServer: &http.Server{
+			Addr: conf.L3afConfigsRestAPIAddr,
+		},
 	}
 
 	term := make(chan os.Signal, 1)
@@ -57,8 +67,40 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 		if conf.SwaggerApiEnabled {
 			r.Mount("/swagger", httpSwagger.WrapHandler)
 		}
-		if err := http.ListenAndServe(conf.L3afConfigsRestAPIAddr, r); err != nil {
-			log.Error().Err(err).Msgf("failed to http serve")
+
+		s.l3afdServer.Handler = r
+
+		// As per design discussion when mTLS flag is not set and not listening on loopback or localhost
+		if !conf.MTLSEnabled && !isLoopback(conf.L3afConfigsRestAPIAddr) {
+			conf.MTLSEnabled = true
+		}
+
+		if conf.MTLSEnabled {
+			log.Info().Msgf("l3afd server listening with mTLS - %s ", conf.L3afConfigsRestAPIAddr)
+			// Create a CA certificate pool and add client ca's to it
+			caCert, err := ioutil.ReadFile(path.Join(conf.MTLSCertDir, conf.MTLSCACertFilename))
+			if err != nil {
+				log.Fatal().Err(err).Msgf("client CA %s file not found", conf.MTLSCACertFilename)
+			}
+			caCertPool := x509.NewCertPool()
+			caCertPool.AppendCertsFromPEM(caCert)
+
+			// Create the TLS Config with the CA pool and enable Client certificate validation
+			s.l3afdServer.TLSConfig = &tls.Config{
+				ClientCAs:  caCertPool,
+				ClientAuth: tls.RequireAndVerifyClientCert,
+				MinVersion: conf.MTLSMinVersion,
+			}
+
+			if err := s.l3afdServer.ListenAndServeTLS(path.Join(conf.MTLSCertDir, conf.MTLSServerCertFilename), path.Join(conf.MTLSCertDir, conf.MTLSServerKeyFilename)); err != nil {
+				log.Fatal().Err(err).Msgf("failed to start L3AFD server with mTLS enabled")
+			}
+		} else {
+			log.Info().Msgf("l3afd server listening - %s ", conf.L3afConfigsRestAPIAddr)
+
+			if err := s.l3afdServer.ListenAndServe(); err != nil {
+				log.Fatal().Err(err).Msgf("failed to start L3AFD server")
+			}
 		}
 	}()
 
@@ -80,4 +122,20 @@ func (s *Server) GracefulStop(shutdownTimeout time.Duration) error {
 
 	os.Exit(exitCode)
 	return nil
+}
+
+// isLoopback - Check for localhost or loopback address
+func isLoopback(addr string) bool {
+
+	if strings.Contains(addr, "localhost:") {
+		return true
+	}
+	if id := strings.LastIndex(addr, ":"); id > -1 {
+		addr = addr[:id]
+	}
+	if ipAddr := net.ParseIP(addr); ipAddr != nil {
+		return ipAddr.IsLoopback()
+	}
+	// :port scenario
+	return true
 }
