@@ -42,8 +42,14 @@ For Windows:
 ```
 go build -tags WINDOWS .
 ```
+One can also build and generate swagger docs by doing.
 
-On Linux and Windows, one can also build and generate swagger docs by doing:
+For Linux:
+```
+make
+```
+
+For Windows:
 ```
 cmake -B build
 cmake --build build
