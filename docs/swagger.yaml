@@ -3,58 +3,84 @@ definitions:
   models.BPFProgram:
     properties:
       admin_status:
+        description: Program admin status enabled or disabled
         type: string
       artifact:
+        description: Artifact file name
         type: string
       cfg_version:
+        description: Config version
         type: integer
       cmd_config:
+        description: Program config providing command
         type: string
       cmd_start:
+        description: Program start command
         type: string
       cmd_status:
+        description: Program status command
         type: string
       cmd_stop:
+        description: Program stop command
         type: string
       config_args:
         $ref: '#/definitions/models.L3afDNFArgs'
+        description: Map of arguments to config command
       config_file_path:
+        description: Config file location
         type: string
       cpu:
+        description: User program cpu limits
         type: integer
       id:
+        description: Program id
         type: integer
       is_plugin:
+        description: User program is plugin or not
         type: boolean
       map_args:
         $ref: '#/definitions/models.L3afDNFArgs'
+        description: Config BPF Map of arguments
       map_name:
+        description: BPF map to store next program fd
         type: string
       memory:
+        description: User program memory limits
         type: integer
       monitor_maps:
+        description: Metrics BPF maps
         items:
           $ref: '#/definitions/models.L3afDNFMetricsMap'
         type: array
       name:
+        description: Name of the BPF program
         type: string
       prog_type:
+        description: Program type XDP or TC
         type: string
       rules:
+        description: Config rules
         type: string
       rules_file:
+        description: Config rules file name
         type: string
       seq_id:
+        description: Sequence position in the chain
         type: integer
       start_args:
         $ref: '#/definitions/models.L3afDNFArgs'
+        description: Map of arguments to start command
       status_args:
         $ref: '#/definitions/models.L3afDNFArgs'
+        description: Map of arguments to status command
       stop_args:
         $ref: '#/definitions/models.L3afDNFArgs'
+        description: Map of arguments to stop command
       user_program_daemon:
+        description: User program daemon or not
         type: boolean
       version:
+        description: Program version
         type: string
     type: object
   models.BPFPrograms:
