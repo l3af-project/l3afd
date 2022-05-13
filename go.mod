@@ -3,11 +3,10 @@ module github.com/l3af-project/l3afd
 go 1.16
 
 require (
-	github.com/cilium/ebpf v0.6.2
+	github.com/cilium/ebpf v0.8.1
 	github.com/go-chi/chi/v5 v5.0.7
 	github.com/go-openapi/spec v0.20.6 // indirect
 	github.com/go-openapi/swag v0.21.1 // indirect
-	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/prometheus/client_golang v1.11.0
