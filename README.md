@@ -43,6 +43,12 @@ For Windows:
 go build -tags WINDOWS .
 ```
 
+On Linux and Windows, one can also build and generate swagger docs by doing:
+```
+cmake -B build
+cmake --build build
+```
+
 # Testing
 
 To test on your local machine, do the following.

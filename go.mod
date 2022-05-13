@@ -3,6 +3,7 @@ module github.com/l3af-project/l3afd
 go 1.16
 
 require (
+	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
 	github.com/cilium/ebpf v0.6.2
 	github.com/go-chi/chi/v5 v5.0.7
 	github.com/go-openapi/spec v0.20.6 // indirect
