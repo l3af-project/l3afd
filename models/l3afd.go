@@ -23,49 +23,51 @@ type L3afDNFArgs map[string]interface{}
 
 // BPFProgram defines BPF Program for specific host
 type BPFProgram struct {
-	ID                int                 `json:"id"`
-	Name              string              `json:"name"`
-	SeqID             int                 `json:"seq_id"`
-	Artifact          string              `json:"artifact"`
-	MapName           string              `json:"map_name"`
-	CmdStart          string              `json:"cmd_start"`
-	CmdStop           string              `json:"cmd_stop"`
-	CmdStatus         string              `json:"cmd_status"`
-	CmdConfig         string              `json:"cmd_config"`
-	Version           string              `json:"version"`
-	UserProgramDaemon bool                `json:"user_program_daemon"`
-	IsPlugin          bool                `json:"is_plugin"`
-	CPU               int                 `json:"cpu"`
-	Memory            int                 `json:"memory"`
-	AdminStatus       string              `json:"admin_status"`
-	ProgType          string              `json:"prog_type"`
-	RulesFile         string              `json:"rules_file"`
-	Rules             string              `json:"rules"`
-	ConfigFilePath    string              `json:"config_file_path"`
-	CfgVersion        int                 `json:"cfg_version"`
-	StartArgs         L3afDNFArgs         `json:"start_args"`
-	StopArgs          L3afDNFArgs         `json:"stop_args"`
-	StatusArgs        L3afDNFArgs         `json:"status_args"`
-	MapArgs           L3afDNFArgs         `json:"map_args"`
-	ConfigArgs        L3afDNFArgs         `json:"config_args"`
-	MonitorMaps       []L3afDNFMetricsMap `json:"monitor_maps"`
+	ID                int                 `json:"id"`                  // Program id
+	Name              string              `json:"name"`                // Name of the BPF program
+	SeqID             int                 `json:"seq_id"`              // Sequence position in the chain
+	Artifact          string              `json:"artifact"`            // Artifact file name
+	MapName           string              `json:"map_name"`            // BPF map to store next program fd
+	CmdStart          string              `json:"cmd_start"`           // Program start command
+	CmdStop           string              `json:"cmd_stop"`            // Program stop command
+	CmdStatus         string              `json:"cmd_status"`          // Program status command
+	CmdConfig         string              `json:"cmd_config"`          // Program config providing command
+	Version           string              `json:"version"`             // Program version
+	UserProgramDaemon bool                `json:"user_program_daemon"` // User program daemon or not
+	IsPlugin          bool                `json:"is_plugin"`           // User program is plugin or not
+	CPU               int                 `json:"cpu"`                 // User program cpu limits
+	Memory            int                 `json:"memory"`              // User program memory limits
+	AdminStatus       string              `json:"admin_status"`        // Program admin status enabled or disabled
+	ProgType          string              `json:"prog_type"`           // Program type XDP or TC
+	RulesFile         string              `json:"rules_file"`          // Config rules file name
+	Rules             string              `json:"rules"`               // Config rules
+	ConfigFilePath    string              `json:"config_file_path"`    // Config file location
+	CfgVersion        int                 `json:"cfg_version"`         // Config version
+	StartArgs         L3afDNFArgs         `json:"start_args"`          // Map of arguments to start command
+	StopArgs          L3afDNFArgs         `json:"stop_args"`           // Map of arguments to stop command
+	StatusArgs        L3afDNFArgs         `json:"status_args"`         // Map of arguments to status command
+	MapArgs           L3afDNFArgs         `json:"map_args"`            // Config BPF Map of arguments
+	ConfigArgs        L3afDNFArgs         `json:"config_args"`         // Map of arguments to config command
+	MonitorMaps       []L3afDNFMetricsMap `json:"monitor_maps"`        // Metrics BPF maps
 }
 
-// L3afDNFMetricsMap defines KF map for CDB
+// L3afDNFMetricsMap defines BPF map
 type L3afDNFMetricsMap struct {
-	Name       string `json:"name"`
-	Key        int    `json:"key"`
-	Aggregator string `json:"aggregator"`
+	Name       string `json:"name"`       // BPF map name
+	Key        int    `json:"key"`        // Index of the bpf map
+	Aggregator string `json:"aggregator"` // Aggregation function names
 }
 
+// L3afBPFPrograms defines configs for a node
 type L3afBPFPrograms struct {
-	HostName    string       `json:"host_name"`    // host name or pod name
+	HostName    string       `json:"host_name"`    // Host name or pod name
 	Iface       string       `json:"iface"`        // Interface name
-	BpfPrograms *BPFPrograms `json:"bpf_programs"` // list of bpf programs
+	BpfPrograms *BPFPrograms `json:"bpf_programs"` // List of bpf programs
 }
 
+// BPFPrograms for a node
 type BPFPrograms struct {
-	XDPIngress []*BPFProgram `json:"xdp_ingress"` // list of xdp bpf programs
+	XDPIngress []*BPFProgram `json:"xdp_ingress"` // list of xdp ingress bpf programs
 	TCIngress  []*BPFProgram `json:"tc_ingress"`  // list of tc ingress bpf programs
 	TCEgress   []*BPFProgram `json:"tc_egress"`   // list of tc egress bpf programs
 }

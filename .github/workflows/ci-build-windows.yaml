@@ -21,6 +21,8 @@ jobs:
       - name: Set up git env
         run: |
           git config --global core.autocrlf false
+          $gopath = (go env GOPATH)
+          echo "GOPATH=$gopath" >> $env:GITHUB_ENV
 
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -51,5 +53,8 @@ jobs:
           build-tags: WINDOWS
 
       - name: Build
+        env:
+          GOPATH: ${{env.GOPATH}}
         run: |
-          go build -tags WINDOWS .
+          cmake -B build
+          cmake --build build

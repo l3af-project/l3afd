@@ -37,6 +37,8 @@ type Config struct {
 
 	ShutdownTimeout time.Duration
 
+	SwaggerApiEnabled bool
+
 	// Admin API endpoint config for registering l3afd.
 	AdmindHost       string
 	AdmindUsername   string
@@ -109,6 +111,7 @@ func ReadConfig(configPath string) (*Config, error) {
 		KFPollInterval:                  LoadOptionalConfigDuration(confReader, "web", "kf-poll-interval", 30*time.Second),
 		NMetricSamples:                  LoadOptionalConfigInt(confReader, "web", "n-metric-samples", 20),
 		ShutdownTimeout:                 LoadConfigDuration(confReader, "l3afd", "shutdown-timeout"),
+		SwaggerApiEnabled:               LoadOptionalConfigBool(confReader, "l3afd", "swagger-api-enabled", false),
 		AdmindHost:                      LoadConfigString(confReader, "admind", "host"),
 		AdmindUsername:                  LoadConfigString(confReader, "admind", "username"),
 		AdmindApiKey:                    LoadConfigString(confReader, "admind", "api-key"),

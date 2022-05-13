@@ -19,10 +19,14 @@ import (
 	"strings"
 	"time"
 
+	httpSwagger "github.com/swaggo/http-swagger"
+
 	"github.com/l3af-project/l3afd/config"
 	"github.com/l3af-project/l3afd/kf"
 	"github.com/l3af-project/l3afd/routes"
 	"github.com/l3af-project/l3afd/signals"
+
+	_ "github.com/l3af-project/l3afd/docs"
 
 	"github.com/rs/zerolog/log"
 )
@@ -33,6 +37,11 @@ type Server struct {
 	l3afdServer *http.Server
 }
 
+// @title L3AFD APIs
+// @version 1.0
+// @description Configuration APIs to deploy and get the details of the eBPF Programs on the node
+// @host
+// @BasePath /
 func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *config.Config, kfrtconfg *kf.NFConfigs) error {
 	log.Info().Msgf("%s config server setup started on host %s", daemonName, hostname)
 
@@ -55,6 +64,10 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 
 	go func() {
 		r := routes.NewRouter(apiRoutes(ctx, kfrtconfg))
+		if conf.SwaggerApiEnabled {
+			r.Mount("/swagger", httpSwagger.WrapHandler)
+		}
+
 		s.l3afdServer.Handler = r
 
 		// As per design discussion when mTLS flag is not set and not listening on loopback or localhost

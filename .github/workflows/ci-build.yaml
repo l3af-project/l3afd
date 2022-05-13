@@ -15,7 +15,7 @@ jobs:
       - name: Set up environment
         run : |
           apk update
-          apk add gcc libc-dev bash perl curl
+          apk add gcc libc-dev bash perl curl make
           
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -45,4 +45,4 @@ jobs:
 
       - name: Build
         run: |
-          go build .
+          make

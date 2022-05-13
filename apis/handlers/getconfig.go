@@ -19,6 +19,14 @@ func InitConfigs(cfgs *kf.NFConfigs) error {
 	return nil
 }
 
+// GetConfig Returns details of the configuration of eBPF Programs for a given interface
+// @Summary Returns details of the configuration of eBPF Programs for a given interface
+// @Description Returns details of the configuration of eBPF Programs for a given interface
+// @Accept  json
+// @Produce  json
+// @Param iface path string true "interface name"
+// @Success 200
+// @Router /l3af/configs/v1/{iface} [get]
 func GetConfig(w http.ResponseWriter, r *http.Request) {
 	mesg := ""
 	statusCode := http.StatusOK
@@ -51,6 +59,13 @@ func GetConfig(w http.ResponseWriter, r *http.Request) {
 	mesg = string(resp)
 }
 
+// GetConfigAll Returns details of the configuration of eBPF Programs for all interfaces on a node
+// @Summary Returns details of the configuration of eBPF Programs for all interfaces on a node
+// @Description Returns details of the configuration of eBPF Programs for all interfaces on a node
+// @Accept  json
+// @Produce  json
+// @Success 200
+// @Router /l3af/configs/v1 [get]
 func GetConfigAll(w http.ResponseWriter, r *http.Request) {
 	mesg := ""
 	statusCode := http.StatusOK

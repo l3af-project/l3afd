@@ -17,6 +17,14 @@ import (
 	"github.com/l3af-project/l3afd/models"
 )
 
+// UpdateConfig Update eBPF Programs configuration
+// @Summary Update eBPF Programs configuration
+// @Description Update eBPF Programs configuration
+// @Accept  json
+// @Produce  json
+// @Param cfgs body []models.L3afBPFPrograms true "BPF programs"
+// @Success 200
+// @Router /l3af/configs/v1/update [post]
 func UpdateConfig(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
