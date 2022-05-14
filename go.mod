@@ -15,6 +15,6 @@ require (
 	github.com/rs/zerolog v1.26.1
 	github.com/safchain/ethtool v0.0.0-20210803160452-9aa261dae9b1
 	github.com/swaggo/http-swagger v1.2.8
-	github.com/swaggo/swag v1.8.1
+	github.com/swaggo/swag v1.8.2
 	golang.org/x/sys v0.0.0-20220503163025-988cb79eb6c6 // exclude
 )
