@@ -14,6 +14,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	ENV_PROD = "PROD"
+)
+
 type Config struct {
 	PIDFilename       string
 	DataCenter        string
@@ -25,6 +29,7 @@ type Config struct {
 	HttpClientTimeout time.Duration
 	MaxNFReStartCount int
 	MaxNFsAttachCount int
+	Environment       string
 
 	// Flag to enable chaining with root program
 	BpfChainingEnabled bool
@@ -112,6 +117,7 @@ func ReadConfig(configPath string) (*Config, error) {
 		NMetricSamples:                  LoadOptionalConfigInt(confReader, "web", "n-metric-samples", 20),
 		ShutdownTimeout:                 LoadConfigDuration(confReader, "l3afd", "shutdown-timeout"),
 		SwaggerApiEnabled:               LoadOptionalConfigBool(confReader, "l3afd", "swagger-api-enabled", false),
+		Environment:                     LoadOptionalConfigString(confReader, "l3afd", "environment", ENV_PROD),
 		AdmindHost:                      LoadConfigString(confReader, "admind", "host"),
 		AdmindUsername:                  LoadConfigString(confReader, "admind", "username"),
 		AdmindApiKey:                    LoadConfigString(confReader, "admind", "api-key"),
