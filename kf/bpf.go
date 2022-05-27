@@ -6,6 +6,7 @@ package kf
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"bytes"
 	"compress/gzip"
 	"container/ring"
@@ -556,54 +557,103 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 		return fmt.Errorf("get request returned unexpected status code: %d (%s), %d was expected\n\tResponse Body: %s", resp.StatusCode, http.StatusText(resp.StatusCode), http.StatusOK, buf.Bytes())
 	}
 
-	archive, err := gzip.NewReader(buf)
-	if err != nil {
-		return fmt.Errorf("failed to create Gzip reader: %w", err)
-	}
-	defer archive.Close()
-
-	tarReader := tar.NewReader(archive)
-	tempDir := filepath.Join(conf.BPFDir, b.Program.Name, b.Program.Version)
-
-	for {
-		header, err := tarReader.Next()
-
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			return fmt.Errorf("untar failed: %w", err)
+	if strings.HasSuffix(b.Program.Artifact, ".zip") {
+		c := bytes.NewReader(buf.Bytes())
+		zipReader, err := zip.NewReader(c, int64(c.Len()))
+		if err != nil {
+			return fmt.Errorf("failed to create zip reader: %w", err)
 		}
+		tempDir := filepath.Join(conf.BPFDir, b.Program.Name, b.Program.Version)
 
-		if strings.Contains(header.Name, "..") {
-			return fmt.Errorf("zipped file contians filepath (%s) that includes (..)", header.Name)
-		}
+		for _, file := range zipReader.File {
 
-		fPath = filepath.Join(tempDir, header.Name)
-		info := header.FileInfo()
-		if info.IsDir() {
-			if err = os.MkdirAll(fPath, info.Mode()); err != nil {
-				return fmt.Errorf("untar failed to create directories: %w", err)
+			zippedFile, err := file.Open()
+			if err != nil {
+				return fmt.Errorf("unzip failed: %w", err)
 			}
-			continue
+			defer zippedFile.Close()
+
+			extractedFilePath := filepath.Join(
+				tempDir,
+				file.Name,
+			)
+
+			if file.FileInfo().IsDir() {
+				os.MkdirAll(extractedFilePath, file.Mode())
+			} else {
+				outputFile, err := os.OpenFile(
+					extractedFilePath,
+					os.O_WRONLY|os.O_CREATE|os.O_TRUNC,
+					file.Mode(),
+				)
+				if err != nil {
+					return fmt.Errorf("unzip failed to create file: %w", err)
+				}
+				defer outputFile.Close()
+
+				buf := copyBufPool.Get().(*bytes.Buffer)
+				_, err = io.CopyBuffer(outputFile, zippedFile, buf.Bytes())
+				if err != nil {
+					return fmt.Errorf("GetArtifacts failed to copy files: %w", err)
+				}
+				copyBufPool.Put(buf)
+			}
+		}
+		newDir := strings.Split(b.Program.Artifact, ".")
+		b.FilePath = filepath.Join(tempDir, newDir[0])
+		return nil
+
+	} else if strings.HasSuffix(b.Program.Artifact, ".tar.gz") {
+		archive, err := gzip.NewReader(buf)
+		if err != nil {
+			return fmt.Errorf("failed to create Gzip reader: %w", err)
+		}
+		defer archive.Close()
+		tarReader := tar.NewReader(archive)
+		tempDir := filepath.Join(conf.BPFDir, b.Program.Name, b.Program.Version)
+
+		for {
+			header, err := tarReader.Next()
+
+			if err == io.EOF {
+				break
+			} else if err != nil {
+				return fmt.Errorf("untar failed: %w", err)
+			}
+
+			if strings.Contains(header.Name, "..") {
+				return fmt.Errorf("zipped file contians filepath (%s) that includes (..)", header.Name)
+			}
+
+			fPath = filepath.Join(tempDir, header.Name)
+			info := header.FileInfo()
+			if info.IsDir() {
+				if err = os.MkdirAll(fPath, info.Mode()); err != nil {
+					return fmt.Errorf("untar failed to create directories: %w", err)
+				}
+				continue
+			}
+
+			file, err := os.OpenFile(fPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, info.Mode())
+			if err != nil {
+				return fmt.Errorf("untar failed to create file: %w", err)
+			}
+			defer file.Close()
+
+			buf := copyBufPool.Get().(*bytes.Buffer)
+			_, err = io.CopyBuffer(file, tarReader, buf.Bytes())
+			if err != nil {
+				return fmt.Errorf("GetArtifacts failed to copy files: %w", err)
+			}
+			copyBufPool.Put(buf)
 		}
 
-		file, err := os.OpenFile(fPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, info.Mode())
-		if err != nil {
-			return fmt.Errorf("untar failed to create file: %w", err)
-		}
-		defer file.Close()
-
-		buf := copyBufPool.Get().(*bytes.Buffer)
-		_, err = io.CopyBuffer(file, tarReader, buf.Bytes())
-		if err != nil {
-			return fmt.Errorf("GetArtifacts failed to copy files: %w", err)
-		}
-		copyBufPool.Put(buf)
+		newDir := strings.Split(b.Program.Artifact, ".")
+		b.FilePath = filepath.Join(tempDir, newDir[0])
+		return nil
+	} else {
+		return fmt.Errorf("Unknown Artifact format ")
 	}
-
-	newDir := strings.Split(b.Program.Artifact, ".")
-	b.FilePath = filepath.Join(tempDir, newDir[0])
-
 	return nil
 }
 
