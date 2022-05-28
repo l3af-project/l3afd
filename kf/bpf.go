@@ -577,7 +577,9 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 				tempDir,
 				file.Name,
 			)
-
+			if !strings.HasPrefix(extractedFilePath, filepath.Clean(tempDir)+string(os.PathSeparator)) {
+				return fmt.Errorf("invalid file path: %s", extractedFilePath)
+			}
 			if file.FileInfo().IsDir() {
 				os.MkdirAll(extractedFilePath, file.Mode())
 			} else {
