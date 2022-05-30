@@ -489,3 +489,186 @@ func Test_fileExists(t *testing.T) {
 		}
 	}
 }
+
+func Test_StopExternalRunningProcess(t *testing.T) {
+	tests := []struct {
+		name        string
+		processName string
+		wantErr     bool
+	}{
+		{
+			name:        "emptyProcessName",
+			processName: "",
+			wantErr:     true,
+		},
+	}
+	for _, tt := range tests {
+		err := StopExternalRunningProcess(tt.processName)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("Error During execution StopExternalRunningProcess : %w", err)
+		}
+	}
+}
+
+func Test_createUpdateRulesFile(t *testing.T) {
+	type fields struct {
+		Program models.BPFProgram
+		Cmd     *exec.Cmd
+		//		Pid          int
+		FilePath     string
+		RestartCount int
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		wantErr bool
+	}{
+		{
+			name: "emptyRuleFileName",
+			fields: fields{
+				Program: models.BPFProgram{
+					RulesFile: "",
+				},
+				Cmd:          nil,
+				FilePath:     "",
+				RestartCount: 0,
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalidPath",
+			fields: fields{
+				Program: models.BPFProgram{
+					RulesFile: "bad",
+				},
+				Cmd:          nil,
+				FilePath:     "/dummy/fpp",
+				RestartCount: 0,
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := &BPF{
+				Program:      tt.fields.Program,
+				Cmd:          tt.fields.Cmd,
+				FilePath:     tt.fields.FilePath,
+				RestartCount: tt.fields.RestartCount,
+			}
+			_, err := b.createUpdateRulesFile("ingress")
+			if (err != nil) != tt.wantErr {
+				t.Errorf("createUpdateRulesFile() error : %w", err)
+			}
+		})
+	}
+}
+
+func Test_PutNextProgFDFromID(t *testing.T) {
+	type fields struct {
+		Program models.BPFProgram
+		Cmd     *exec.Cmd
+		//		Pid          int
+		FilePath     string
+		RestartCount int
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		wantErr bool
+		progId  int
+	}{
+		{
+			name: "emptyMapName",
+			fields: fields{
+				Program: models.BPFProgram{
+					MapName: "",
+				},
+			},
+			wantErr: false,
+			progId:  1,
+		},
+		{
+			name: "invalidMapName",
+			fields: fields{
+				Program: models.BPFProgram{
+					MapName: "invalidname",
+				},
+			},
+			wantErr: true,
+			progId:  1,
+		},
+		{
+			name: "invalidProgID",
+			fields: fields{
+				Program: models.BPFProgram{
+					Name:              "ratelimiting",
+					SeqID:             1,
+					Artifact:          "l3af_ratelimiting.tar.gz",
+					MapName:           "/sys/fs/bpf/xdp_rl_ingress_next_prog",
+					CmdStart:          "ratelimiting",
+					Version:           "latest",
+					UserProgramDaemon: true,
+					AdminStatus:       "enabled",
+					ProgType:          "xdp",
+					CfgVersion:        1,
+				},
+			},
+			progId:  -1,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := &BPF{
+				Program:      tt.fields.Program,
+				Cmd:          tt.fields.Cmd,
+				FilePath:     tt.fields.FilePath,
+				RestartCount: tt.fields.RestartCount,
+			}
+			err := b.PutNextProgFDFromID(tt.progId)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("PutNextProgFDFromID() error : %w", err)
+			}
+		})
+	}
+}
+
+func Test_VerifyPinnedMapExists(t *testing.T) {
+	type fields struct {
+		Program models.BPFProgram
+		Cmd     *exec.Cmd
+		//		Pid          int
+		FilePath     string
+		RestartCount int
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		wantErr bool
+	}{
+		{
+			name: "invalidMapName",
+			fields: fields{
+				Program: models.BPFProgram{
+					MapName: "invalid",
+				},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := &BPF{
+				Program:      tt.fields.Program,
+				Cmd:          tt.fields.Cmd,
+				FilePath:     tt.fields.FilePath,
+				RestartCount: tt.fields.RestartCount,
+			}
+			err := b.VerifyPinnedMapExists(true)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("VerifyPinnedMapExists() error : %w", err)
+			}
+		})
+	}
+}
