@@ -285,6 +285,7 @@ func TestBPF_isRunning(t *testing.T) {
 		Cmd          *exec.Cmd
 		FilePath     string
 		RestartCount int
+		CmdStatus    string
 	}
 	tests := []struct {
 		name    string
@@ -467,5 +468,24 @@ func Test_assertExecute(t *testing.T) {
 				t.Errorf("assertExecute() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func Test_fileExists(t *testing.T) {
+	tests := []struct {
+		name     string
+		fileName string
+		exist    bool
+	}{
+		{
+			name:     "invalidfilename",
+			fileName: "blahblah",
+			exist:    false,
+		},
+	}
+	for _, tt := range tests {
+		if fileExists(tt.fileName) != tt.exist {
+			t.Errorf("Invalid filename")
+		}
 	}
 }
