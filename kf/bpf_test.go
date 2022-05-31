@@ -672,3 +672,111 @@ func Test_VerifyPinnedMapExists(t *testing.T) {
 		})
 	}
 }
+func Test_VerifyProcessObject(t *testing.T) {
+	type fields struct {
+		Program      models.BPFProgram
+		Cmd          *exec.Cmd
+		FilePath     string
+		RestartCount int
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		wantErr bool
+	}{
+		{
+			name: "nilCmd",
+			fields: fields{
+				Program:      models.BPFProgram{},
+				Cmd:          nil,
+				FilePath:     "",
+				RestartCount: 0,
+			},
+			wantErr: true,
+		},
+		{
+			name: "nillCmdProcess",
+			fields: fields{
+				Program: models.BPFProgram{},
+				Cmd: &exec.Cmd{
+					Process: nil,
+				},
+				FilePath:     "",
+				RestartCount: 0,
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := &BPF{
+				Program:      tt.fields.Program,
+				Cmd:          tt.fields.Cmd,
+				FilePath:     tt.fields.FilePath,
+				RestartCount: tt.fields.RestartCount,
+			}
+			err := b.VerifyProcessObject()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("VerifyProcessObject() error : %w", err)
+			}
+		})
+	}
+}
+
+func Test_VerifyPinnedMapVanish(t *testing.T) {
+	type fields struct {
+		Program      models.BPFProgram
+		Cmd          *exec.Cmd
+		FilePath     string
+		RestartCount int
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		wantErr bool
+	}{
+		{
+			name: "emptyMapName",
+			fields: fields{
+				Program: models.BPFProgram{
+					MapName: "",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalidProgType",
+			fields: fields{
+				Program: models.BPFProgram{
+					MapName:  "something",
+					ProgType: models.TCType,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalidMapfile",
+			fields: fields{
+				Program: models.BPFProgram{
+					MapName:  "dummy",
+					ProgType: models.XDPType,
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := &BPF{
+				Program:      tt.fields.Program,
+				Cmd:          tt.fields.Cmd,
+				FilePath:     tt.fields.FilePath,
+				RestartCount: tt.fields.RestartCount,
+			}
+			err := b.VerifyPinnedMapVanish(true)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("VerifyPinnedMapVanish() error : %w", err)
+			}
+		})
+	}
+}
