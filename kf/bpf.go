@@ -652,7 +652,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 		b.FilePath = filepath.Join(tempDir, newDir[0])
 		return nil
 	} else {
-		return fmt.Errorf("Unknown Artifact format ")
+		return fmt.Errorf("unknown artifact format ")
 	}
 }
 
