@@ -604,7 +604,6 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 		newDir := strings.Split(b.Program.Artifact, ".")
 		b.FilePath = filepath.Join(tempDir, newDir[0])
 		return nil
-
 	} else if strings.HasSuffix(b.Program.Artifact, ".tar.gz") {
 		archive, err := gzip.NewReader(buf)
 		if err != nil {
@@ -649,14 +648,12 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 			}
 			copyBufPool.Put(buf)
 		}
-
 		newDir := strings.Split(b.Program.Artifact, ".")
 		b.FilePath = filepath.Join(tempDir, newDir[0])
 		return nil
 	} else {
 		return fmt.Errorf("Unknown Artifact format ")
 	}
-	return nil
 }
 
 // create rules file
