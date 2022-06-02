@@ -2,6 +2,8 @@
 
 ![L3AF_Logo](https://github.com/l3af-project/l3af-arch/blob/main/images/logos/Color/L3AF_logo.svg)
 
+[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/6075/badge)](https://bestpractices.coreinfrastructure.org/projects/6075)
+
 L3AFD is a crucial part of the L3AF ecosystem. For more information on L3AF see
 https://l3af.io/
 
