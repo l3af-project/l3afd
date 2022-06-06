@@ -523,40 +523,78 @@ func (b *BPF) VerifyAndGetArtifacts(conf *config.Config) error {
 // GetArtifacts downloads artifacts from the nexus repo
 func (b *BPF) GetArtifacts(conf *config.Config) error {
 	var fPath = ""
-
-	kfRepoURL, err := url.Parse(conf.KFRepoURL)
-	if err != nil {
-		return fmt.Errorf("unknown KF repo url format: %w", err)
-	}
-
-	platform, err := GetPlatform()
-	if err != nil {
-		return fmt.Errorf("failed to find KF repo download path: %w", err)
-	}
-
-	kfRepoURL.Path = path.Join(kfRepoURL.Path, b.Program.Name, b.Program.Version, platform, b.Program.Artifact)
-	log.Info().Msgf("Downloading - %s", kfRepoURL)
-
-	timeOut := time.Duration(conf.HttpClientTimeout) * time.Second
-	var netTransport = &http.Transport{
-		ResponseHeaderTimeout: timeOut,
-	}
-	client := http.Client{Transport: netTransport, Timeout: timeOut}
-
-	// Get the data
-	resp, err := client.Get(kfRepoURL.String())
-	if err != nil {
-		return fmt.Errorf("download failed: %w", err)
-	}
-	defer resp.Body.Close()
-
 	buf := &bytes.Buffer{}
-	buf.ReadFrom(resp.Body)
+	//      "file://" ---> has size 7
+	if len(b.Program.DownloadUrl) >= 7 {
+		DownloadUrl, err := url.Parse(b.Program.DownloadUrl)
+		if err != nil {
+			return fmt.Errorf("unknown Download url format: %w", err)
+		}
+		if strings.HasPrefix(b.Program.DownloadUrl, "file://") {
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("get request returned unexpected status code: %d (%s), %d was expected\n\tResponse Body: %s", resp.StatusCode, http.StatusText(resp.StatusCode), http.StatusOK, buf.Bytes())
+			if fileExists(b.Program.DownloadUrl[7:]) {
+				f, err := os.Open(b.Program.DownloadUrl[7:])
+				if err != nil {
+					return fmt.Errorf("opening err : %w", err)
+				}
+				buf.ReadFrom(f)
+				f.Close()
+			} else {
+				return fmt.Errorf("artifact is not found")
+			}
+		} else {
+			log.Info().Msgf("Downloading - %s", DownloadUrl)
+			timeOut := time.Duration(conf.HttpClientTimeout) * time.Second
+			var netTransport = &http.Transport{
+				ResponseHeaderTimeout: timeOut,
+			}
+			client := http.Client{Transport: netTransport, Timeout: timeOut}
+
+			// Get the data
+			resp, err := client.Get(DownloadUrl.String())
+			if err != nil {
+				return fmt.Errorf("download failed: %w", err)
+			}
+			defer resp.Body.Close()
+
+			buf.ReadFrom(resp.Body)
+			if resp.StatusCode != http.StatusOK {
+				return fmt.Errorf("get request returned unexpected status code: %d (%s), %d was expected\n\tResponse Body: %s", resp.StatusCode, http.StatusText(resp.StatusCode), http.StatusOK, buf.Bytes())
+			}
+		}
+	} else {
+		kfRepoURL, err := url.Parse(conf.KFRepoURL)
+		if err != nil {
+			return fmt.Errorf("unknown KF repo url format: %w", err)
+		}
+
+		platform, err := GetPlatform()
+		if err != nil {
+			return fmt.Errorf("failed to find KF repo download path: %w", err)
+		}
+
+		kfRepoURL.Path = path.Join(kfRepoURL.Path, b.Program.Name, b.Program.Version, platform, b.Program.Artifact)
+		log.Info().Msgf("Downloading - %s", kfRepoURL)
+
+		timeOut := time.Duration(conf.HttpClientTimeout) * time.Second
+		var netTransport = &http.Transport{
+			ResponseHeaderTimeout: timeOut,
+		}
+		client := http.Client{Transport: netTransport, Timeout: timeOut}
+
+		// Get the data
+		resp, err := client.Get(kfRepoURL.String())
+		if err != nil {
+			return fmt.Errorf("download failed: %w", err)
+		}
+		defer resp.Body.Close()
+
+		buf.ReadFrom(resp.Body)
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("get request returned unexpected status code: %d (%s), %d was expected\n\tResponse Body: %s", resp.StatusCode, http.StatusText(resp.StatusCode), http.StatusOK, buf.Bytes())
+		}
 	}
-
 	if strings.HasSuffix(b.Program.Artifact, ".zip") {
 		c := bytes.NewReader(buf.Bytes())
 		zipReader, err := zip.NewReader(c, int64(c.Len()))
