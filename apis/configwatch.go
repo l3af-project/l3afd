@@ -90,6 +90,9 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 				ClientCAs:  caCertPool,
 				ClientAuth: tls.RequireAndVerifyClientCert,
 				MinVersion: conf.MTLSMinVersion,
+				GetCertificate: func(hi *tls.ClientHelloInfo) (*tls.Certificate, error) {
+					return &s.l3afdServer.TLSConfig , nil
+				},
 			}
 
 			if err := s.l3afdServer.ListenAndServeTLS(path.Join(conf.MTLSCertDir, conf.MTLSServerCertFilename), path.Join(conf.MTLSCertDir, conf.MTLSServerKeyFilename)); err != nil {
