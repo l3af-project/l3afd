@@ -526,15 +526,15 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 	buf := &bytes.Buffer{}
 	//      "file://" ---> has size 7
 	//     "Http://" ---> has size 7
-	if len(b.Program.DownloadUrl) >= 7 {
-		DownloadUrl, err := url.Parse(b.Program.DownloadUrl)
+	if len(b.Program.EPRUrl) >= 7 {
+		EPRUrl, err := url.Parse(b.Program.EPRUrl)
 		if err != nil {
 			return fmt.Errorf("unknown Download url format: %w", err)
 		}
-		if strings.HasPrefix(b.Program.DownloadUrl, "file://") {
+		if strings.HasPrefix(b.Program.EPRUrl, "file://") {
 
-			if fileExists(b.Program.DownloadUrl[7:]) {
-				f, err := os.Open(b.Program.DownloadUrl[7:])
+			if fileExists(b.Program.EPRUrl[7:]) {
+				f, err := os.Open(b.Program.EPRUrl[7:])
 				if err != nil {
 					return fmt.Errorf("opening err : %w", err)
 				}
@@ -544,7 +544,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 				return fmt.Errorf("artifact is not found")
 			}
 		} else {
-			log.Info().Msgf("Downloading - %s", DownloadUrl)
+			log.Info().Msgf("Downloading - %s", EPRUrl)
 			timeOut := time.Duration(conf.HttpClientTimeout) * time.Second
 			var netTransport = &http.Transport{
 				ResponseHeaderTimeout: timeOut,
@@ -552,7 +552,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 			client := http.Client{Transport: netTransport, Timeout: timeOut}
 
 			// Get the data
-			resp, err := client.Get(DownloadUrl.String())
+			resp, err := client.Get(EPRUrl.String())
 			if err != nil {
 				return fmt.Errorf("download failed: %w", err)
 			}
