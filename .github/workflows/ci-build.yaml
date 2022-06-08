@@ -9,7 +9,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: golang:1.16.10-alpine3.14
+      image: golang:1.17-alpine3.16
     
     steps:
       - name: Set up environment
