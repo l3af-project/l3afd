@@ -525,7 +525,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 	var fPath = ""
 	buf := &bytes.Buffer{}
 	//      "file://" ---> has size 7
-	//     "Http://" ---> has size 7
+	//     "http://" ---> has size 7
 	if len(b.Program.EPRUrl) >= 7 {
 		EPRUrl, err := url.Parse(b.Program.EPRUrl)
 		if err != nil {
