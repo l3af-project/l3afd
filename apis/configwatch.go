@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -92,6 +93,29 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 				MinVersion: conf.MTLSMinVersion,
 			}
 
+			cpb, _ := pem.Decode(caCert)
+			cert, err := x509.ParseCertificate(cpb.Bytes)
+			if err != nil {
+				log.Fatal().Err(err).Msgf("error in parsing tls certificate")
+			}
+			expiry := cert.NotAfter
+			go func(ctx context.Context) {
+				for {
+					todayDate := time.Now()
+					expiryDate := expiry
+					diff := expiryDate.Sub(todayDate)
+					limit := int64(30 * 24)
+					remainingHours := int64(diff.Hours())
+					if remainingHours <= limit {
+						if remainingHours <= 0 {
+							log.Fatal().Msgf("your tls certificate is expired\n")
+						} else {
+							log.Info().Msgf("your tls certificate will expire in %v days", int64(remainingHours/24))
+						}
+					}
+					time.Sleep(24 * time.Hour)
+				}
+			}(ctx)
 			if err := s.l3afdServer.ListenAndServeTLS(path.Join(conf.MTLSCertDir, conf.MTLSServerCertFilename), path.Join(conf.MTLSCertDir, conf.MTLSServerKeyFilename)); err != nil {
 				log.Fatal().Err(err).Msgf("failed to start L3AFD server with mTLS enabled")
 			}
