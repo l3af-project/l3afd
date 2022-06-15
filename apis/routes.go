@@ -29,6 +29,16 @@ func apiRoutes(ctx context.Context, kfcfg *kf.NFConfigs) []routes.Route {
 			Path:        "/l3af/configs/{version}",
 			HandlerFunc: handlers.GetConfigAll,
 		},
+		{
+			Method:      "POST",
+			Path:        "/l3af/configs/{version}/add",
+			HandlerFunc: handlers.AddEbpfProgram(ctx, kfcfg),
+		},
+		{
+			Method:      "POST",
+			Path:        "/l3af/configs/{version}/delete",
+			HandlerFunc: handlers.DeleteEbpfProgram(ctx, kfcfg),
+		},
 	}
 
 	return r
