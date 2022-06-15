@@ -85,6 +85,7 @@ type Config struct {
 	MTLSCACertFilename     string
 	MTLSServerCertFilename string
 	MTLSServerKeyFilename  string
+	CertExpiryWarningDays  int
 }
 
 // ReadConfig - Initializes configuration from file
@@ -146,6 +147,7 @@ func ReadConfig(configPath string) (*Config, error) {
 		MTLSCACertFilename:              LoadOptionalConfigString(confReader, "mtls", "cacert-filename", "ca.pem"),
 		MTLSServerCertFilename:          LoadOptionalConfigString(confReader, "mtls", "server-cert-filename", "server.crt"),
 		MTLSServerKeyFilename:           LoadOptionalConfigString(confReader, "mtls", "server-key-filename", "server.key"),
+		CertExpiryWarningDays:           LoadOptionalConfigInt(confReader, "mtls", "cert-expiry-warning-days", 30),
 	}, nil
 }
 
