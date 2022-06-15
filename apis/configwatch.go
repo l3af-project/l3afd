@@ -96,7 +96,7 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 			cpb, _ := pem.Decode(caCert)
 			cert, err := x509.ParseCertificate(cpb.Bytes)
 			if err != nil {
-				log.Fatal().Err(err).Msgf("error in parsing tls certificate")
+				log.Fatal().Err(err).Msgf("error in parsing tls certificate : %v", conf.MTLSCACertFilename)
 			}
 			expiry := cert.NotAfter
 			start := cert.NotBefore
@@ -110,13 +110,13 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 					limit := conf.CertExpiryWarningDays
 					remainingHoursToExpire := int(diff.Hours())
 					if remaingHoursToStart > 0 {
-						log.Fatal().Msgf("Your tls certificate start from : %v", startDate)
+						log.Fatal().Msgf("tls certificate start from : %v", startDate)
 					}
 					if remainingHoursToExpire <= limit {
 						if remainingHoursToExpire < 0 {
-							log.Fatal().Msgf("your tls certificate is expired on : %v", expiryDate)
+							log.Fatal().Msgf("tls certificate is expired on : %v", expiryDate)
 						} else {
-							log.Warn().Msgf("your tls certificate will expire in %v days", int64(remainingHoursToExpire/24))
+							log.Warn().Msgf("tls certificate will expire in %v days", int64(remainingHoursToExpire/24))
 						}
 					}
 					time.Sleep(24 * time.Hour)
