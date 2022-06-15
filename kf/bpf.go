@@ -522,19 +522,15 @@ func (b *BPF) VerifyAndGetArtifacts(conf *config.Config) error {
 
 // GetArtifacts downloads artifacts from the nexus repo
 func (b *BPF) GetArtifacts(conf *config.Config) error {
-	var fPath = ""
 	buf := &bytes.Buffer{}
-	//      "file://" ---> has size 7
-	//     "http://" ---> has size 7
-	if len(b.Program.EPRUrl) >= 7 {
-		EPRUrl, err := url.Parse(b.Program.EPRUrl)
-		if err != nil {
-			return fmt.Errorf("unknown Download url format: %w", err)
-		}
-		if strings.HasPrefix(b.Program.EPRUrl, "file://") {
-
-			if fileExists(b.Program.EPRUrl[7:]) {
-				f, err := os.Open(b.Program.EPRUrl[7:])
+	EPRUrl, e := url.Parse(b.Program.EPRUrl)
+	if e != nil {
+		return fmt.Errorf("unknown Download url format: %w", e)
+	}
+	if len(b.Program.EPRUrl) > 0 {
+		if EPRUrl.Scheme == "file" {
+			if fileExists(EPRUrl.Path) {
+				f, err := os.Open(EPRUrl.Path)
 				if err != nil {
 					return fmt.Errorf("opening err : %w", err)
 				}
@@ -543,7 +539,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 			} else {
 				return fmt.Errorf("artifact is not found")
 			}
-		} else {
+		} else if EPRUrl.Scheme == "http" || EPRUrl.Scheme == "https" {
 			log.Info().Msgf("Downloading - %s", EPRUrl)
 			timeOut := time.Duration(conf.HttpClientTimeout) * time.Second
 			var netTransport = &http.Transport{
@@ -665,7 +661,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 				return fmt.Errorf("zipped file contians filepath (%s) that includes (..)", header.Name)
 			}
 
-			fPath = filepath.Join(tempDir, header.Name)
+			fPath := filepath.Join(tempDir, header.Name)
 			info := header.FileInfo()
 			if info.IsDir() {
 				if err = os.MkdirAll(fPath, info.Mode()); err != nil {
