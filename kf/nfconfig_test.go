@@ -397,7 +397,7 @@ func TestNFConfigs_Close(t *testing.T) {
 				hostConfig:     tt.fields.hostConfig,
 				processMon:     tt.fields.processMon,
 			}
-			ctx, cancelfunc := context.WithTimeout(context.Background(), 1*time.Second)
+			ctx, cancelfunc := context.WithTimeout(context.Background(), 900*time.Millisecond)
 			defer cancelfunc()
 			if err := cfg.Close(ctx); (err != nil) != tt.wantErr {
 				t.Errorf("NFConfigs.Close() error = %v, wantErr %v", err, tt.wantErr)
