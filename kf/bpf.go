@@ -921,7 +921,8 @@ func (b *BPF) VerifyPinnedMapExists(chain bool) error {
 	if len(b.Program.MapName) > 0 {
 		log.Debug().Msgf("VerifyPinnedMapExists : Program %s MapName %s", b.Program.Name, b.Program.MapName)
 		for i := 0; i < 10; i++ {
-			if _, err = os.Stat(b.MapFullPath()); err == nil {
+			path := b.MapFullPath()
+			if _, err = os.Stat(path); err == nil {
 				log.Info().Msgf("VerifyPinnedMapExists : map file created %s", b.MapFullPath())
 				return nil
 			}
@@ -949,7 +950,8 @@ func (b *BPF) VerifyPinnedMapVanish(chain bool) error {
 	var err error
 	log.Debug().Msgf("VerifyPinnedMapVanish : Program %s MapName %s", b.Program.Name, b.Program.MapName)
 	for i := 0; i < 10; i++ {
-		if _, err = os.Stat(b.MapFullPath()); os.IsNotExist(err) {
+		path := b.MapFullPath()
+		if _, err = os.Stat(path); os.IsNotExist(err) {
 			log.Info().Msgf("VerifyPinnedMapVanish : map file removed successfully - %s ", b.MapFullPath())
 			return nil
 		} else if err != nil {

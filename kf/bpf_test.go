@@ -67,6 +67,10 @@ func TestNewBpfProgram(t *testing.T) {
 				chain:      false,
 				direction:  "ingress",
 				datacenter: "localdc",
+				hostConfig: &config.Config{
+					BPFLogDir:  "",
+					DataCenter: "localdc",
+				},
 			},
 			want: &BPF{
 				Program: models.BPFProgram{
@@ -96,8 +100,9 @@ func TestNewBpfProgram(t *testing.T) {
 		},
 		{name: "EmptyBPFProgram",
 			args: args{
-				program: models.BPFProgram{},
-				logDir:  "",
+				program:    models.BPFProgram{},
+				logDir:     "",
+				hostConfig: nil,
 			},
 			want: &BPF{
 				Program:        models.BPFProgram{},
@@ -105,6 +110,7 @@ func TestNewBpfProgram(t *testing.T) {
 				FilePath:       "",
 				BpfMaps:        make(map[string]BPFMap, 0),
 				MetricsBpfMaps: make(map[string]*MetricsBPFMap, 0),
+				hostConfig:     nil,
 			},
 		},
 	}
