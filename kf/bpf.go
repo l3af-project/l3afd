@@ -44,9 +44,6 @@ var (
 //lint:ignore U1000 avoid false linter error on windows, since this variable is only used in linux code
 const executePerm uint32 = 0111
 const bpfStatus string = "RUNNING"
-const httpScheme string = "http"
-const httpsScheme string = "https"
-const fileScheme string = "file"
 
 // BPF defines run time details for BPFProgram.
 type BPF struct {
