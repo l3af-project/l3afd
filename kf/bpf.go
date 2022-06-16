@@ -920,8 +920,13 @@ func (b *BPF) VerifyPinnedMapExists(chain bool) error {
 	var err error
 	if len(b.Program.MapName) > 0 {
 		log.Debug().Msgf("VerifyPinnedMapExists : Program %s MapName %s", b.Program.Name, b.Program.MapName)
+		path := ""
+		if b.Program.ProgType == models.XDPType {
+			path = filepath.Join(b.hostConfig.BpfMapDefaultDir, b.Program.MapName)
+		} else {
+			filepath.Join(b.hostConfig.BpfMapDefaultDir, b.hostConfig.TcMapsRelativeDir, b.PrevMapName)
+		}
 		for i := 0; i < 10; i++ {
-			path := b.MapFullPath()
 			if _, err = os.Stat(path); err == nil {
 				log.Info().Msgf("VerifyPinnedMapExists : map file created %s", b.MapFullPath())
 				return nil
@@ -949,8 +954,13 @@ func (b *BPF) VerifyPinnedMapVanish(chain bool) error {
 
 	var err error
 	log.Debug().Msgf("VerifyPinnedMapVanish : Program %s MapName %s", b.Program.Name, b.Program.MapName)
+	path := ""
+	if b.Program.ProgType == models.XDPType {
+		path = filepath.Join(b.hostConfig.BpfMapDefaultDir, b.Program.MapName)
+	} else {
+		path = filepath.Join(b.hostConfig.BpfMapDefaultDir, b.hostConfig.TcMapsRelativeDir, b.PrevMapName)
+	}
 	for i := 0; i < 10; i++ {
-		path := b.MapFullPath()
 		if _, err = os.Stat(path); os.IsNotExist(err) {
 			log.Info().Msgf("VerifyPinnedMapVanish : map file removed successfully - %s ", b.MapFullPath())
 			return nil

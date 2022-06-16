@@ -90,19 +90,18 @@ func TestNewBpfProgram(t *testing.T) {
 				MetricsBpfMaps: make(map[string]*MetricsBPFMap, 0),
 				Ctx:            nil,
 				Done:           nil,
+				LogDir:         "",
 				DataCenter:     "localdc",
 				hostConfig: &config.Config{
 					BPFLogDir:  "",
 					DataCenter: "localdc",
 				},
-				LogDir: "",
 			},
 		},
 		{name: "EmptyBPFProgram",
 			args: args{
 				program:    models.BPFProgram{},
-				logDir:     "",
-				hostConfig: nil,
+				hostConfig: &config.Config{},
 			},
 			want: &BPF{
 				Program:        models.BPFProgram{},
@@ -110,7 +109,7 @@ func TestNewBpfProgram(t *testing.T) {
 				FilePath:       "",
 				BpfMaps:        make(map[string]BPFMap, 0),
 				MetricsBpfMaps: make(map[string]*MetricsBPFMap, 0),
-				hostConfig:     nil,
+				hostConfig:     &config.Config{},
 			},
 		},
 	}
@@ -582,18 +581,24 @@ func Test_PutNextProgFDFromID(t *testing.T) {
 		//		Pid          int
 		FilePath     string
 		RestartCount int
+		hostConfig   *config.Config
 	}
 	tests := []struct {
-		name    string
-		fields  fields
-		wantErr bool
-		progId  int
+		name       string
+		fields     fields
+		wantErr    bool
+		progId     int
+		hostConfig *config.Config
 	}{
 		{
 			name: "emptyMapName",
 			fields: fields{
 				Program: models.BPFProgram{
 					MapName: "",
+				},
+				hostConfig: &config.Config{
+					BpfMapDefaultDir:  "/sys/fs/bpf",
+					TcMapsRelativeDir: "/tc/globals",
 				},
 			},
 			wantErr: false,
@@ -604,6 +609,10 @@ func Test_PutNextProgFDFromID(t *testing.T) {
 			fields: fields{
 				Program: models.BPFProgram{
 					MapName: "invalidname",
+				},
+				hostConfig: &config.Config{
+					BpfMapDefaultDir:  "/sys/fs/bpf",
+					TcMapsRelativeDir: "/tc/globals",
 				},
 			},
 			wantErr: true,
@@ -616,13 +625,17 @@ func Test_PutNextProgFDFromID(t *testing.T) {
 					Name:              "ratelimiting",
 					SeqID:             1,
 					Artifact:          "l3af_ratelimiting.tar.gz",
-					MapName:           "/sys/fs/bpf/xdp_rl_ingress_next_prog",
+					MapName:           "xdp_rl_ingress_next_prog",
 					CmdStart:          "ratelimiting",
 					Version:           "latest",
 					UserProgramDaemon: true,
 					AdminStatus:       "enabled",
 					ProgType:          "xdp",
 					CfgVersion:        1,
+				},
+				hostConfig: &config.Config{
+					BpfMapDefaultDir:  "/sys/fs/bpf",
+					TcMapsRelativeDir: "/tc/globals",
 				},
 			},
 			progId:  -1,
@@ -636,6 +649,7 @@ func Test_PutNextProgFDFromID(t *testing.T) {
 				Cmd:          tt.fields.Cmd,
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
+				hostConfig:   tt.fields.hostConfig,
 			}
 			err := b.PutNextProgFDFromID(tt.progId)
 			if (err != nil) != tt.wantErr {
@@ -652,6 +666,7 @@ func Test_VerifyPinnedMapExists(t *testing.T) {
 		//		Pid          int
 		FilePath     string
 		RestartCount int
+		hostConfig   *config.Config
 	}
 	tests := []struct {
 		name    string
@@ -664,6 +679,10 @@ func Test_VerifyPinnedMapExists(t *testing.T) {
 				Program: models.BPFProgram{
 					MapName: "invalid",
 				},
+				hostConfig: &config.Config{
+					BpfMapDefaultDir:  "/sys/fs/bpf",
+					TcMapsRelativeDir: "/tc/globals",
+				},
 			},
 			wantErr: true,
 		},
@@ -675,6 +694,7 @@ func Test_VerifyPinnedMapExists(t *testing.T) {
 				Cmd:          tt.fields.Cmd,
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
+				hostConfig:   tt.fields.hostConfig,
 			}
 			err := b.VerifyPinnedMapExists(true)
 			if (err != nil) != tt.wantErr {
@@ -740,6 +760,7 @@ func Test_VerifyPinnedMapVanish(t *testing.T) {
 		Cmd          *exec.Cmd
 		FilePath     string
 		RestartCount int
+		hostConfig   *config.Config
 	}
 	tests := []struct {
 		name    string
@@ -752,6 +773,10 @@ func Test_VerifyPinnedMapVanish(t *testing.T) {
 				Program: models.BPFProgram{
 					MapName: "",
 				},
+				hostConfig: &config.Config{
+					BpfMapDefaultDir:  "/sys/fs/bpf",
+					TcMapsRelativeDir: "/tc/globals",
+				},
 			},
 			wantErr: false,
 		},
@@ -762,15 +787,9 @@ func Test_VerifyPinnedMapVanish(t *testing.T) {
 					MapName:  "something",
 					ProgType: models.TCType,
 				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "invalidMapfile",
-			fields: fields{
-				Program: models.BPFProgram{
-					MapName:  "dummy",
-					ProgType: models.XDPType,
+				hostConfig: &config.Config{
+					BpfMapDefaultDir:  "/sys/fs/bpf",
+					TcMapsRelativeDir: "/tc/globals",
 				},
 			},
 			wantErr: false,
@@ -783,6 +802,10 @@ func Test_VerifyPinnedMapVanish(t *testing.T) {
 				Cmd:          tt.fields.Cmd,
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
+				hostConfig: &config.Config{
+					BpfMapDefaultDir:  "/sys/fs/bpf",
+					TcMapsRelativeDir: "/tc/globals",
+				},
 			}
 			err := b.VerifyPinnedMapVanish(true)
 			if (err != nil) != tt.wantErr {
