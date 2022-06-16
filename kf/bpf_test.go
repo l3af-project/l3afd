@@ -41,6 +41,7 @@ func TestNewBpfProgram(t *testing.T) {
 		direction  string
 		ctx        context.Context
 		datacenter string
+		hostConfig *config.Config
 	}
 	execCommand = fakeExecCommand
 	defer func() { execCommand = exec.Command }()
@@ -87,6 +88,7 @@ func TestNewBpfProgram(t *testing.T) {
 				Ctx:            nil,
 				Done:           nil,
 				DataCenter:     "localdc",
+				hostConfig:     nil,
 			},
 		},
 		{name: "EmptyBPFProgram",
@@ -105,7 +107,7 @@ func TestNewBpfProgram(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewBpfProgram(tt.args.ctx, tt.args.program, tt.args.logDir, tt.args.datacenter); !reflect.DeepEqual(got, tt.want) {
+			if got := NewBpfProgram(tt.args.ctx, tt.args.program, tt.args.hostConfig); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewBpfProgram() = %#v, want %#v", got, tt.want)
 			}
 		})

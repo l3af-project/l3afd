@@ -30,7 +30,8 @@ type Config struct {
 	MaxNFReStartCount int
 	MaxNFsAttachCount int
 	Environment       string
-
+	BpfMapDefaultDir  string
+	TcMapsRelativeDir string
 	// Flag to enable chaining with root program
 	BpfChainingEnabled bool
 
@@ -118,6 +119,8 @@ func ReadConfig(configPath string) (*Config, error) {
 		ShutdownTimeout:                 LoadConfigDuration(confReader, "l3afd", "shutdown-timeout"),
 		SwaggerApiEnabled:               LoadOptionalConfigBool(confReader, "l3afd", "swagger-api-enabled", false),
 		Environment:                     LoadOptionalConfigString(confReader, "l3afd", "environment", ENV_PROD),
+		BpfMapDefaultDir:                LoadOptionalConfigString(confReader, "l3afd", "bpfmap-default-dir", "/sys/fs/bpf"),
+		TcMapsRelativeDir:               LoadOptionalConfigString(confReader, "l3afd", "tcmaps-relative-dir", "/tc/globals"),
 		AdmindHost:                      LoadConfigString(confReader, "admind", "host"),
 		AdmindUsername:                  LoadConfigString(confReader, "admind", "username"),
 		AdmindApiKey:                    LoadConfigString(confReader, "admind", "api-key"),
@@ -125,14 +128,14 @@ func ReadConfig(configPath string) (*Config, error) {
 		AdmindApiEnabled:                LoadOptionalConfigBool(confReader, "admind", "api-enabled", true),
 		XDPRootProgramName:              LoadOptionalConfigString(confReader, "xdp-root-program", "name", "xdp_root"),
 		XDPRootProgramArtifact:          LoadOptionalConfigString(confReader, "xdp-root-program", "artifact", "l3af_xdp_root.tar.gz"),
-		XDPRootProgramMapName:           LoadOptionalConfigString(confReader, "xdp-root-program", "ingress-map-name", "/sys/fs/bpf/xdp_root_array"),
+		XDPRootProgramMapName:           LoadOptionalConfigString(confReader, "xdp-root-program", "ingress-map-name", "xdp_root_array"),
 		XDPRootProgramCommand:           LoadOptionalConfigString(confReader, "xdp-root-program", "command", "xdp_root"),
 		XDPRootProgramVersion:           LoadOptionalConfigString(confReader, "xdp-root-program", "version", "1.01"),
 		XDPRootProgramUserProgramDaemon: LoadOptionalConfigBool(confReader, "xdp-root-program", "user-program-daemon", false),
 		TCRootProgramName:               LoadOptionalConfigString(confReader, "tc-root-program", "name", "tc_root"),
 		TCRootProgramArtifact:           LoadOptionalConfigString(confReader, "tc-root-program", "artifact", "l3af_tc_root.tar.gz"),
-		TCRootProgramIngressMapName:     LoadOptionalConfigString(confReader, "tc-root-program", "ingress-map-name", "/sys/fs/bpf/tc/globals/tc_ingress_root_array"),
-		TCRootProgramEgressMapName:      LoadOptionalConfigString(confReader, "tc-root-program", "egress-map-name", "/sys/fs/bpf/tc/globals/tc_egress_root_array"),
+		TCRootProgramIngressMapName:     LoadOptionalConfigString(confReader, "tc-root-program", "ingress-map-name", "tc_ingress_root_array"),
+		TCRootProgramEgressMapName:      LoadOptionalConfigString(confReader, "tc-root-program", "egress-map-name", "tc_egress_root_array"),
 		TCRootProgramCommand:            LoadOptionalConfigString(confReader, "tc-root-program", "command", "tc_root"),
 		TCRootProgramVersion:            LoadOptionalConfigString(confReader, "tc-root-program", "version", "1.0"),
 		TCRootProgramUserProgramDaemon:  LoadOptionalConfigBool(confReader, "tc-root-program", "user-program-daemon", false),

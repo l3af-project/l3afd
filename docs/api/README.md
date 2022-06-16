@@ -15,8 +15,8 @@ The payload will look more like this standard JSON:
           "name": "ratelimiting",
           "seq_id": 1,
           "artifact": "l3af_ratelimiting.tar.gz",
-          "ebpf_package_repo_url": "http://www.exampleebpf.com/l3af_ratelimiting.tar.gz"
-          "map_name": "/sys/fs/bpf/xdp_rl_ingress_next_prog",
+          "ebpf_package_repo_url": "https://l3af.io/l3af_ratelimiting.tar.gz"
+          "map_name": "xdp_rl_ingress_next_prog",
           "cmd_start": "ratelimiting",
           "version": "latest",
           "user_program_daemon": true,
@@ -50,7 +50,7 @@ The payload will look more like this standard JSON:
 | artifact            | string                                         | `"l3af_ratelimiting.tar.gz"`                                   | Userspace eBPF program binary and kernel eBPF byte code in tar.gz format     
 ebpf_package_repo_url | string         | `"https://l3af.io/"`     |Ebpf package repository url.  If it is not provided default url is used
 |                                                  |
-| map_name            | string                                         | `"/sys/fs/bpf/ep1_next_prog_array"`                            | Chaining program map in the file system with path. This should match the eBPF program code.                                      |
+| map_name            | string                                         |`"ep1_next_prog_array"`                            | Chaining program map in the file system. This should match the eBPF program code.                                      |
 | cmd_start           | string                                         | `"ratelimiting"`                                               | The command used to start the eBPF program. Usually the userspace eBPF program binary name.                                      |
 | cmd_stop            | string                                         |                                                                | The command used stop the eBPF program                                                                                           |
 | cmd_status          | string                                         |                                                                | The command used to get the status of the eBPF program                                                                           |
