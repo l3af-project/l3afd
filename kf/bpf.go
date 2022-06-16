@@ -44,6 +44,9 @@ var (
 //lint:ignore U1000 avoid false linter error on windows, since this variable is only used in linux code
 const executePerm uint32 = 0111
 const bpfStatus string = "RUNNING"
+const httpScheme string = "http"
+const httpsScheme string = "https"
+const fileScheme string = "file"
 
 // BPF defines run time details for BPFProgram.
 type BPF struct {
@@ -59,20 +62,22 @@ type BPF struct {
 	Ctx            context.Context
 	Done           chan bool `json:"-"`
 	DataCenter     string
+	hostConfig     *config.Config
 }
 
-func NewBpfProgram(ctx context.Context, program models.BPFProgram, logDir, dataCenter string) *BPF {
+func NewBpfProgram(ctx context.Context, program models.BPFProgram, conf *config.Config) *BPF {
 	bpf := &BPF{
 		Program:        program,
 		RestartCount:   0,
 		Cmd:            nil,
 		FilePath:       "",
-		LogDir:         logDir,
+		LogDir:         conf.BPFLogDir,
 		BpfMaps:        make(map[string]BPFMap, 0),
 		MetricsBpfMaps: make(map[string]*MetricsBPFMap, 0),
 		Ctx:            ctx,
 		Done:           nil,
-		DataCenter:     dataCenter,
+		DataCenter:     conf.DataCenter,
+		hostConfig:     conf,
 	}
 	return bpf
 }
@@ -96,6 +101,7 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 				CmdStop:           conf.XDPRootProgramCommand,
 				CmdStatus:         "",
 				AdminStatus:       models.Enabled,
+				ProgType:          models.XDPType,
 				SeqID:             0,
 				StartArgs:         map[string]interface{}{},
 				StopArgs:          map[string]interface{}{},
@@ -106,6 +112,7 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 			FilePath:     "",
 			LogDir:       "",
 			PrevMapName:  "",
+			hostConfig:   conf,
 		}
 	case models.TCType:
 		rootProgBPF = &BPF{
@@ -118,6 +125,7 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 				CmdStop:           conf.TCRootProgramCommand,
 				CmdStatus:         "",
 				AdminStatus:       models.Enabled,
+				ProgType:          models.TCType,
 				StartArgs:         map[string]interface{}{},
 				StopArgs:          map[string]interface{}{},
 				StatusArgs:        map[string]interface{}{},
@@ -127,6 +135,7 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 			FilePath:     "",
 			LogDir:       "",
 			PrevMapName:  "",
+			hostConfig:   conf,
 		}
 		if direction == models.IngressType {
 			rootProgBPF.Program.MapName = conf.TCRootProgramIngressMapName
@@ -148,7 +157,7 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 
 	// On l3afd crashing scenario verify root program are unloaded properly by checking existence of persisted maps
 	// if map file exists then root program is still running
-	if fileExists(rootProgBPF.Program.MapName) {
+	if fileExists(rootProgBPF.MapFullPath()) {
 		log.Warn().Msgf("previous instance of root program %s is running, stopping it ", rootProgBPF.Program.Name)
 		if err := rootProgBPF.Stop(ifaceName, direction, conf.BpfChainingEnabled); err != nil {
 			return nil, fmt.Errorf("failed to stop root program on iface %s name %s direction %s", ifaceName, rootProgBPF.Program.Name, direction)
@@ -335,7 +344,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 
 	if chain {
 		if len(b.PrevMapName) > 1 {
-			args = append(args, "--map-name="+b.PrevMapName)
+			args = append(args, "--map-name="+b.PrevMapFullPath())
 		}
 	}
 
@@ -374,7 +383,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		b.Cmd = nil
 
 		if err := b.VerifyPinnedMapExists(chain); err != nil {
-			return fmt.Errorf("no userprogram and failed to find pinned file %s, %w", b.Program.MapName, err)
+			return fmt.Errorf("no userprogram and failed to find pinned file %s, %w", b.MapFullPath(), err)
 		}
 		return nil
 	}
@@ -387,7 +396,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 
 	// making sure program fd map pinned file is created
 	if err := b.VerifyPinnedMapExists(chain); err != nil {
-		return fmt.Errorf("failed to find pinned file %s  %w", b.Program.MapName, err)
+		return fmt.Errorf("failed to find pinned file %s  %w", b.MapFullPath(), err)
 	}
 
 	if len(b.Program.MapArgs) > 0 {
@@ -817,7 +826,7 @@ func (b *BPF) PutNextProgFDFromID(progID int) error {
 	}
 
 	log.Info().Msgf("PutNextProgFDFromID : Map Name %s ID %d", b.Program.MapName, progID)
-	ebpfMap, err := ebpf.LoadPinnedMap(b.Program.MapName, nil)
+	ebpfMap, err := ebpf.LoadPinnedMap(b.MapFullPath(), nil)
 	if err != nil {
 		return fmt.Errorf("unable to access pinned next prog map %s %v", b.Program.MapName, err)
 	}
@@ -839,7 +848,7 @@ func (b *BPF) PutNextProgFDFromID(progID int) error {
 // GetProgID - This returns ID of the bpf program
 func (b *BPF) GetProgID() (int, error) {
 
-	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapName, &ebpf.LoadPinOptions{ReadOnly: true})
+	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapFullPath(), &ebpf.LoadPinOptions{ReadOnly: true})
 	if err != nil {
 		log.Error().Err(err).Msgf("unable to access pinned prog map %s", b.PrevMapName)
 		return 0, fmt.Errorf("unable to access pinned prog map %s %v", b.PrevMapName, err)
@@ -871,7 +880,7 @@ func (b *BPF) RemoveNextProgFD() error {
 		// no chaining map in case of root programs
 		return nil
 	}
-	ebpfMap, err := ebpf.LoadPinnedMap(b.Program.MapName, nil)
+	ebpfMap, err := ebpf.LoadPinnedMap(b.MapFullPath(), nil)
 	if err != nil {
 		return fmt.Errorf("unable to access pinned next prog map %s %v", b.Program.MapName, err)
 	}
@@ -887,7 +896,7 @@ func (b *BPF) RemoveNextProgFD() error {
 // Delete the entry if the last element
 func (b *BPF) RemovePrevProgFD() error {
 
-	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapName, nil)
+	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapFullPath(), nil)
 	if err != nil {
 		return fmt.Errorf("unable to access pinned prev prog map %s %v", b.PrevMapName, err)
 	}
@@ -912,8 +921,8 @@ func (b *BPF) VerifyPinnedMapExists(chain bool) error {
 	if len(b.Program.MapName) > 0 {
 		log.Debug().Msgf("VerifyPinnedMapExists : Program %s MapName %s", b.Program.Name, b.Program.MapName)
 		for i := 0; i < 10; i++ {
-			if _, err = os.Stat(b.Program.MapName); err == nil {
-				log.Info().Msgf("VerifyPinnedMapExists : map file created %s", b.Program.MapName)
+			if _, err = os.Stat(b.MapFullPath()); err == nil {
+				log.Info().Msgf("VerifyPinnedMapExists : map file created %s", b.MapFullPath())
 				return nil
 			}
 			log.Warn().Msgf("failed to find pinned file, checking again after a second ... ")
@@ -921,7 +930,7 @@ func (b *BPF) VerifyPinnedMapExists(chain bool) error {
 		}
 
 		if err != nil {
-			err = fmt.Errorf("failed to find pinned file %s err %w", b.Program.MapName, err)
+			err = fmt.Errorf("failed to find pinned file %s err %w", b.MapFullPath(), err)
 			log.Error().Err(err).Msg("")
 			return err
 		}
@@ -940,8 +949,8 @@ func (b *BPF) VerifyPinnedMapVanish(chain bool) error {
 	var err error
 	log.Debug().Msgf("VerifyPinnedMapVanish : Program %s MapName %s", b.Program.Name, b.Program.MapName)
 	for i := 0; i < 10; i++ {
-		if _, err = os.Stat(b.Program.MapName); os.IsNotExist(err) {
-			log.Info().Msgf("VerifyPinnedMapVanish : map file removed successfully - %s ", b.Program.MapName)
+		if _, err = os.Stat(b.MapFullPath()); os.IsNotExist(err) {
+			log.Info().Msgf("VerifyPinnedMapVanish : map file removed successfully - %s ", b.MapFullPath())
 			return nil
 		} else if err != nil {
 			log.Warn().Err(err).Msg("VerifyPinnedMapVanish: Error checking for map file")
@@ -951,7 +960,7 @@ func (b *BPF) VerifyPinnedMapVanish(chain bool) error {
 		time.Sleep(1 * time.Second)
 	}
 
-	err = fmt.Errorf("%s map file was never removed by BPF program %s err %w", b.Program.MapName, b.Program.Name, err)
+	err = fmt.Errorf("%s map file was never removed by BPF program %s err %w", b.MapFullPath(), b.Program.Name, err)
 	log.Error().Err(err).Msg("")
 	return err
 }
@@ -1000,4 +1009,22 @@ func (b *BPF) VerifyMetricsMapsVanish() error {
 	err := fmt.Errorf("metrics maps are never removed by Kernel %s", b.Program.Name)
 	log.Error().Err(err).Msg("")
 	return err
+}
+
+// MapFullPath : It returns full absolute path for bpfmap
+func (b *BPF) MapFullPath() string {
+	if b.Program.ProgType == models.XDPType {
+		return filepath.Join(b.hostConfig.BpfMapDefaultDir, b.Program.MapName)
+	} else {
+		return filepath.Join(b.hostConfig.BpfMapDefaultDir, b.hostConfig.TcMapsRelativeDir, b.Program.MapName)
+	}
+}
+
+// PrevMapFullPath : It returns full absolute path for previous bpf map
+func (b *BPF) PrevMapFullPath() string {
+	if b.Program.ProgType == models.XDPType {
+		return filepath.Join(b.hostConfig.BpfMapDefaultDir, b.PrevMapName)
+	} else {
+		return filepath.Join(b.hostConfig.BpfMapDefaultDir, b.hostConfig.TcMapsRelativeDir, b.PrevMapName)
+	}
 }

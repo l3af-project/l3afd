@@ -192,7 +192,7 @@ func (c *NFConfigs) VerifyAndStartTCRootProgram(ifaceName, direction string) err
 func (c *NFConfigs) PushBackAndStartBPF(bpfProg *models.BPFProgram, ifaceName, direction string) error {
 
 	log.Info().Msgf("PushBackAndStartBPF : iface %s, direction %s", ifaceName, direction)
-	bpf := NewBpfProgram(c.ctx, *bpfProg, c.hostConfig.BPFLogDir, c.hostConfig.DataCenter)
+	bpf := NewBpfProgram(c.ctx, *bpfProg, c.hostConfig)
 	var bpfList *list.List
 
 	switch direction {
@@ -501,7 +501,7 @@ func (c *NFConfigs) InsertAndStartBPFProgram(bpfProg *models.BPFProgram, ifaceNa
 		return nil
 	}
 
-	bpf := NewBpfProgram(c.ctx, *bpfProg, c.hostConfig.BPFLogDir, c.hostConfig.DataCenter)
+	bpf := NewBpfProgram(c.ctx, *bpfProg, c.hostConfig)
 
 	switch direction {
 	case models.XDPIngressType:
