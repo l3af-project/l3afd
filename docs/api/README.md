@@ -15,7 +15,7 @@ The payload will look more like this standard JSON:
           "name": "ratelimiting",
           "seq_id": 1,
           "artifact": "l3af_ratelimiting.tar.gz",
-          "ebpf_package_repo_url": "http://www.exampleebpf.com/l3af_ratelimiting.tar.gz"
+          "ebpf_package_repo_url": "https://l3af.io"
           "map_name": "/sys/fs/bpf/xdp_rl_ingress_next_prog",
           "cmd_start": "ratelimiting",
           "version": "latest",
