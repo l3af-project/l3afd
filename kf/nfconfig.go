@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"net"
 	"reflect"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -1032,8 +1033,7 @@ func (c *NFConfigs) AddeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error {
 }
 
 // DeleteProgram -- Delete given bpfprograms
-func (c *NFConfigs) DeleteProgram(ifaceName, hostName string, bpfProgs *models.BPFPrograms) error {
-
+func (c *NFConfigs) DeleteProgram(ifaceName, hostName string, bpfProgs *models.WanttoRemove) error {
 	if hostName != c.hostName {
 		errOut := fmt.Errorf("provided bpf programs do not belong to this host")
 		log.Error().Err(errOut)
@@ -1055,60 +1055,51 @@ func (c *NFConfigs) DeleteProgram(ifaceName, hostName string, bpfProgs *models.B
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	for _, bpfProg := range bpfProgs.XDPIngress {
-		if c.IngressXDPBpfs[ifaceName] != nil {
-			if bpfProg.AdminStatus == models.Enabled {
-				bpfList := c.IngressXDPBpfs[ifaceName]
-				for e := bpfList.Front(); e != nil; {
-					data := e.Value.(*BPF)
-					nextprog := e.Next()
-					if data.Program.Name == bpfProg.Name {
-						err := c.DeleteProgramHelper(e, ifaceName, models.XDPIngressType, bpfList)
-						if err != nil {
-							return fmt.Errorf("DeleteProgramHelper function failed : %w", err)
-						}
-					}
-					e = nextprog
+	sort.Strings(bpfProgs.XDPIngress)
+	if c.IngressXDPBpfs[ifaceName] != nil {
+		bpfList := c.IngressXDPBpfs[ifaceName]
+		for e := bpfList.Front(); e != nil; {
+			data := e.Value.(*BPF)
+			nextprog := e.Next()
+			if BinarySearch(bpfProgs.XDPIngress, data.Program.Name) {
+				err := c.DeleteProgramHelper(e, ifaceName, models.XDPIngressType, bpfList)
+				if err != nil {
+					return fmt.Errorf("DeleteProgramHelper function failed : %w", err)
 				}
 			}
+			e = nextprog
 		}
 	}
 
-	for _, bpfProg := range bpfProgs.TCIngress {
-		if c.IngressTCBpfs[ifaceName] != nil {
-			if bpfProg.AdminStatus == models.Enabled {
-				bpfList := c.IngressTCBpfs[ifaceName]
-				for e := bpfList.Front(); e != nil; {
-					data := e.Value.(*BPF)
-					nextprog := e.Next()
-					if data.Program.Name == bpfProg.Name {
-						err := c.DeleteProgramHelper(e, ifaceName, models.IngressType, bpfList)
-						if err != nil {
-							return fmt.Errorf("DeleteProgramHelper function failed : %w", err)
-						}
-					}
-					e = nextprog
+	sort.Strings(bpfProgs.TcIngress)
+	if c.IngressTCBpfs[ifaceName] != nil {
+		bpfList := c.IngressTCBpfs[ifaceName]
+		for e := bpfList.Front(); e != nil; {
+			data := e.Value.(*BPF)
+			nextprog := e.Next()
+			if BinarySearch(bpfProgs.TcIngress, data.Program.Name) {
+				err := c.DeleteProgramHelper(e, ifaceName, models.IngressType, bpfList)
+				if err != nil {
+					return fmt.Errorf("DeleteProgramHelper function failed : %w", err)
 				}
 			}
+			e = nextprog
 		}
 	}
 
-	for _, bpfProg := range bpfProgs.TCEgress {
-		if c.EgressTCBpfs[ifaceName] != nil {
-			if bpfProg.AdminStatus == models.Enabled {
-				bpfList := c.EgressTCBpfs[ifaceName]
-				for e := bpfList.Front(); e != nil; {
-					data := e.Value.(*BPF)
-					nextprog := e.Next()
-					if data.Program.Name == bpfProg.Name {
-						err := c.DeleteProgramHelper(e, ifaceName, models.EgressType, bpfList)
-						if err != nil {
-							return fmt.Errorf("DeleteProgramHelper function failed : %w", err)
-						}
-					}
-					e = nextprog
+	sort.Strings(bpfProgs.TcEgress)
+	if c.EgressTCBpfs[ifaceName] != nil {
+		bpfList := c.EgressTCBpfs[ifaceName]
+		for e := bpfList.Front(); e != nil; {
+			data := e.Value.(*BPF)
+			nextprog := e.Next()
+			if BinarySearch(bpfProgs.TcEgress, data.Program.Name) {
+				err := c.DeleteProgramHelper(e, ifaceName, models.EgressType, bpfList)
+				if err != nil {
+					return fmt.Errorf("DeleteProgramHelper function failed : %w", err)
 				}
 			}
+			e = nextprog
 		}
 	}
 	return nil
@@ -1142,9 +1133,9 @@ func (c *NFConfigs) DeleteProgramHelper(e *list.Element, ifaceName string, direc
 }
 
 // RemoveEBPFPrograms - remove eBPF programs on the node if they are running
-func (c *NFConfigs) DeleteEbpfPrograms(bpfProgs []models.L3afBPFPrograms) error {
+func (c *NFConfigs) DeleteEbpfPrograms(bpfProgs []models.DeleteApiValues) error {
 	for _, bpfProg := range bpfProgs {
-		if err := c.DeleteProgram(bpfProg.Iface, bpfProg.HostName, bpfProg.BpfPrograms); err != nil {
+		if err := c.DeleteProgram(bpfProg.Iface, bpfProg.HostName, bpfProg.WanttoRemove); err != nil {
 			if err := c.SaveConfigsToConfigStore(); err != nil {
 				return fmt.Errorf("remove eBPF Programs failed to save configs %w", err)
 			}
@@ -1153,4 +1144,13 @@ func (c *NFConfigs) DeleteEbpfPrograms(bpfProgs []models.L3afBPFPrograms) error 
 		c.ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
 	}
 	return nil
+}
+func BinarySearch(name []string, target string) bool {
+	i := sort.SearchStrings(name, target)
+	n := len(name)
+	if i < n && name[i] == target {
+		return true
+	} else {
+		return false
+	}
 }
