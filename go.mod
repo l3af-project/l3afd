@@ -10,7 +10,7 @@ require (
 	github.com/robfig/config v0.0.0-20141207224736-0f78529c8c7e
 	github.com/rs/zerolog v1.27.0
 	github.com/safchain/ethtool v0.0.0-20210803160452-9aa261dae9b1
-	github.com/swaggo/http-swagger v1.2.8
+	github.com/swaggo/http-swagger v1.3.0
 	github.com/swaggo/swag v1.8.2
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // exclude
 )
@@ -33,7 +33,7 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.26.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
-	github.com/swaggo/files v0.0.0-20210815190702-a29dd2bc99b2 // indirect
+	github.com/swaggo/files v0.0.0-20220610200504-28940afbdbfe // indirect
 	golang.org/x/net v0.0.0-20220526153639-5463443f8c37 // indirect
 	golang.org/x/tools v0.1.10 // indirect
 	google.golang.org/protobuf v1.26.0-rc.1 // indirect
