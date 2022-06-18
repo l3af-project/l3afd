@@ -525,81 +525,71 @@ func (b *BPF) VerifyAndGetArtifacts(conf *config.Config) error {
 
 // GetArtifacts downloads artifacts from the specified eBPF repo
 func (b *BPF) GetArtifacts(conf *config.Config) error {
+
 	buf := &bytes.Buffer{}
-	EPRUrl, e := url.Parse(b.Program.EPRUrl)
-	if e != nil {
-		return fmt.Errorf("unknown download URL format: %w", e)
+	isDefaultURLUsed := false
+	RepoURL := b.Program.EPRURL
+	if len(b.Program.EPRURL) == 0 {
+		RepoURL = conf.KFRepoURL
+		isDefaultURLUsed = true
 	}
-	if len(b.Program.EPRUrl) > 0 {
-		switch EPRUrl.Scheme {
-		case httpsScheme, httpScheme:
-			{
-				log.Info().Msgf("Downloading - %s", EPRUrl)
-				timeOut := time.Duration(conf.HttpClientTimeout) * time.Second
-				var netTransport = &http.Transport{
-					ResponseHeaderTimeout: timeOut,
-				}
-				client := http.Client{Transport: netTransport, Timeout: timeOut}
 
-				// Get the data
-				resp, err := client.Get(EPRUrl.String())
+	URL, err := url.Parse(RepoURL)
+	if err != nil {
+		if isDefaultURLUsed {
+			return fmt.Errorf("unknown kf-repo format : %w", err)
+		} else {
+			return fmt.Errorf("unknown ebpf_package_repo_url format : %w", err)
+		}
+	}
+
+	switch URL.Scheme {
+	case httpsScheme, httpScheme:
+		{
+			platform, err := GetPlatform()
+			if err != nil {
+				return fmt.Errorf("failed to identify platform type: %w", err)
+			}
+
+			URL.Path = path.Join(URL.Path, b.Program.Name, b.Program.Version, platform, b.Program.Artifact)
+			log.Info().Msgf("Downloading - %s", URL)
+
+			timeOut := time.Duration(conf.HttpClientTimeout) * time.Second
+			var netTransport = &http.Transport{
+				ResponseHeaderTimeout: timeOut,
+			}
+			client := http.Client{Transport: netTransport, Timeout: timeOut}
+
+			// Get the data
+			resp, err := client.Get(URL.String())
+			if err != nil {
+				return fmt.Errorf("download failed: %w", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				return fmt.Errorf("get request returned unexpected status code: %d (%s), %d was expected\n\tResponse Body: %s", resp.StatusCode, http.StatusText(resp.StatusCode), http.StatusOK, buf.Bytes())
+			}
+
+			buf.ReadFrom(resp.Body)
+
+		}
+	case fileScheme:
+		{
+			if fileExists(URL.Path) {
+				f, err := os.Open(URL.Path)
 				if err != nil {
-					return fmt.Errorf("download failed: %w", err)
+					return fmt.Errorf("opening err : %w", err)
 				}
-				defer resp.Body.Close()
 
-				buf.ReadFrom(resp.Body)
-				if resp.StatusCode != http.StatusOK {
-					return fmt.Errorf("get request returned unexpected status code: %d (%s), %d was expected\n\tResponse Body: %s", resp.StatusCode, http.StatusText(resp.StatusCode), http.StatusOK, buf.Bytes())
-				}
+				buf.ReadFrom(f)
+				f.Close()
+			} else {
+				return fmt.Errorf("artifact is not found")
 			}
-		case fileScheme:
-			{
-				if fileExists(EPRUrl.Path) {
-					f, err := os.Open(EPRUrl.Path)
-					if err != nil {
-						return fmt.Errorf("opening err : %w", err)
-					}
-					buf.ReadFrom(f)
-					f.Close()
-				} else {
-					return fmt.Errorf("artifact is not found")
-				}
-			}
-		}
-	} else {
-		kfRepoURL, err := url.Parse(conf.KFRepoURL)
-		if err != nil {
-			return fmt.Errorf("unknown KF repo url format: %w", err)
-		}
-
-		platform, err := GetPlatform()
-		if err != nil {
-			return fmt.Errorf("failed to find KF repo download path: %w", err)
-		}
-
-		kfRepoURL.Path = path.Join(kfRepoURL.Path, b.Program.Name, b.Program.Version, platform, b.Program.Artifact)
-		log.Info().Msgf("Downloading - %s", kfRepoURL)
-
-		timeOut := time.Duration(conf.HttpClientTimeout) * time.Second
-		var netTransport = &http.Transport{
-			ResponseHeaderTimeout: timeOut,
-		}
-		client := http.Client{Transport: netTransport, Timeout: timeOut}
-
-		// Get the data
-		resp, err := client.Get(kfRepoURL.String())
-		if err != nil {
-			return fmt.Errorf("download failed: %w", err)
-		}
-		defer resp.Body.Close()
-
-		buf.ReadFrom(resp.Body)
-
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("get request returned unexpected status code: %d (%s), %d was expected\n\tResponse Body: %s", resp.StatusCode, http.StatusText(resp.StatusCode), http.StatusOK, buf.Bytes())
 		}
 	}
+
 	switch artifact := b.Program.Artifact; {
 	case strings.HasSuffix(artifact, ".zip"):
 		{
@@ -622,9 +612,11 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 					tempDir,
 					file.Name,
 				)
-				if !strings.HasPrefix(extractedFilePath, filepath.Clean(tempDir)+string(os.PathSeparator)) {
-					return fmt.Errorf("invalid file path: %s", extractedFilePath)
+
+				if e := ValidateExtractedPath(file.Name, tempDir); e != nil {
+					return e
 				}
+
 				if file.FileInfo().IsDir() {
 					os.MkdirAll(extractedFilePath, file.Mode())
 				} else {
@@ -669,8 +661,8 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 					return fmt.Errorf("untar failed: %w", err)
 				}
 
-				if strings.Contains(header.Name, "..") {
-					return fmt.Errorf("zipped file contians filepath (%s) that includes (..)", header.Name)
+				if e := ValidateExtractedPath(header.Name, tempDir); e != nil {
+					return e
 				}
 
 				fPath := filepath.Join(tempDir, header.Name)
@@ -700,7 +692,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 			return nil
 		}
 	default:
-		return fmt.Errorf("unknownartifact format")
+		return fmt.Errorf("unknown artifact format")
 	}
 }
 
@@ -1048,4 +1040,16 @@ func (b *BPF) VerifyMetricsMapsVanish() error {
 	err := fmt.Errorf("metrics maps are never removed by Kernel %s", b.Program.Name)
 	log.Error().Err(err).Msg("")
 	return err
+}
+
+// ValidateExtractedPath: validate the filepath of zipped file
+func ValidateExtractedPath(filePath string, destination string) error {
+	if strings.Contains(filePath, "..") {
+		return fmt.Errorf("zipped file contains filepath (%s) that includes (..)", filePath)
+	}
+	destpath := filepath.Join(destination, filePath)
+	if !strings.HasPrefix(destpath, filepath.Clean(destination)+string(os.PathSeparator)) {
+		return fmt.Errorf("%s: illegal file path", filePath)
+	}
+	return nil
 }

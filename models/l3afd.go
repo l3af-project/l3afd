@@ -49,7 +49,7 @@ type BPFProgram struct {
 	MapArgs           L3afDNFArgs         `json:"map_args"`              // Config BPF Map of arguments
 	ConfigArgs        L3afDNFArgs         `json:"config_args"`           // Map of arguments to config command
 	MonitorMaps       []L3afDNFMetricsMap `json:"monitor_maps"`          // Metrics BPF maps
-	EPRUrl            string              `json:"ebpf_package_repo_url"` // Download url for Program
+	EPRURL            string              `json:"ebpf_package_repo_url"` // Download url for Program
 }
 
 // L3afDNFMetricsMap defines BPF map
