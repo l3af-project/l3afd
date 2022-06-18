@@ -528,7 +528,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 	buf := &bytes.Buffer{}
 	EPRUrl, e := url.Parse(b.Program.EPRUrl)
 	if e != nil {
-		return fmt.Errorf("unknown Download url format: %w", e)
+		return fmt.Errorf("unknown download URL format: %w", e)
 	}
 	if len(b.Program.EPRUrl) > 0 {
 		switch EPRUrl.Scheme {
