@@ -523,7 +523,7 @@ func (b *BPF) VerifyAndGetArtifacts(conf *config.Config) error {
 	return nil
 }
 
-// GetArtifacts downloads artifacts from the nexus repo
+// GetArtifacts downloads artifacts from the specified eBPF repo
 func (b *BPF) GetArtifacts(conf *config.Config) error {
 	buf := &bytes.Buffer{}
 	EPRUrl, e := url.Parse(b.Program.EPRUrl)
