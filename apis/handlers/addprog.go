@@ -25,7 +25,7 @@ import (
 // @Param cfgs body []models.L3afBPFPrograms true "BPF programs"
 // @Success 200
 // @Router /l3af/configs/v1/add [post]
-func AddEbpfProgram(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFunc {
+func AddEbpfPrograms(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		mesg := ""
@@ -58,7 +58,7 @@ func AddEbpfProgram(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFunc {
 		}
 
 		if err := kfcfg.AddeBPFPrograms(t); err != nil {
-			mesg = fmt.Sprintf("failed to AddebpfPrograms ebpf programs: %v", err)
+			mesg = fmt.Sprintf("failed to AddeBPFPrograms : %v", err)
 			log.Error().Msg(mesg)
 
 			statusCode = http.StatusInternalServerError

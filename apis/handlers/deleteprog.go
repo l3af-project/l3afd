@@ -25,7 +25,7 @@ import (
 // @Param cfgs body []models.L3afBPFPrograms true "BPF programs"
 // @Success 200
 // @Router /l3af/configs/v1/delete [post]
-func DeleteEbpfProgram(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFunc {
+func DeleteEbpfPrograms(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		mesg := ""
@@ -57,8 +57,8 @@ func DeleteEbpfProgram(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFun
 			return
 		}
 
-		if err := kfcfg.DeleteEbpfPrograms(t); err != nil {
-			mesg = fmt.Sprintf("failed to DeleteEbpfPrograms ebpf programs: %v", err)
+		if err := kfcfg.DeleteeBPFPrograms(t); err != nil {
+			mesg = fmt.Sprintf("failed to DeleteeBPFPrograms : %v", err)
 			log.Error().Msg(mesg)
 
 			statusCode = http.StatusInternalServerError
