@@ -597,8 +597,8 @@ func Test_PutNextProgFDFromID(t *testing.T) {
 					MapName: "",
 				},
 				hostConfig: &config.Config{
-					BpfMapDefaultDir:  "/sys/fs/bpf",
-					TcMapsRelativeDir: "/tc/globals",
+					BpfMapDefaultPath:  "/sys/fs/bpf",
+					TcMapsRelativePath: "/tc/globals",
 				},
 			},
 			wantErr: false,
@@ -611,8 +611,8 @@ func Test_PutNextProgFDFromID(t *testing.T) {
 					MapName: "invalidname",
 				},
 				hostConfig: &config.Config{
-					BpfMapDefaultDir:  "/sys/fs/bpf",
-					TcMapsRelativeDir: "/tc/globals",
+					BpfMapDefaultPath:  "/sys/fs/bpf",
+					TcMapsRelativePath: "/tc/globals",
 				},
 			},
 			wantErr: true,
@@ -634,8 +634,8 @@ func Test_PutNextProgFDFromID(t *testing.T) {
 					CfgVersion:        1,
 				},
 				hostConfig: &config.Config{
-					BpfMapDefaultDir:  "/sys/fs/bpf",
-					TcMapsRelativeDir: "/tc/globals",
+					BpfMapDefaultPath:  "/sys/fs/bpf",
+					TcMapsRelativePath: "/tc/globals",
 				},
 			},
 			progId:  -1,
@@ -680,8 +680,8 @@ func Test_VerifyPinnedMapExists(t *testing.T) {
 					MapName: "invalid",
 				},
 				hostConfig: &config.Config{
-					BpfMapDefaultDir:  "/sys/fs/bpf",
-					TcMapsRelativeDir: "/tc/globals",
+					BpfMapDefaultPath:  "/sys/fs/bpf",
+					TcMapsRelativePath: "/tc/globals",
 				},
 			},
 			wantErr: true,
@@ -774,8 +774,8 @@ func Test_VerifyPinnedMapVanish(t *testing.T) {
 					MapName: "",
 				},
 				hostConfig: &config.Config{
-					BpfMapDefaultDir:  "/sys/fs/bpf",
-					TcMapsRelativeDir: "/tc/globals",
+					BpfMapDefaultPath:  "/sys/fs/bpf",
+					TcMapsRelativePath: "/tc/globals",
 				},
 			},
 			wantErr: false,
@@ -788,8 +788,8 @@ func Test_VerifyPinnedMapVanish(t *testing.T) {
 					ProgType: models.TCType,
 				},
 				hostConfig: &config.Config{
-					BpfMapDefaultDir:  "/sys/fs/bpf",
-					TcMapsRelativeDir: "/tc/globals",
+					BpfMapDefaultPath:  "/sys/fs/bpf",
+					TcMapsRelativePath: "/tc/globals",
 				},
 			},
 			wantErr: false,
@@ -803,8 +803,8 @@ func Test_VerifyPinnedMapVanish(t *testing.T) {
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
 				hostConfig: &config.Config{
-					BpfMapDefaultDir:  "/sys/fs/bpf",
-					TcMapsRelativeDir: "/tc/globals",
+					BpfMapDefaultPath:  "/sys/fs/bpf",
+					TcMapsRelativePath: "/tc/globals",
 				},
 			}
 			err := b.VerifyPinnedMapVanish(true)

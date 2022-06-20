@@ -19,19 +19,19 @@ const (
 )
 
 type Config struct {
-	PIDFilename       string
-	DataCenter        string
-	BPFDir            string
-	BPFLogDir         string
-	MinKernelMajorVer int
-	MinKernelMinorVer int
-	KFRepoURL         string
-	HttpClientTimeout time.Duration
-	MaxNFReStartCount int
-	MaxNFsAttachCount int
-	Environment       string
-	BpfMapDefaultDir  string
-	TcMapsRelativeDir string
+	PIDFilename        string
+	DataCenter         string
+	BPFDir             string
+	BPFLogDir          string
+	MinKernelMajorVer  int
+	MinKernelMinorVer  int
+	KFRepoURL          string
+	HttpClientTimeout  time.Duration
+	MaxNFReStartCount  int
+	MaxNFsAttachCount  int
+	Environment        string
+	BpfMapDefaultPath  string
+	TcMapsRelativePath string
 	// Flag to enable chaining with root program
 	BpfChainingEnabled bool
 
@@ -119,8 +119,8 @@ func ReadConfig(configPath string) (*Config, error) {
 		ShutdownTimeout:                 LoadConfigDuration(confReader, "l3afd", "shutdown-timeout"),
 		SwaggerApiEnabled:               LoadOptionalConfigBool(confReader, "l3afd", "swagger-api-enabled", false),
 		Environment:                     LoadOptionalConfigString(confReader, "l3afd", "environment", ENV_PROD),
-		BpfMapDefaultDir:                LoadOptionalConfigString(confReader, "l3afd", "bpfmap-default-dir", "/sys/fs/bpf"),
-		TcMapsRelativeDir:               LoadOptionalConfigString(confReader, "l3afd", "tcmaps-relative-dir", "/tc/globals"),
+		BpfMapDefaultPath:               LoadOptionalConfigString(confReader, "l3afd", "BpfMapDefaultPath", "/sys/fs/bpf"),
+		TcMapsRelativePath:              LoadOptionalConfigString(confReader, "l3afd", "TcMapsRelativePath", "tc/globals"),
 		AdmindHost:                      LoadConfigString(confReader, "admind", "host"),
 		AdmindUsername:                  LoadConfigString(confReader, "admind", "username"),
 		AdmindApiKey:                    LoadConfigString(confReader, "admind", "api-key"),
