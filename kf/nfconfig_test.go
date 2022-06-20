@@ -402,3 +402,23 @@ func TestNFConfigs_Close(t *testing.T) {
 		})
 	}
 }
+
+func Test_getHostInterfaces(t *testing.T) {
+	tests := []struct {
+		name    string
+		wantErr bool
+	}{
+		{
+			name:    "GoodInput",
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := getHostInterfaces()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("getHostInterfaces() error : %w", err)
+			}
+		})
+	}
+}
