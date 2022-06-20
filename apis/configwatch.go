@@ -100,28 +100,19 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 			}
 			expiry := cert.NotAfter
 			start := cert.NotBefore
-			go func(ctx context.Context) {
+			func() {
+				period := time.Hour * 24
+				ticker := time.NewTicker(period)
 				for {
-					todayDate := time.Now()
-					expiryDate := expiry
-					startDate := start
-					diff := expiryDate.Sub(todayDate)
-					remaingHoursToStart := todayDate.Sub(startDate)
-					limit := conf.CertExpiryWarningDays
-					remainingHoursToExpire := int(diff.Hours())
-					if remaingHoursToStart > 0 {
-						log.Fatal().Msgf("tls certificate start from : %v", startDate)
+					select {
+					case <-ticker.C:
+						MonitorTLS(start, expiry, conf)
+					case <-ctx.Done():
+						return
 					}
-					if remainingHoursToExpire <= limit {
-						if remainingHoursToExpire < 0 {
-							log.Fatal().Msgf("tls certificate is expired on : %v", expiryDate)
-						} else {
-							log.Warn().Msgf("tls certificate will expire in %v days", int64(remainingHoursToExpire/24))
-						}
-					}
-					time.Sleep(24 * time.Hour)
 				}
-			}(ctx)
+			}()
+
 			if err := s.l3afdServer.ListenAndServeTLS(path.Join(conf.MTLSCertDir, conf.MTLSServerCertFilename), path.Join(conf.MTLSCertDir, conf.MTLSServerKeyFilename)); err != nil {
 				log.Fatal().Err(err).Msgf("failed to start L3AFD server with mTLS enabled")
 			}
@@ -168,4 +159,24 @@ func isLoopback(addr string) bool {
 	}
 	// :port scenario
 	return true
+}
+
+func MonitorTLS(start time.Time, expiry time.Time, conf *config.Config) {
+	todayDate := time.Now()
+	expiryDate := expiry
+	startDate := start
+	diff := expiryDate.Sub(todayDate)
+	remaingHoursToStart := todayDate.Sub(startDate)
+	limit := conf.CertExpiryWarningDays * 24
+	remainingHoursToExpire := int(diff.Hours())
+	if remaingHoursToStart > 0 {
+		log.Fatal().Msgf("tls certificate start from : %v", startDate)
+	}
+	if remainingHoursToExpire <= limit {
+		if remainingHoursToExpire < 0 {
+			log.Fatal().Msgf("tls certificate is expired on : %v", expiryDate)
+		} else {
+			log.Warn().Msgf("tls certificate will expire in %v days", int64(remainingHoursToExpire/24))
+		}
+	}
 }
