@@ -100,7 +100,7 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 			}
 			expiry := cert.NotAfter
 			start := cert.NotBefore
-			func() {
+			go func() {
 				period := time.Hour * 24
 				ticker := time.NewTicker(period)
 				for {
