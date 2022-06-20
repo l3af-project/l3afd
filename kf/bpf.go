@@ -608,13 +608,9 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 				}
 				defer zippedFile.Close()
 
-				extractedFilePath := filepath.Join(
-					tempDir,
-					file.Name,
-				)
-
-				if !strings.HasPrefix(extractedFilePath, filepath.Clean(tempDir)+string(os.PathSeparator)) {
-					return fmt.Errorf("invalid file path: %s", extractedFilePath)
+				extractedFilePath, err := ValidatePath(file.Name, tempDir)
+				if err != nil {
+					return err
 				}
 
 				if file.FileInfo().IsDir() {
@@ -661,11 +657,11 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 					return fmt.Errorf("untar failed: %w", err)
 				}
 
-				if strings.Contains(header.Name, "..") {
-					return fmt.Errorf("zipped file contains filepath (%s) that includes (..)", header.Name)
+				fPath, err := ValidatePath(header.Name, tempDir)
+				if err != nil {
+					return err
 				}
 
-				fPath := filepath.Join(tempDir, header.Name)
 				info := header.FileInfo()
 				if info.IsDir() {
 					if err = os.MkdirAll(fPath, info.Mode()); err != nil {
@@ -1040,4 +1036,15 @@ func (b *BPF) VerifyMetricsMapsVanish() error {
 	err := fmt.Errorf("metrics maps are never removed by Kernel %s", b.Program.Name)
 	log.Error().Err(err).Msg("")
 	return err
+}
+
+func ValidatePath(filePath string, destination string) (string, error) {
+	destpath := filepath.Join(destination, filePath)
+	if strings.Contains(filePath, "..") {
+		return "", fmt.Errorf(" file contains filepath (%s) that includes (..)", filePath)
+	}
+	if !strings.HasPrefix(destpath, filepath.Clean(destination)+string(os.PathSeparator)) {
+		return "", fmt.Errorf("%s: illegal file path", filePath)
+	}
+	return destpath, nil
 }
