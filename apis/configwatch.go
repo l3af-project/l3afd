@@ -103,6 +103,7 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 			go func() {
 				period := time.Hour * 24
 				ticker := time.NewTicker(period)
+				defer ticker.Stop()
 				for {
 					select {
 					case <-ticker.C:
