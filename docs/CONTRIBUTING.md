@@ -29,7 +29,7 @@ In case we are unable to repro the issue, we will request more information from 
 2 weeks for the requested information and if there is no response, the issue will be closed. If this happens,
 please reopen the issue if you do get a repro and provide the requested information.
 
-If you found a security issue, please do not open a GitHub Issue, and instead [email](security@lists.l3af.io) it in detail.
+If you found a security issue, please do not open a GitHub Issue, and instead [email](mailto:security@lists.l3af.io) it in detail.
 
 ### New features or product enhancements
 
