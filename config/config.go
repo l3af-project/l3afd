@@ -28,7 +28,6 @@ type Config struct {
 	KFRepoURL         string
 	HttpClientTimeout time.Duration
 	MaxNFReStartCount int
-	MaxNFsAttachCount int
 	Environment       string
 
 	// Flag to enable chaining with root program
@@ -110,7 +109,6 @@ func ReadConfig(configPath string) (*Config, error) {
 		KFRepoURL:                       LoadConfigString(confReader, "kf-repo", "url"),
 		HttpClientTimeout:               LoadConfigDuration(confReader, "l3afd", "http-client-timeout"),
 		MaxNFReStartCount:               LoadConfigInt(confReader, "l3afd", "max-nf-restart-count"),
-		MaxNFsAttachCount:               LoadConfigInt(confReader, "l3afd", "max-nfs-attach-count"),
 		BpfChainingEnabled:              LoadOptionalConfigBool(confReader, "l3afd", "bpf-chaining-enabled", true),
 		MetricsAddr:                     LoadConfigString(confReader, "web", "metrics-addr"),
 		KFPollInterval:                  LoadOptionalConfigDuration(confReader, "web", "kf-poll-interval", 30*time.Second),
