@@ -918,7 +918,7 @@ func (b *BPF) VerifyPinnedMapExists(chain bool) error {
 	if len(b.Program.MapName) > 0 {
 		log.Debug().Msgf("VerifyPinnedMapExists : Program %s MapName %s", b.Program.Name, b.Program.MapName)
 		path := b.MapFullPath()
-		if !strings.HasPrefix(path, "/sys/fs/bpf") {
+		if !strings.HasPrefix(path, b.hostConfig.BpfMapDefaultPath) {
 			return fmt.Errorf("not a valid path")
 		}
 		for i := 0; i < 10; i++ {
