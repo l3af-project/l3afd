@@ -880,6 +880,11 @@ func (c *NFConfigs) RemoveMissingBPFProgramsInConfig(bpfProg models.L3afBPFProgr
 		return fmt.Errorf("unknown direction type %s", direction)
 	}
 
+	if bpfList == nil {
+		// Empty list, Nothing to check return
+		return nil
+	}
+
 	e := bpfList.Front()
 	if e != nil && c.hostConfig.BpfChainingEnabled {
 		e = e.Next()
