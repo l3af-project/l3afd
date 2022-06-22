@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -92,6 +93,27 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 				MinVersion: conf.MTLSMinVersion,
 			}
 
+			cpb, _ := pem.Decode(caCert)
+			cert, err := x509.ParseCertificate(cpb.Bytes)
+			if err != nil {
+				log.Fatal().Err(err).Msgf("error in parsing tls certificate : %v", conf.MTLSCACertFilename)
+			}
+			expiry := cert.NotAfter
+			start := cert.NotBefore
+			go func() {
+				period := time.Hour * 24
+				ticker := time.NewTicker(period)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-ticker.C:
+						MonitorTLS(start, expiry, conf)
+					case <-ctx.Done():
+						return
+					}
+				}
+			}()
+
 			if err := s.l3afdServer.ListenAndServeTLS(path.Join(conf.MTLSCertDir, conf.MTLSServerCertFilename), path.Join(conf.MTLSCertDir, conf.MTLSServerKeyFilename)); err != nil {
 				log.Fatal().Err(err).Msgf("failed to start L3AFD server with mTLS enabled")
 			}
@@ -138,4 +160,24 @@ func isLoopback(addr string) bool {
 	}
 	// :port scenario
 	return true
+}
+
+func MonitorTLS(start time.Time, expiry time.Time, conf *config.Config) {
+	todayDate := time.Now()
+	expiryDate := expiry
+	startDate := start
+	diff := expiryDate.Sub(todayDate)
+	remaingHoursToStart := todayDate.Sub(startDate)
+	limit := conf.CertExpiryWarningDays * 24
+	remainingHoursToExpire := int(diff.Hours())
+	if remaingHoursToStart > 0 {
+		log.Fatal().Msgf("tls certificate start from : %v", startDate)
+	}
+	if remainingHoursToExpire <= limit {
+		if remainingHoursToExpire < 0 {
+			log.Fatal().Msgf("tls certificate is expired on : %v", expiryDate)
+		} else {
+			log.Warn().Msgf("tls certificate will expire in %v days", int64(remainingHoursToExpire/24))
+		}
+	}
 }
