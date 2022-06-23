@@ -1151,7 +1151,7 @@ func (c *NFConfigs) DeleteeBPFPrograms(bpfProgs []models.DeleteApiValues) error 
 	return nil
 }
 
-//BinarySearch: It is checking a target string exists in sorted slice of  strings
+// BinarySearch: It is checking a target string exists in sorted slice of  strings
 func BinarySearch(name []string, target string) bool {
 	i := sort.SearchStrings(name, target)
 	n := len(name)

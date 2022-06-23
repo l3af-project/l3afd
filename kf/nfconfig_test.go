@@ -422,3 +422,30 @@ func Test_getHostInterfaces(t *testing.T) {
 		})
 	}
 }
+func Test_BinarySearch(t *testing.T) {
+	tests := []struct {
+		name   string
+		vals   []string
+		target string
+		result bool
+	}{
+		{
+			name:   "FoundTheTarget",
+			vals:   []string{"connection-limit", "ipfix-flow-exporter", "ratelimiting"},
+			target: "ratelimiting",
+			result: true,
+		},
+		{
+			name:   "NotFoundTheTarget",
+			vals:   []string{"connection-limit", "ipfix-flow-exporter", "ratelimiting"},
+			target: "zsdf",
+			result: false,
+		},
+	}
+
+	for _, tt := range tests {
+		if BinarySearch(tt.vals, tt.target) != tt.result {
+			t.Errorf("BinarySearch is not producing expected output")
+		}
+	}
+}
