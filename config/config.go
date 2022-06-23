@@ -19,18 +19,16 @@ const (
 )
 
 type Config struct {
-	PIDFilename        string
-	DataCenter         string
-	BPFDir             string
-	BPFLogDir          string
-	MinKernelMajorVer  int
-	MinKernelMinorVer  int
-	KFRepoURL          string
-	HttpClientTimeout  time.Duration
-	MaxNFReStartCount  int
-	Environment        string
-	BpfMapDefaultPath  string
-	TcMapsRelativePath string
+	PIDFilename       string
+	DataCenter        string
+	BPFDir            string
+	BPFLogDir         string
+	MinKernelMajorVer int
+	MinKernelMinorVer int
+	KFRepoURL         string
+	HttpClientTimeout time.Duration
+	MaxNFReStartCount int
+	Environment       string
 	// Flag to enable chaining with root program
 	BpfChainingEnabled bool
 
