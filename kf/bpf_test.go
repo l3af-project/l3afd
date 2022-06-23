@@ -364,6 +364,87 @@ func TestBPF_GetArtifacts(t *testing.T) {
 				KFRepoURL: "http://www.example.com"}},
 			wantErr: true,
 		},
+		{
+			name: "Unknown_eBPF_repo_url",
+			fields: fields{
+				Program: models.BPFProgram{
+					EPRURL: "http://www.example.com",
+				},
+				Cmd:          nil,
+				FilePath:     "",
+				RestartCount: 0,
+			},
+			args: args{
+				conf: &config.Config{
+					BPFDir:    "/tmp",
+					KFRepoURL: "https://l3af.io/",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Unknown_eBPF_repo_url_file_scheme",
+			fields: fields{
+				Program: models.BPFProgram{
+					EPRURL: "file:///Users/random/dummy.tar.gz",
+				},
+				Cmd:          nil,
+				FilePath:     "",
+				RestartCount: 0,
+			},
+			args: args{
+				conf: &config.Config{
+					BPFDir:    "/tmp",
+					KFRepoURL: "https://l3af.io/",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Unknown_scheme",
+			fields: fields{
+				Program: models.BPFProgram{
+					EPRURL: "ftp://ftp.foo.org/dummy.tar.gz",
+				},
+				Cmd:          nil,
+				FilePath:     "",
+				RestartCount: 0,
+			},
+			args: args{
+				conf: &config.Config{
+					BPFDir:    "/tmp",
+					KFRepoURL: "https://l3af.io/",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Good_input",
+			fields: fields{
+				Program: models.BPFProgram{
+					Name:              "ratelimiting",
+					SeqID:             1,
+					Artifact:          "l3af_ratelimiting.tar.gz",
+					MapName:           "xdp_rl_ingress_next_prog",
+					CmdStart:          "ratelimiting",
+					Version:           "latest",
+					UserProgramDaemon: true,
+					AdminStatus:       "enabled",
+					ProgType:          "xdp",
+					CfgVersion:        1,
+				},
+				Cmd:          nil,
+				FilePath:     "",
+				RestartCount: 0,
+			},
+			args: args{
+				conf: &config.Config{
+					BPFDir:    "/tmp",
+					KFRepoURL: "http://localhost:8000/",
+				},
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
