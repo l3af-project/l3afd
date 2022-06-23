@@ -919,7 +919,7 @@ func (b *BPF) VerifyPinnedMapExists(chain bool) error {
 		log.Debug().Msgf("VerifyPinnedMapExists : Program %s MapName %s", b.Program.Name, b.Program.MapName)
 		path := b.MapFullPath()
 		if strings.Contains(path, "..") {
-			fmt.Errorf("invalid path: %v", path)
+			return fmt.Errorf("invalid path: %v", path)
 		}
 		for i := 0; i < 10; i++ {
 			if _, err = os.Stat(path); err == nil {
