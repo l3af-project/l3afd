@@ -365,7 +365,7 @@ func TestBPF_GetArtifacts(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "Unknown_eBPF_repo_url",
+			name: "Unknown_url_with_http_scheme",
 			fields: fields{
 				Program: models.BPFProgram{
 					EPRURL: "http://www.example.com",
@@ -383,7 +383,7 @@ func TestBPF_GetArtifacts(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "Unknown_eBPF_repo_url_file_scheme",
+			name: "Unknown_url_with_file_scheme",
 			fields: fields{
 				Program: models.BPFProgram{
 					EPRURL: "file:///Users/random/dummy.tar.gz",
