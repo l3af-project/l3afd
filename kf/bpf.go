@@ -947,6 +947,9 @@ func (b *BPF) VerifyPinnedMapVanish(chain bool) error {
 	var err error
 	log.Debug().Msgf("VerifyPinnedMapVanish : Program %s MapName %s", b.Program.Name, b.Program.MapName)
 	path := b.MapFullPath()
+	if strings.Contains(b.Program.MapName, "..") {
+		return fmt.Errorf("MapName contains ..")
+	}
 	for i := 0; i < 10; i++ {
 		if _, err = os.Stat(path); os.IsNotExist(err) {
 			log.Info().Msgf("VerifyPinnedMapVanish : map file removed successfully - %s ", b.MapFullPath())
