@@ -13,11 +13,19 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: windows-latest
     
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@248ae51c2e8cc9622ecf50685c8bf7150c6e8813
+        with:
+          egress-policy: audit # TODO: change to 'egress-policy: block' after couple of runs
+
       - name: Set up git env
         run: |
           git config --global core.autocrlf false
@@ -25,7 +33,7 @@ jobs:
           echo "GOPATH=$gopath" >> $env:GITHUB_ENV
 
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@d0651293c4a5a52e711f25b41b05b2212f385d28
       
       - name: Format
         run: |
@@ -46,7 +54,7 @@ jobs:
         run: |
           go test -tags WINDOWS ./...
 
-      - uses: dominikh/staticcheck-action@v1.1.0
+      - uses: dominikh/staticcheck-action@4ec9a0dff54be2642bc76581598ba433fd8d4967
         with:
           version: "2021.1.2"
           install-go: false
