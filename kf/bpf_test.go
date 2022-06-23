@@ -418,33 +418,6 @@ func TestBPF_GetArtifacts(t *testing.T) {
 			},
 			wantErr: true,
 		},
-		{
-			name: "Good_input",
-			fields: fields{
-				Program: models.BPFProgram{
-					Name:              "ratelimiting",
-					SeqID:             1,
-					Artifact:          "l3af_ratelimiting.tar.gz",
-					MapName:           "xdp_rl_ingress_next_prog",
-					CmdStart:          "ratelimiting",
-					Version:           "latest",
-					UserProgramDaemon: true,
-					AdminStatus:       "enabled",
-					ProgType:          "xdp",
-					CfgVersion:        1,
-				},
-				Cmd:          nil,
-				FilePath:     "",
-				RestartCount: 0,
-			},
-			args: args{
-				conf: &config.Config{
-					BPFDir:    "/tmp",
-					KFRepoURL: "http://localhost:8000/",
-				},
-			},
-			wantErr: false,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
