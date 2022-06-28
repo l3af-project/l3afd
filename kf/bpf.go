@@ -918,7 +918,7 @@ func (b *BPF) VerifyPinnedMapExists(chain bool) error {
 	if len(b.Program.MapName) > 0 {
 		log.Debug().Msgf("VerifyPinnedMapExists : Program %s MapName %s", b.Program.Name, b.Program.MapName)
 		path := b.MapFullPath()
-		if strings.Contains(path, "..") {
+		if strings.HasPrefix(path, "..") || strings.HasSuffix(path, "..") {
 			return fmt.Errorf("invalid path: %v", path)
 		}
 		for i := 0; i < 10; i++ {
@@ -950,8 +950,8 @@ func (b *BPF) VerifyPinnedMapVanish(chain bool) error {
 	var err error
 	log.Debug().Msgf("VerifyPinnedMapVanish : Program %s MapName %s", b.Program.Name, b.Program.MapName)
 	path := b.MapFullPath()
-	if strings.Contains(path, "..") {
-		return fmt.Errorf("invalid path : %v", path)
+	if strings.HasPrefix(path, "..") || strings.HasSuffix(path, "..") {
+		return fmt.Errorf("invalid path: %v", path)
 	}
 	for i := 0; i < 10; i++ {
 		if _, err = os.Stat(path); os.IsNotExist(err) {
