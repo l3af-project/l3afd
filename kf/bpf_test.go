@@ -515,7 +515,7 @@ func Test_StopExternalRunningProcess(t *testing.T) {
 	for _, tt := range tests {
 		err := StopExternalRunningProcess(tt.processName)
 		if (err != nil) != tt.wantErr {
-			t.Errorf("Error During execution StopExternalRunningProcess : %w", err)
+			t.Errorf("Error During execution StopExternalRunningProcess : %v", err)
 		}
 	}
 }
@@ -568,7 +568,7 @@ func Test_createUpdateRulesFile(t *testing.T) {
 			}
 			_, err := b.createUpdateRulesFile("ingress")
 			if (err != nil) != tt.wantErr {
-				t.Errorf("createUpdateRulesFile() error : %w", err)
+				t.Errorf("createUpdateRulesFile() error : %v", err)
 			}
 		})
 	}
@@ -653,7 +653,7 @@ func Test_PutNextProgFDFromID(t *testing.T) {
 			}
 			err := b.PutNextProgFDFromID(tt.progId)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("PutNextProgFDFromID() error : %w", err)
+				t.Errorf("PutNextProgFDFromID() error : %v", err)
 			}
 		})
 	}
@@ -698,7 +698,7 @@ func Test_VerifyPinnedMapExists(t *testing.T) {
 			}
 			err := b.VerifyPinnedMapExists(true)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("VerifyPinnedMapExists() error : %w", err)
+				t.Errorf("VerifyPinnedMapExists() error : %v", err)
 			}
 		})
 	}
@@ -748,7 +748,7 @@ func Test_VerifyProcessObject(t *testing.T) {
 			}
 			err := b.VerifyProcessObject()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("VerifyProcessObject() error : %w", err)
+				t.Errorf("VerifyProcessObject() error : %v", err)
 			}
 		})
 	}
@@ -809,7 +809,140 @@ func Test_VerifyPinnedMapVanish(t *testing.T) {
 			}
 			err := b.VerifyPinnedMapVanish(true)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("VerifyPinnedMapVanish() error : %w", err)
+				t.Errorf("VerifyPinnedMapVanish() error : %v", err)
+			}
+		})
+	}
+}
+
+func TestMapFullPath(t *testing.T) {
+	type fields struct {
+		Program      models.BPFProgram
+		Cmd          *exec.Cmd
+		FilePath     string
+		RestartCount int
+		hostConfig   *config.Config
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		result string
+	}{
+		{
+			name: "XdpTypeMapName",
+			fields: fields{
+				Program: models.BPFProgram{
+					ProgType: models.XDPType,
+					MapName:  "root_array",
+				},
+				Cmd:          nil,
+				RestartCount: 0,
+				hostConfig: &config.Config{
+					BpfMapDefaultPath:  "/sys/fs/bpf",
+					TcMapsRelativePath: "/tc/globals",
+				},
+			},
+			result: "/sys/fs/bpf/root_array",
+		},
+		{
+			name: "TcTypeMapName",
+			fields: fields{
+				Program: models.BPFProgram{
+					ProgType: models.TCType,
+					MapName:  "tc_ingress_array",
+				},
+				Cmd:          nil,
+				RestartCount: 0,
+				hostConfig: &config.Config{
+					BpfMapDefaultPath:  "/sys/fs/bpf",
+					TcMapsRelativePath: "/tc/globals",
+				},
+			},
+			result: "/sys/fs/bpf/tc/globals/tc_ingress_array",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := &BPF{
+				Program:      tt.fields.Program,
+				Cmd:          tt.fields.Cmd,
+				FilePath:     tt.fields.FilePath,
+				RestartCount: tt.fields.RestartCount,
+				hostConfig: &config.Config{
+					BpfMapDefaultPath:  "/sys/fs/bpf",
+					TcMapsRelativePath: "/tc/globals",
+				},
+			}
+			output := b.MapFullPath()
+			if output != tt.result {
+				t.Errorf("MapFullPath() failed")
+			}
+		})
+	}
+}
+func TestPrevMapFullPath(t *testing.T) {
+	type fields struct {
+		Program      models.BPFProgram
+		Cmd          *exec.Cmd
+		FilePath     string
+		RestartCount int
+		hostConfig   *config.Config
+		PrevMapName  string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		result string
+	}{
+		{
+			name: "XdpTypeMapName",
+			fields: fields{
+				Program: models.BPFProgram{
+					ProgType: models.XDPType,
+				},
+				Cmd:          nil,
+				RestartCount: 0,
+				hostConfig: &config.Config{
+					BpfMapDefaultPath:  "/sys/fs/bpf",
+					TcMapsRelativePath: "/tc/globals",
+				},
+				PrevMapName: "root_array",
+			},
+			result: "/sys/fs/bpf/root_array",
+		},
+		{
+			name: "TcTypeMapName",
+			fields: fields{
+				Program: models.BPFProgram{
+					ProgType: models.TCType,
+				},
+				Cmd:          nil,
+				RestartCount: 0,
+				hostConfig: &config.Config{
+					BpfMapDefaultPath:  "/sys/fs/bpf",
+					TcMapsRelativePath: "/tc/globals",
+				},
+				PrevMapName: "tc_ingress_array",
+			},
+			result: "/sys/fs/bpf/tc/globals/tc_ingress_array",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := &BPF{
+				Program:      tt.fields.Program,
+				Cmd:          tt.fields.Cmd,
+				FilePath:     tt.fields.FilePath,
+				RestartCount: tt.fields.RestartCount,
+				hostConfig: &config.Config{
+					BpfMapDefaultPath:  "/sys/fs/bpf",
+					TcMapsRelativePath: "/tc/globals",
+				},
+				PrevMapName: tt.fields.PrevMapName,
+			}
+			output := b.PrevMapFullPath()
+			if output != tt.result {
+				t.Errorf("PrevMapFullPath() failed")
 			}
 		})
 	}

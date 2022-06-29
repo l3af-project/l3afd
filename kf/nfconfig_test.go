@@ -420,7 +420,7 @@ func Test_getHostInterfaces(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := getHostInterfaces()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("getHostInterfaces() error : %w", err)
+				t.Errorf("getHostInterfaces() error : %v", err)
 			}
 		})
 	}
