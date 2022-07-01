@@ -861,9 +861,45 @@ func TestMapFullPath(t *testing.T) {
 			},
 			result: "/sys/fs/bpf/tc/globals/tc_ingress_array",
 		},
+		{
+			name: "XdpTypeMapName_windows",
+			fields: fields{
+				Program: models.BPFProgram{
+					ProgType: models.XDPType,
+					MapName:  "root_array",
+				},
+				Cmd:          nil,
+				RestartCount: 0,
+				hostConfig: &config.Config{
+					BpfMapDefaultPath:  "c:\\sys\\fs\\bpf",
+					TcMapsRelativePath: "tc\\globals",
+				},
+			},
+			result: "c:\\sys\\fs\\bpf\\root_array",
+		},
+		{
+			name: "TcTypeMapName_windows",
+			fields: fields{
+				Program: models.BPFProgram{
+					ProgType: models.TCType,
+					MapName:  "tc_ingress_array",
+				},
+				Cmd:          nil,
+				RestartCount: 0,
+				hostConfig: &config.Config{
+					BpfMapDefaultPath:  "c:\\sys\\fs\\bpf",
+					TcMapsRelativePath: "tc\\globals",
+				},
+			},
+			result: "c:\\sys\\fs\\bpf\\tc\\globals\\tc_ingress_array",
+		},
 	}
+	counter := 0
 	for _, tt := range tests {
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == "windows" && counter < 2 {
+			continue
+		}
+		if runtime.GOOS != "windows" && counter >= 2 {
 			continue
 		}
 		t.Run(tt.name, func(t *testing.T) {
@@ -882,6 +918,7 @@ func TestMapFullPath(t *testing.T) {
 				t.Errorf("MapFullPath() failed")
 			}
 		})
+		counter++
 	}
 }
 func TestPrevMapFullPath(t *testing.T) {
@@ -930,9 +967,45 @@ func TestPrevMapFullPath(t *testing.T) {
 			},
 			result: "/sys/fs/bpf/tc/globals/tc_ingress_array",
 		},
+		{
+			name: "XdpTypeMapName_windows",
+			fields: fields{
+				Program: models.BPFProgram{
+					ProgType: models.XDPType,
+				},
+				Cmd:          nil,
+				RestartCount: 0,
+				PrevMapName:  "root_array",
+				hostConfig: &config.Config{
+					BpfMapDefaultPath:  "c:\\sys\\fs\\bpf",
+					TcMapsRelativePath: "tc\\globals",
+				},
+			},
+			result: "c:\\sys\\fs\\bpf\\root_array",
+		},
+		{
+			name: "TcTypeMapName_windows",
+			fields: fields{
+				Program: models.BPFProgram{
+					ProgType: models.TCType,
+				},
+				Cmd:          nil,
+				RestartCount: 0,
+				PrevMapName:  "tc_ingress_array",
+				hostConfig: &config.Config{
+					BpfMapDefaultPath:  "c:\\sys\\fs\\bpf",
+					TcMapsRelativePath: "tc\\globals",
+				},
+			},
+			result: "c:\\sys\\fs\\bpf\\tc\\globals\\tc_ingress_array",
+		},
 	}
+	counter := 0
 	for _, tt := range tests {
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == "windows" && counter < 2 {
+			continue
+		}
+		if runtime.GOOS != "windows" && counter >= 2 {
 			continue
 		}
 		t.Run(tt.name, func(t *testing.T) {
@@ -952,5 +1025,6 @@ func TestPrevMapFullPath(t *testing.T) {
 				t.Errorf("PrevMapFullPath() failed")
 			}
 		})
+		counter++
 	}
 }
