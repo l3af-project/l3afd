@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"runtime"
 	"testing"
 
 	"github.com/l3af-project/l3afd/config"
@@ -928,6 +929,9 @@ func TestPrevMapFullPath(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		if runtime.GOOS == "windows" {
+			continue
+		}
 		t.Run(tt.name, func(t *testing.T) {
 			b := &BPF{
 				Program:      tt.fields.Program,
