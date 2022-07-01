@@ -863,6 +863,9 @@ func TestMapFullPath(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		if runtime.GOOS == "windows" {
+			continue
+		}
 		t.Run(tt.name, func(t *testing.T) {
 			b := &BPF{
 				Program:      tt.fields.Program,
