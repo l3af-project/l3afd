@@ -459,7 +459,6 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 		egressTCBpfs   map[string]*list.List
 		hostConfig     *config.Config
 		processMon     *pCheck
-		metricsMon     *kfMetrics
 		mu             *sync.Mutex
 	}
 	type args struct {
@@ -567,7 +566,6 @@ func TestAddeBPFPrograms(t *testing.T) {
 		egressTCBpfs   map[string]*list.List
 		hostConfig     *config.Config
 		processMon     *pCheck
-		metricsMon     *kfMetrics
 		mu             *sync.Mutex
 		ifaces         map[string]string
 	}
@@ -710,7 +708,6 @@ func TestDeleteProgramsOnInterface(t *testing.T) {
 		egressTCBpfs   map[string]*list.List
 		hostConfig     *config.Config
 		processMon     *pCheck
-		metricsMon     *kfMetrics
 		mu             *sync.Mutex
 	}
 	type args struct {
@@ -807,7 +804,6 @@ func TestDeleteeBPFPrograms(t *testing.T) {
 		egressTCBpfs   map[string]*list.List
 		hostConfig     *config.Config
 		processMon     *pCheck
-		metricsMon     *kfMetrics
 		mu             *sync.Mutex
 		ifaces         map[string]string
 	}
