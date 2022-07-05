@@ -505,7 +505,7 @@ func Test_StopExternalRunningProcess(t *testing.T) {
 	for _, tt := range tests {
 		err := StopExternalRunningProcess(tt.processName)
 		if (err != nil) != tt.wantErr {
-			t.Errorf("Error During execution StopExternalRunningProcess : %w", err)
+			t.Errorf("Error During execution StopExternalRunningProcess : %v", err)
 		}
 	}
 }
@@ -558,7 +558,7 @@ func Test_createUpdateRulesFile(t *testing.T) {
 			}
 			_, err := b.createUpdateRulesFile("ingress")
 			if (err != nil) != tt.wantErr {
-				t.Errorf("createUpdateRulesFile() error : %w", err)
+				t.Errorf("createUpdateRulesFile() error : %v", err)
 			}
 		})
 	}
@@ -628,7 +628,7 @@ func Test_PutNextProgFDFromID(t *testing.T) {
 			}
 			err := b.PutNextProgFDFromID(tt.progId)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("PutNextProgFDFromID() error : %w", err)
+				t.Errorf("PutNextProgFDFromID() error : %v", err)
 			}
 		})
 	}
@@ -667,7 +667,7 @@ func Test_VerifyPinnedMapExists(t *testing.T) {
 			}
 			err := b.VerifyPinnedMapExists(true)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("VerifyPinnedMapExists() error : %w", err)
+				t.Errorf("VerifyPinnedMapExists() error : %v", err)
 			}
 		})
 	}
@@ -717,7 +717,7 @@ func Test_VerifyProcessObject(t *testing.T) {
 			}
 			err := b.VerifyProcessObject()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("VerifyProcessObject() error : %w", err)
+				t.Errorf("VerifyProcessObject() error : %v", err)
 			}
 		})
 	}
@@ -775,7 +775,7 @@ func Test_VerifyPinnedMapVanish(t *testing.T) {
 			}
 			err := b.VerifyPinnedMapVanish(true)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("VerifyPinnedMapVanish() error : %w", err)
+				t.Errorf("VerifyPinnedMapVanish() error : %v", err)
 			}
 		})
 	}

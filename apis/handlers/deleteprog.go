@@ -19,10 +19,10 @@ import (
 
 // DeleteEbpfProgram   remove Ebpf programs on node
 // @Summary removing Ebpf Programs on node
-// @Description Adding new Ebpf Programs on node
+// @Description remove Ebpf Programs on node
 // @Accept  json
 // @Produce  json
-// @Param cfgs body []models.L3afBPFPrograms true "BPF programs"
+// @Param cfgs body []models.DeleteApiValues true "BPF programs"
 // @Success 200
 // @Router /l3af/configs/v1/delete [post]
 func DeleteEbpfPrograms(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFunc {

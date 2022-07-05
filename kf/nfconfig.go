@@ -1038,7 +1038,7 @@ func (c *NFConfigs) AddeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error {
 }
 
 // DeleteProgramOnInterface : It will delete ebpf Programs on the given interface
-func (c *NFConfigs) DeleteProgramOnInterface(ifaceName, hostName string, bpfProgs *models.WantToRemove) error {
+func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, hostName string, bpfProgs *models.WantToRemove) error {
 	if hostName != c.hostName {
 		errOut := fmt.Errorf("provided bpf programs do not belong to this host")
 		log.Error().Err(errOut)
@@ -1067,9 +1067,9 @@ func (c *NFConfigs) DeleteProgramOnInterface(ifaceName, hostName string, bpfProg
 			data := e.Value.(*BPF)
 			nextprog := e.Next()
 			if BinarySearch(bpfProgs.XDPIngress, data.Program.Name) {
-				err := c.DeleteProgramOnInterfaceHelper(e, ifaceName, models.XDPIngressType, bpfList)
+				err := c.DeleteProgramsOnInterfaceHelper(e, ifaceName, models.XDPIngressType, bpfList)
 				if err != nil {
-					return fmt.Errorf("DeleteProgramOnInterfaceHelper function failed : %w", err)
+					return fmt.Errorf("DeleteProgramsOnInterfaceHelper function failed : %w", err)
 				}
 			}
 			e = nextprog
@@ -1083,9 +1083,9 @@ func (c *NFConfigs) DeleteProgramOnInterface(ifaceName, hostName string, bpfProg
 			data := e.Value.(*BPF)
 			nextprog := e.Next()
 			if BinarySearch(bpfProgs.TcIngress, data.Program.Name) {
-				err := c.DeleteProgramOnInterfaceHelper(e, ifaceName, models.IngressType, bpfList)
+				err := c.DeleteProgramsOnInterfaceHelper(e, ifaceName, models.IngressType, bpfList)
 				if err != nil {
-					return fmt.Errorf("DeleteProgramOnInterfaceHelper function failed : %w", err)
+					return fmt.Errorf("DeleteProgramsOnInterfaceHelper function failed : %w", err)
 				}
 			}
 			e = nextprog
@@ -1099,9 +1099,9 @@ func (c *NFConfigs) DeleteProgramOnInterface(ifaceName, hostName string, bpfProg
 			data := e.Value.(*BPF)
 			nextprog := e.Next()
 			if BinarySearch(bpfProgs.TcEgress, data.Program.Name) {
-				err := c.DeleteProgramOnInterfaceHelper(e, ifaceName, models.EgressType, bpfList)
+				err := c.DeleteProgramsOnInterfaceHelper(e, ifaceName, models.EgressType, bpfList)
 				if err != nil {
-					return fmt.Errorf("DeleteProgramOnInterfaceHelper function failed : %w", err)
+					return fmt.Errorf("DeleteProgramsOnInterfaceHelper function failed : %w", err)
 				}
 			}
 			e = nextprog
@@ -1111,7 +1111,10 @@ func (c *NFConfigs) DeleteProgramOnInterface(ifaceName, hostName string, bpfProg
 }
 
 // DeleteProgramOnInterfaceHelper : helper function for DeleteProgramOnInterface function
-func (c *NFConfigs) DeleteProgramOnInterfaceHelper(e *list.Element, ifaceName string, direction string, bpfList *list.List) error {
+func (c *NFConfigs) DeleteProgramsOnInterfaceHelper(e *list.Element, ifaceName string, direction string, bpfList *list.List) error {
+	if e == nil {
+		return nil
+	}
 	prog := e.Value.(*BPF)
 	prog.Program.AdminStatus = models.Disabled
 	if err := prog.Stop(ifaceName, direction, c.hostConfig.BpfChainingEnabled); err != nil {
@@ -1122,8 +1125,8 @@ func (c *NFConfigs) DeleteProgramOnInterfaceHelper(e *list.Element, ifaceName st
 	bpfList.Remove(e)
 	if tmpNextBPF != nil && tmpNextBPF.Prev() != nil { // relink the next element
 		if err := c.LinkBPFPrograms(tmpNextBPF.Prev().Value.(*BPF), tmpNextBPF.Value.(*BPF)); err != nil {
-			log.Error().Err(err).Msgf("DeleteProgramOnInterfaceHelper - failed LinkBPFPrograms")
-			return fmt.Errorf("DeleteProgramOnInterfaceHelper - failed LinkBPFPrograms %w", err)
+			log.Error().Err(err).Msgf("DeleteProgramsOnInterfaceHelper - failed LinkBPFPrograms")
+			return fmt.Errorf("DeleteProgramsOnInterfaceHelper - failed LinkBPFPrograms %w", err)
 		}
 	}
 	// Check if list contains root program only then stop the root program.
@@ -1140,7 +1143,7 @@ func (c *NFConfigs) DeleteProgramOnInterfaceHelper(e *list.Element, ifaceName st
 // DeleteeBPFPrograms - Delete eBPF programs on the node if they are running
 func (c *NFConfigs) DeleteeBPFPrograms(bpfProgs []models.DeleteApiValues) error {
 	for _, bpfProg := range bpfProgs {
-		if err := c.DeleteProgramOnInterface(bpfProg.Iface, bpfProg.HostName, bpfProg.WantToRemove); err != nil {
+		if err := c.DeleteProgramsOnInterface(bpfProg.Iface, bpfProg.HostName, bpfProg.WantToRemove); err != nil {
 			if err := c.SaveConfigsToConfigStore(); err != nil {
 				return fmt.Errorf("SaveConfigsToConfigStore failed to save configs %w", err)
 			}
