@@ -605,7 +605,7 @@ func Test_PutNextProgFDFromID(t *testing.T) {
 					Name:              "ratelimiting",
 					SeqID:             1,
 					Artifact:          "l3af_ratelimiting.tar.gz",
-					MapName:           "/sys/fs/bpf/xdp_rl_ingress_next_prog",
+					MapName:           "xdp_rl_ingress_next_prog",
 					CmdStart:          "ratelimiting",
 					Version:           "latest",
 					UserProgramDaemon: true,

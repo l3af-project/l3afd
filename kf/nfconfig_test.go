@@ -502,7 +502,7 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 							Name:              "ratelimiting",
 							SeqID:             1,
 							Artifact:          "l3af_ratelimiting.tar.gz",
-							MapName:           "/sys/fs/bpf/xdp_rl_ingress_next_prog",
+							MapName:           "xdp_rl_ingress_next_prog",
 							CmdStart:          "ratelimiting",
 							Version:           "latest",
 							UserProgramDaemon: true,
@@ -608,7 +608,7 @@ func TestAddeBPFPrograms(t *testing.T) {
 			},
 			arg: []models.L3afBPFPrograms{
 				{
-					HostName: "enp0s3",
+					HostName: "l3af-local-test",
 					BpfPrograms: &models.BPFPrograms{
 						XDPIngress: []*models.BPFProgram{},
 						TCIngress:  []*models.BPFProgram{},
@@ -637,7 +637,7 @@ func TestAddeBPFPrograms(t *testing.T) {
 								Name:              "ratelimiting",
 								SeqID:             1,
 								Artifact:          "l3af_ratelimiting.tar.gz",
-								MapName:           "/sys/fs/bpf/xdp_rl_ingress_next_prog",
+								MapName:           "xdp_rl_ingress_next_prog",
 								CmdStart:          "ratelimiting",
 								Version:           "latest",
 								UserProgramDaemon: true,
@@ -656,6 +656,7 @@ func TestAddeBPFPrograms(t *testing.T) {
 			field: fields{
 				hostName:       "l3af-local-test",
 				hostInterfaces: map[string]bool{"enp0s3": true},
+				// enp0s3 is a fake interface
 				mu:             new(sync.Mutex),
 				ingressXDPBpfs: map[string]*list.List{"enp0s3": nil},
 				ingressTCBpfs:  map[string]*list.List{"enp0s3": nil},
@@ -795,7 +796,7 @@ func TestDeleteProgramsOnInterface(t *testing.T) {
 	}
 }
 
-func TestDeleteeBPFPrograms(t *testing.T) {
+func TestDeleteEbpfPrograms(t *testing.T) {
 	type fields struct {
 		hostName       string
 		hostInterfaces map[string]bool
@@ -919,9 +920,9 @@ func TestDeleteeBPFPrograms(t *testing.T) {
 				hostInterfaces: tt.field.hostInterfaces,
 				mu:             tt.field.mu,
 			}
-			err := cfg.DeleteeBPFPrograms(tt.arg)
+			err := cfg.DeleteEbpfPrograms(tt.arg)
 			if (err != nil) != tt.wanterr {
-				t.Errorf("DeleteeBPFPrograms failed: %v", err)
+				t.Errorf("DeleteEbpfPrograms failed: %v", err)
 			}
 		})
 	}

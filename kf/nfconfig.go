@@ -1140,8 +1140,8 @@ func (c *NFConfigs) DeleteProgramsOnInterfaceHelper(e *list.Element, ifaceName s
 	return nil
 }
 
-// DeleteeBPFPrograms - Delete eBPF programs on the node if they are running
-func (c *NFConfigs) DeleteeBPFPrograms(bpfProgs []models.DeleteApiValues) error {
+// DeleteEbpfPrograms - Delete eBPF programs on the node if they are running
+func (c *NFConfigs) DeleteEbpfPrograms(bpfProgs []models.DeleteApiValues) error {
 	for _, bpfProg := range bpfProgs {
 		if err := c.DeleteProgramsOnInterface(bpfProg.Iface, bpfProg.HostName, bpfProg.WantToRemove); err != nil {
 			if err := c.SaveConfigsToConfigStore(); err != nil {
@@ -1154,7 +1154,7 @@ func (c *NFConfigs) DeleteeBPFPrograms(bpfProgs []models.DeleteApiValues) error 
 	return nil
 }
 
-// BinarySearch: It is checking a target string exists in sorted slice of  strings
+// BinarySearch: It is checking a target string exists in sorted slice of strings
 func BinarySearch(name []string, target string) bool {
 	i := sort.SearchStrings(name, target)
 	n := len(name)

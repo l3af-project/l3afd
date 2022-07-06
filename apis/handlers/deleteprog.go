@@ -57,8 +57,8 @@ func DeleteEbpfPrograms(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFu
 			return
 		}
 
-		if err := kfcfg.DeleteeBPFPrograms(t); err != nil {
-			mesg = fmt.Sprintf("failed to DeleteeBPFPrograms : %v", err)
+		if err := kfcfg.DeleteEbpfPrograms(t); err != nil {
+			mesg = fmt.Sprintf("failed to DeleteEbpfPrograms : %v", err)
 			log.Error().Msg(mesg)
 
 			statusCode = http.StatusInternalServerError
