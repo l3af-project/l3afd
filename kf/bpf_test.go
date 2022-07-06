@@ -936,7 +936,7 @@ func TestPrevMapFullPath(t *testing.T) {
 		result string
 	}{
 		{
-			name: "XdpTypeMapName",
+			name: "XdpTypeMapName_linux",
 			fields: fields{
 				Program: models.BPFProgram{
 					ProgType: models.XDPType,
@@ -952,7 +952,7 @@ func TestPrevMapFullPath(t *testing.T) {
 			result: "/sys/fs/bpf/root_array",
 		},
 		{
-			name: "TcTypeMapName",
+			name: "TcTypeMapName_linux",
 			fields: fields{
 				Program: models.BPFProgram{
 					ProgType: models.TCType,
@@ -977,27 +977,11 @@ func TestPrevMapFullPath(t *testing.T) {
 				RestartCount: 0,
 				PrevMapName:  "root_array",
 				hostConfig: &config.Config{
-					BpfMapDefaultPath:  "c:\\sys\\fs\\bpf",
-					TcMapsRelativePath: "tc\\globals",
+					BpfMapDefaultPath:  "",
+					TcMapsRelativePath: "",
 				},
 			},
-			result: "c:\\sys\\fs\\bpf\\root_array",
-		},
-		{
-			name: "TcTypeMapName_windows",
-			fields: fields{
-				Program: models.BPFProgram{
-					ProgType: models.TCType,
-				},
-				Cmd:          nil,
-				RestartCount: 0,
-				PrevMapName:  "tc_ingress_array",
-				hostConfig: &config.Config{
-					BpfMapDefaultPath:  "c:\\sys\\fs\\bpf",
-					TcMapsRelativePath: "tc\\globals",
-				},
-			},
-			result: "c:\\sys\\fs\\bpf\\tc\\globals\\tc_ingress_array",
+			result: "root_array",
 		},
 	}
 	counter := 0

@@ -380,7 +380,7 @@ func TestNFConfigs_Close(t *testing.T) {
 				egressTCBpfs:   make(map[string]*list.List),
 				hostConfig: &config.Config{
 					BpfMapDefaultPath:  "/sys/fs/bpf",
-					TcMapsRelativePath: "/tc/globals",
+					TcMapsRelativePath: "tc/globals",
 				},
 				processMon: pMon,
 			},
