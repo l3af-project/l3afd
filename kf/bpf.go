@@ -44,6 +44,9 @@ var (
 //lint:ignore U1000 avoid false linter error on windows, since this variable is only used in linux code
 const executePerm uint32 = 0111
 const bpfStatus string = "RUNNING"
+const httpScheme string = "http"
+const httpsScheme string = "https"
+const fileScheme string = "file"
 
 // BPF defines run time details for BPFProgram.
 type BPF struct {
@@ -520,139 +523,172 @@ func (b *BPF) VerifyAndGetArtifacts(conf *config.Config) error {
 	return nil
 }
 
-// GetArtifacts downloads artifacts from the nexus repo
+// GetArtifacts downloads artifacts from the specified eBPF repo
 func (b *BPF) GetArtifacts(conf *config.Config) error {
-	var fPath = ""
-
-	kfRepoURL, err := url.Parse(conf.KFRepoURL)
-	if err != nil {
-		return fmt.Errorf("unknown KF repo url format: %w", err)
-	}
-
-	platform, err := GetPlatform()
-	if err != nil {
-		return fmt.Errorf("failed to find KF repo download path: %w", err)
-	}
-
-	kfRepoURL.Path = path.Join(kfRepoURL.Path, b.Program.Name, b.Program.Version, platform, b.Program.Artifact)
-	log.Info().Msgf("Downloading - %s", kfRepoURL)
-
-	timeOut := time.Duration(conf.HttpClientTimeout) * time.Second
-	var netTransport = &http.Transport{
-		ResponseHeaderTimeout: timeOut,
-	}
-	client := http.Client{Transport: netTransport, Timeout: timeOut}
-
-	// Get the data
-	resp, err := client.Get(kfRepoURL.String())
-	if err != nil {
-		return fmt.Errorf("download failed: %w", err)
-	}
-	defer resp.Body.Close()
 
 	buf := &bytes.Buffer{}
-	buf.ReadFrom(resp.Body)
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("get request returned unexpected status code: %d (%s), %d was expected\n\tResponse Body: %s", resp.StatusCode, http.StatusText(resp.StatusCode), http.StatusOK, buf.Bytes())
+	isDefaultURLUsed := false
+	RepoURL := b.Program.EPRURL
+	if len(b.Program.EPRURL) == 0 {
+		RepoURL = conf.KFRepoURL
+		isDefaultURLUsed = true
 	}
 
-	if strings.HasSuffix(b.Program.Artifact, ".zip") {
-		c := bytes.NewReader(buf.Bytes())
-		zipReader, err := zip.NewReader(c, int64(c.Len()))
-		if err != nil {
-			return fmt.Errorf("failed to create zip reader: %w", err)
+	URL, err := url.Parse(RepoURL)
+	if err != nil {
+		if isDefaultURLUsed {
+			return fmt.Errorf("unknown kf-repo format : %w", err)
+		} else {
+			return fmt.Errorf("unknown ebpf_package_repo_url format : %w", err)
 		}
-		tempDir := filepath.Join(conf.BPFDir, b.Program.Name, b.Program.Version)
+	}
 
-		for _, file := range zipReader.File {
-
-			zippedFile, err := file.Open()
+	switch URL.Scheme {
+	case httpsScheme, httpScheme:
+		{
+			platform, err := GetPlatform()
 			if err != nil {
-				return fmt.Errorf("unzip failed: %w", err)
+				return fmt.Errorf("failed to identify platform type: %w", err)
 			}
-			defer zippedFile.Close()
 
-			extractedFilePath := filepath.Join(
-				tempDir,
-				file.Name,
-			)
-			if !strings.HasPrefix(extractedFilePath, filepath.Clean(tempDir)+string(os.PathSeparator)) {
-				return fmt.Errorf("invalid file path: %s", extractedFilePath)
+			URL.Path = path.Join(URL.Path, b.Program.Name, b.Program.Version, platform, b.Program.Artifact)
+			log.Info().Msgf("Downloading - %s", URL)
+
+			timeOut := time.Duration(conf.HttpClientTimeout) * time.Second
+			var netTransport = &http.Transport{
+				ResponseHeaderTimeout: timeOut,
 			}
-			if file.FileInfo().IsDir() {
-				os.MkdirAll(extractedFilePath, file.Mode())
-			} else {
-				outputFile, err := os.OpenFile(
-					extractedFilePath,
-					os.O_WRONLY|os.O_CREATE|os.O_TRUNC,
-					file.Mode(),
-				)
+			client := http.Client{Transport: netTransport, Timeout: timeOut}
+
+			// Get the data
+			resp, err := client.Get(URL.String())
+			if err != nil {
+				return fmt.Errorf("download failed: %w", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				return fmt.Errorf("get request returned unexpected status code: %d (%s), %d was expected\n\tResponse Body: %s", resp.StatusCode, http.StatusText(resp.StatusCode), http.StatusOK, buf.Bytes())
+			}
+
+			buf.ReadFrom(resp.Body)
+
+		}
+	case fileScheme:
+		{
+			if fileExists(URL.Path) {
+				f, err := os.Open(URL.Path)
 				if err != nil {
-					return fmt.Errorf("unzip failed to create file: %w", err)
+					return fmt.Errorf("opening err : %w", err)
 				}
-				defer outputFile.Close()
+
+				buf.ReadFrom(f)
+				f.Close()
+			} else {
+				return fmt.Errorf("artifact is not found")
+			}
+		}
+	}
+
+	switch artifact := b.Program.Artifact; {
+	case strings.HasSuffix(artifact, ".zip"):
+		{
+			c := bytes.NewReader(buf.Bytes())
+			zipReader, err := zip.NewReader(c, int64(c.Len()))
+			if err != nil {
+				return fmt.Errorf("failed to create zip reader: %w", err)
+			}
+			tempDir := filepath.Join(conf.BPFDir, b.Program.Name, b.Program.Version)
+
+			for _, file := range zipReader.File {
+
+				zippedFile, err := file.Open()
+				if err != nil {
+					return fmt.Errorf("unzip failed: %w", err)
+				}
+				defer zippedFile.Close()
+
+				extractedFilePath, err := ValidatePath(file.Name, tempDir)
+				if err != nil {
+					return err
+				}
+
+				if file.FileInfo().IsDir() {
+					os.MkdirAll(extractedFilePath, file.Mode())
+				} else {
+					outputFile, err := os.OpenFile(
+						extractedFilePath,
+						os.O_WRONLY|os.O_CREATE|os.O_TRUNC,
+						file.Mode(),
+					)
+					if err != nil {
+						return fmt.Errorf("unzip failed to create file: %w", err)
+					}
+					defer outputFile.Close()
+
+					buf := copyBufPool.Get().(*bytes.Buffer)
+					_, err = io.CopyBuffer(outputFile, zippedFile, buf.Bytes())
+					if err != nil {
+						return fmt.Errorf("GetArtifacts failed to copy files: %w", err)
+					}
+					copyBufPool.Put(buf)
+				}
+			}
+			newDir := strings.Split(b.Program.Artifact, ".")
+			b.FilePath = filepath.Join(tempDir, newDir[0])
+			return nil
+		}
+	case strings.HasSuffix(b.Program.Artifact, ".tar.gz"):
+		{
+			archive, err := gzip.NewReader(buf)
+			if err != nil {
+				return fmt.Errorf("failed to create Gzip reader: %w", err)
+			}
+			defer archive.Close()
+			tarReader := tar.NewReader(archive)
+			tempDir := filepath.Join(conf.BPFDir, b.Program.Name, b.Program.Version)
+
+			for {
+				header, err := tarReader.Next()
+
+				if err == io.EOF {
+					break
+				} else if err != nil {
+					return fmt.Errorf("untar failed: %w", err)
+				}
+
+				fPath, err := ValidatePath(header.Name, tempDir)
+				if err != nil {
+					return err
+				}
+
+				info := header.FileInfo()
+				if info.IsDir() {
+					if err = os.MkdirAll(fPath, info.Mode()); err != nil {
+						return fmt.Errorf("untar failed to create directories: %w", err)
+					}
+					continue
+				}
+
+				file, err := os.OpenFile(fPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, info.Mode())
+				if err != nil {
+					return fmt.Errorf("untar failed to create file: %w", err)
+				}
+				defer file.Close()
 
 				buf := copyBufPool.Get().(*bytes.Buffer)
-				_, err = io.CopyBuffer(outputFile, zippedFile, buf.Bytes())
+				_, err = io.CopyBuffer(file, tarReader, buf.Bytes())
 				if err != nil {
 					return fmt.Errorf("GetArtifacts failed to copy files: %w", err)
 				}
 				copyBufPool.Put(buf)
 			}
+			newDir := strings.Split(b.Program.Artifact, ".")
+			b.FilePath = filepath.Join(tempDir, newDir[0])
+			return nil
 		}
-		newDir := strings.Split(b.Program.Artifact, ".")
-		b.FilePath = filepath.Join(tempDir, newDir[0])
-		return nil
-	} else if strings.HasSuffix(b.Program.Artifact, ".tar.gz") {
-		archive, err := gzip.NewReader(buf)
-		if err != nil {
-			return fmt.Errorf("failed to create Gzip reader: %w", err)
-		}
-		defer archive.Close()
-		tarReader := tar.NewReader(archive)
-		tempDir := filepath.Join(conf.BPFDir, b.Program.Name, b.Program.Version)
-
-		for {
-			header, err := tarReader.Next()
-
-			if err == io.EOF {
-				break
-			} else if err != nil {
-				return fmt.Errorf("untar failed: %w", err)
-			}
-
-			if strings.Contains(header.Name, "..") {
-				return fmt.Errorf("zipped file contians filepath (%s) that includes (..)", header.Name)
-			}
-
-			fPath = filepath.Join(tempDir, header.Name)
-			info := header.FileInfo()
-			if info.IsDir() {
-				if err = os.MkdirAll(fPath, info.Mode()); err != nil {
-					return fmt.Errorf("untar failed to create directories: %w", err)
-				}
-				continue
-			}
-
-			file, err := os.OpenFile(fPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, info.Mode())
-			if err != nil {
-				return fmt.Errorf("untar failed to create file: %w", err)
-			}
-			defer file.Close()
-
-			buf := copyBufPool.Get().(*bytes.Buffer)
-			_, err = io.CopyBuffer(file, tarReader, buf.Bytes())
-			if err != nil {
-				return fmt.Errorf("GetArtifacts failed to copy files: %w", err)
-			}
-			copyBufPool.Put(buf)
-		}
-		newDir := strings.Split(b.Program.Artifact, ".")
-		b.FilePath = filepath.Join(tempDir, newDir[0])
-		return nil
-	} else {
-		return fmt.Errorf("unknown artifact format ")
+	default:
+		return fmt.Errorf("unknown artifact format")
 	}
 }
 
@@ -1000,4 +1036,15 @@ func (b *BPF) VerifyMetricsMapsVanish() error {
 	err := fmt.Errorf("metrics maps are never removed by Kernel %s", b.Program.Name)
 	log.Error().Err(err).Msg("")
 	return err
+}
+
+func ValidatePath(filePath string, destination string) (string, error) {
+	destpath := filepath.Join(destination, filePath)
+	if strings.Contains(filePath, "..") {
+		return "", fmt.Errorf(" file contains filepath (%s) that includes (..)", filePath)
+	}
+	if !strings.HasPrefix(destpath, filepath.Clean(destination)+string(os.PathSeparator)) {
+		return "", fmt.Errorf("%s: illegal file path", filePath)
+	}
+	return destpath, nil
 }
