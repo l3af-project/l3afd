@@ -4,13 +4,24 @@
 package kf
 
 import (
+	"archive/tar"
+	"archive/zip"
+	"bytes"
+	"compress/gzip"
 	"context"
+	"io"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"reflect"
+	"runtime"
+	"strings"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/l3af-project/l3afd/config"
+	"github.com/l3af-project/l3afd/mocks"
 	"github.com/l3af-project/l3afd/models"
 )
 
@@ -325,12 +336,28 @@ func TestBPF_isRunning(t *testing.T) {
 	}
 }
 
+// RoundTripFunc .
+type RoundTripFunc func(req *http.Request) *http.Response
+
+// RoundTrip .
+func (f RoundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req), nil
+}
+
+// NewTestClient returns *http.Client with Transport replaced to avoid making real calls
+func NewTestClient(fn RoundTripFunc) *http.Client {
+	return &http.Client{
+		Transport: RoundTripFunc(fn),
+	}
+}
 func TestBPF_GetArtifacts(t *testing.T) {
+
 	type fields struct {
 		Program      models.BPFProgram
 		Cmd          *exec.Cmd
 		FilePath     string
 		RestartCount int
+		Client       *http.Client
 	}
 	type args struct {
 		conf *config.Config
@@ -354,14 +381,119 @@ func TestBPF_GetArtifacts(t *testing.T) {
 		{name: "DummyArtifact",
 			fields: fields{
 				Program: models.BPFProgram{
+					Name:     "dummy",
+					Version:  "1",
 					Artifact: "dummy.tar.gz",
 				},
 				Cmd:          nil,
 				FilePath:     "",
 				RestartCount: 0,
+				Client: NewTestClient(func(r *http.Request) *http.Response {
+					buf := new(bytes.Buffer)
+					writer := gzip.NewWriter(buf)
+					defer writer.Close()
+					tarWriter := tar.NewWriter(writer)
+					defer tarWriter.Close()
+					header := new(tar.Header)
+					header.Name = "random"
+					header.Mode = 0777
+					tarWriter.WriteHeader(header)
+					tarWriter.Write([]byte("random things"))
+					return &http.Response{
+						StatusCode: 200,
+						Body:       ioutil.NopCloser(buf),
+						Header:     make(http.Header),
+					}
+				}),
 			},
 			args: args{conf: &config.Config{BPFDir: "/tmp",
-				KFRepoURL: "http://www.example.com"}},
+				KFRepoURL: "https://l3af.io/"}},
+			wantErr: true,
+		},
+		{
+			name: "Unknown_url_with_http_scheme",
+			fields: fields{
+				Program: models.BPFProgram{
+					EPRURL: "http://www.example.com",
+				},
+				Cmd:          nil,
+				FilePath:     "",
+				RestartCount: 0,
+			},
+			args: args{
+				conf: &config.Config{
+					BPFDir:    "/tmp",
+					KFRepoURL: "https://l3af.io/",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Unknown_url_with_file_scheme",
+			fields: fields{
+				Program: models.BPFProgram{
+					EPRURL: "file:///Users/random/dummy.tar.gz",
+				},
+				Cmd:          nil,
+				FilePath:     "",
+				RestartCount: 0,
+			},
+			args: args{
+				conf: &config.Config{
+					BPFDir:    "/tmp",
+					KFRepoURL: "https://l3af.io/",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Unknown_scheme",
+			fields: fields{
+				Program: models.BPFProgram{
+					EPRURL: "ftp://ftp.foo.org/dummy.tar.gz",
+				},
+				Cmd:          nil,
+				FilePath:     "",
+				RestartCount: 0,
+			},
+			args: args{
+				conf: &config.Config{
+					BPFDir:    "/tmp",
+					KFRepoURL: "https://l3af.io/",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "ZipReaderFail",
+			fields: fields{
+				Program: models.BPFProgram{
+					Name:     "testebpfprogram",
+					Version:  "1.0",
+					Artifact: "testebpfprogram.zip",
+				},
+				Cmd:          nil,
+				FilePath:     "",
+				RestartCount: 0,
+				Client: NewTestClient(func(r *http.Request) *http.Response {
+					buf := new(bytes.Buffer)
+					writer := zip.NewWriter(buf)
+					f, _ := writer.Create("testebpfprogram")
+					data := strings.NewReader("this is just a test ebpf program")
+					io.Copy(f, data)
+					writer.Close()
+					return &http.Response{
+						StatusCode: 200,
+						Body:       ioutil.NopCloser(buf),
+						Header:     make(http.Header),
+					}
+				}),
+			},
+			args: args{
+				conf: &config.Config{
+					BPFDir: "/tmp",
+				},
+			},
 			wantErr: true,
 		},
 	}
@@ -373,7 +505,16 @@ func TestBPF_GetArtifacts(t *testing.T) {
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
 			}
-			if err := b.GetArtifacts(tt.args.conf); (err != nil) != tt.wantErr {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			m := mocks.NewMockplatformInterface(ctrl)
+			if runtime.GOOS == "windows" {
+				m.EXPECT().GetPlatform().Return("windows", nil).AnyTimes()
+			} else {
+				m.EXPECT().GetPlatform().Return("focal", nil).AnyTimes()
+			}
+			err := b.GetArtifacts(tt.args.conf)
+			if (err != nil) != tt.wantErr {
 				t.Errorf("BPF.download() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

@@ -15,6 +15,8 @@ require (
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // exclude
 )
 
+require github.com/golang/mock v1.6.0
+
 require (
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
