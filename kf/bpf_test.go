@@ -798,7 +798,7 @@ func Test_VerifyPinnedMapVanish(t *testing.T) {
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
 				hostConfig: &config.Config{
-					BpfMapDefaultPath: "/sys/fs/bpf",
+					BpfMapDefaultPath: tt.fields.hostConfig.BpfMapDefaultPath,
 				},
 			}
 			err := b.VerifyPinnedMapVanish(true)
@@ -867,28 +867,14 @@ func TestMapFullPath(t *testing.T) {
 			},
 			result: "root_array",
 		},
-		{
-			name: "TcTypeMapName_windows",
-			fields: fields{
-				Program: models.BPFProgram{
-					ProgType: models.TCType,
-					MapName:  "tc\\globals\\tc_ingress_array",
-				},
-				Cmd:          nil,
-				RestartCount: 0,
-				hostConfig: &config.Config{
-					BpfMapDefaultPath: "",
-				},
-			},
-			result: "tc\\globals\\tc_ingress_array",
-		},
 	}
 	counter := 0
 	for _, tt := range tests {
-		if runtime.GOOS == "windows" && counter < 2 {
+		counter++
+		if runtime.GOOS == "windows" && counter <= 2 {
 			continue
 		}
-		if runtime.GOOS != "windows" && counter >= 2 {
+		if runtime.GOOS != "windows" && counter > 2 {
 			continue
 		}
 		t.Run(tt.name, func(t *testing.T) {
@@ -898,7 +884,7 @@ func TestMapFullPath(t *testing.T) {
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
 				hostConfig: &config.Config{
-					BpfMapDefaultPath: "/sys/fs/bpf",
+					BpfMapDefaultPath: tt.fields.hostConfig.BpfMapDefaultPath,
 				},
 			}
 			output := b.MapFullPath()
@@ -906,7 +892,6 @@ func TestMapFullPath(t *testing.T) {
 				t.Errorf("MapFullPath() failed")
 			}
 		})
-		counter++
 	}
 }
 func TestPrevMapFullPath(t *testing.T) {
@@ -971,10 +956,11 @@ func TestPrevMapFullPath(t *testing.T) {
 	}
 	counter := 0
 	for _, tt := range tests {
-		if runtime.GOOS == "windows" && counter < 2 {
+		counter++
+		if runtime.GOOS == "windows" && counter <= 2 {
 			continue
 		}
-		if runtime.GOOS != "windows" && counter >= 2 {
+		if runtime.GOOS != "windows" && counter > 2 {
 			continue
 		}
 		t.Run(tt.name, func(t *testing.T) {
@@ -984,15 +970,13 @@ func TestPrevMapFullPath(t *testing.T) {
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
 				hostConfig: &config.Config{
-					BpfMapDefaultPath: "/sys/fs/bpf",
+					BpfMapDefaultPath: tt.fields.hostConfig.BpfMapDefaultPath,
 				},
-				PrevMapName: tt.fields.PrevMapName,
 			}
 			output := b.PrevMapFullPath()
 			if output != tt.result {
 				t.Errorf("PrevMapFullPath() failed")
 			}
 		})
-		counter++
 	}
 }
