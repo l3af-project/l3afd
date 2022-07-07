@@ -484,7 +484,7 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 				hostName: "l3af-local-test",
 			},
 			arg: args{
-				hostName: "enp0s3",
+				hostName: "fakeif0",
 			},
 			wanterr: true,
 		},
@@ -519,15 +519,15 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 			name: "GoodInput",
 			field: fields{
 				hostName:       "l3af-local-test",
-				hostInterfaces: map[string]bool{"enp0s3": true},
+				hostInterfaces: map[string]bool{"fakeif0": true},
 				mu:             new(sync.Mutex),
-				ingressXDPBpfs: map[string]*list.List{"enp0s3": nil},
-				ingressTCBpfs:  map[string]*list.List{"enp0s3": nil},
-				egressTCBpfs:   map[string]*list.List{"enp0s3": nil},
+				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
+				ingressTCBpfs:  map[string]*list.List{"fakeif0": nil},
+				egressTCBpfs:   map[string]*list.List{"fakeif0": nil},
 			},
 			arg: args{
 				hostName: "l3af-local-test",
-				iface:    "enp0s3",
+				iface:    "fakeif0",
 				bpfProgs: &models.BPFPrograms{
 					XDPIngress: []*models.BPFProgram{},
 					TCEgress:   []*models.BPFProgram{},
@@ -587,7 +587,7 @@ func TestAddeBPFPrograms(t *testing.T) {
 			arg: []models.L3afBPFPrograms{
 				{
 					HostName: "l3af-test",
-					Iface:    "enp0s3",
+					Iface:    "fakeif0",
 					BpfPrograms: &models.BPFPrograms{
 						XDPIngress: []*models.BPFProgram{},
 						TCIngress:  []*models.BPFProgram{},
@@ -655,12 +655,12 @@ func TestAddeBPFPrograms(t *testing.T) {
 			name: "GoodInput",
 			field: fields{
 				hostName:       "l3af-local-test",
-				hostInterfaces: map[string]bool{"enp0s3": true},
-				// enp0s3 is a fake interface
+				hostInterfaces: map[string]bool{"fakeif0": true},
+				// fakeif0 is a fake interface
 				mu:             new(sync.Mutex),
-				ingressXDPBpfs: map[string]*list.List{"enp0s3": nil},
-				ingressTCBpfs:  map[string]*list.List{"enp0s3": nil},
-				egressTCBpfs:   map[string]*list.List{"enp0s3": nil},
+				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
+				ingressTCBpfs:  map[string]*list.List{"fakeif0": nil},
+				egressTCBpfs:   map[string]*list.List{"fakeif0": nil},
 				ifaces:         map[string]string{},
 				hostConfig: &config.Config{
 					L3afConfigStoreFileName: "/etc/l3afd/l3af-config.json",
@@ -669,7 +669,7 @@ func TestAddeBPFPrograms(t *testing.T) {
 			arg: []models.L3afBPFPrograms{
 				{
 					HostName: "l3af-local-test",
-					Iface:    "enp0s3",
+					Iface:    "fakeif0",
 					BpfPrograms: &models.BPFPrograms{
 						XDPIngress: []*models.BPFProgram{},
 						TCIngress:  []*models.BPFProgram{},
@@ -734,7 +734,7 @@ func TestDeleteProgramsOnInterface(t *testing.T) {
 				hostName: "l3af-local-test",
 			},
 			arg: args{
-				hostName: "enp0s3",
+				hostName: "fakeif0",
 			},
 			wanterr: true,
 		},
@@ -758,15 +758,15 @@ func TestDeleteProgramsOnInterface(t *testing.T) {
 			name: "GoodInput",
 			field: fields{
 				hostName:       "l3af-local-test",
-				hostInterfaces: map[string]bool{"enp0s3": true},
+				hostInterfaces: map[string]bool{"fakeif0": true},
 				mu:             new(sync.Mutex),
-				ingressXDPBpfs: map[string]*list.List{"enp0s3": nil},
-				ingressTCBpfs:  map[string]*list.List{"enp0s3": nil},
-				egressTCBpfs:   map[string]*list.List{"enp0s3": nil},
+				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
+				ingressTCBpfs:  map[string]*list.List{"fakeif0": nil},
+				egressTCBpfs:   map[string]*list.List{"fakeif0": nil},
 			},
 			arg: args{
 				hostName: "l3af-local-test",
-				iface:    "enp0s3",
+				iface:    "fakeif0",
 				bpfProgs: &models.WantToRemove{
 					XDPIngress: []string{},
 					TcIngress:  []string{},
@@ -826,7 +826,7 @@ func TestDeleteEbpfPrograms(t *testing.T) {
 			arg: []models.DeleteApiValues{
 				{
 					HostName: "l3af-local-test",
-					Iface:    "enp0s3",
+					Iface:    "fakeif0",
 					WantToRemove: &models.WantToRemove{
 						XDPIngress: []string{},
 						TcIngress:  []string{},
@@ -848,7 +848,7 @@ func TestDeleteEbpfPrograms(t *testing.T) {
 			arg: []models.DeleteApiValues{
 				{
 					HostName: "l3af-local-test",
-					Iface:    "enp0s3",
+					Iface:    "fakeif0",
 					WantToRemove: &models.WantToRemove{
 						XDPIngress: []string{},
 						TcIngress:  []string{},
@@ -870,7 +870,7 @@ func TestDeleteEbpfPrograms(t *testing.T) {
 			arg: []models.DeleteApiValues{
 				{
 					HostName: "l3af-local-test",
-					Iface:    "enp0s3",
+					Iface:    "fakeif0",
 					WantToRemove: &models.WantToRemove{
 						XDPIngress: []string{},
 						TcIngress:  []string{},
@@ -884,11 +884,11 @@ func TestDeleteEbpfPrograms(t *testing.T) {
 			name: "GoodInput",
 			field: fields{
 				hostName:       "l3af-local-test",
-				hostInterfaces: map[string]bool{"enp0s3": true},
+				hostInterfaces: map[string]bool{"fakeif0": true},
 				mu:             new(sync.Mutex),
-				ingressXDPBpfs: map[string]*list.List{"enp0s3": nil},
-				ingressTCBpfs:  map[string]*list.List{"enp0s3": nil},
-				egressTCBpfs:   map[string]*list.List{"enp0s3": nil},
+				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
+				ingressTCBpfs:  map[string]*list.List{"fakeif0": nil},
+				egressTCBpfs:   map[string]*list.List{"fakeif0": nil},
 				ifaces:         map[string]string{},
 				hostConfig: &config.Config{
 					L3afConfigStoreFileName: "/etc/l3afd/l3af-config.json",
@@ -897,7 +897,7 @@ func TestDeleteEbpfPrograms(t *testing.T) {
 			arg: []models.DeleteApiValues{
 				{
 					HostName: "l3af-local-test",
-					Iface:    "enp0s3",
+					Iface:    "fakeif0",
 					WantToRemove: &models.WantToRemove{
 						XDPIngress: []string{},
 						TcIngress:  []string{},
