@@ -598,8 +598,7 @@ func Test_PutNextProgFDFromID(t *testing.T) {
 					MapName: "",
 				},
 				hostConfig: &config.Config{
-					BpfMapDefaultPath:  "/sys/fs/bpf",
-					TcMapsRelativePath: "/tc/globals",
+					BpfMapDefaultPath: "/sys/fs/bpf",
 				},
 			},
 			wantErr: false,
@@ -612,8 +611,7 @@ func Test_PutNextProgFDFromID(t *testing.T) {
 					MapName: "invalidname",
 				},
 				hostConfig: &config.Config{
-					BpfMapDefaultPath:  "/sys/fs/bpf",
-					TcMapsRelativePath: "/tc/globals",
+					BpfMapDefaultPath: "/sys/fs/bpf",
 				},
 			},
 			wantErr: true,
@@ -635,8 +633,7 @@ func Test_PutNextProgFDFromID(t *testing.T) {
 					CfgVersion:        1,
 				},
 				hostConfig: &config.Config{
-					BpfMapDefaultPath:  "/sys/fs/bpf",
-					TcMapsRelativePath: "/tc/globals",
+					BpfMapDefaultPath: "/sys/fs/bpf",
 				},
 			},
 			progId:  -1,
@@ -681,8 +678,7 @@ func Test_VerifyPinnedMapExists(t *testing.T) {
 					MapName: "invalid",
 				},
 				hostConfig: &config.Config{
-					BpfMapDefaultPath:  "/sys/fs/bpf",
-					TcMapsRelativePath: "/tc/globals",
+					BpfMapDefaultPath: "/sys/fs/bpf",
 				},
 			},
 			wantErr: true,
@@ -775,8 +771,7 @@ func Test_VerifyPinnedMapVanish(t *testing.T) {
 					MapName: "",
 				},
 				hostConfig: &config.Config{
-					BpfMapDefaultPath:  "/sys/fs/bpf",
-					TcMapsRelativePath: "/tc/globals",
+					BpfMapDefaultPath: "/sys/fs/bpf",
 				},
 			},
 			wantErr: false,
@@ -785,12 +780,11 @@ func Test_VerifyPinnedMapVanish(t *testing.T) {
 			name: "invalidProgType",
 			fields: fields{
 				Program: models.BPFProgram{
-					MapName:  "something",
+					MapName:  "tc/globals/something",
 					ProgType: models.TCType,
 				},
 				hostConfig: &config.Config{
-					BpfMapDefaultPath:  "/sys/fs/bpf",
-					TcMapsRelativePath: "/tc/globals",
+					BpfMapDefaultPath: "/sys/fs/bpf",
 				},
 			},
 			wantErr: false,
@@ -804,8 +798,7 @@ func Test_VerifyPinnedMapVanish(t *testing.T) {
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
 				hostConfig: &config.Config{
-					BpfMapDefaultPath:  "/sys/fs/bpf",
-					TcMapsRelativePath: "/tc/globals",
+					BpfMapDefaultPath: "/sys/fs/bpf",
 				},
 			}
 			err := b.VerifyPinnedMapVanish(true)
@@ -839,8 +832,7 @@ func TestMapFullPath(t *testing.T) {
 				Cmd:          nil,
 				RestartCount: 0,
 				hostConfig: &config.Config{
-					BpfMapDefaultPath:  "/sys/fs/bpf",
-					TcMapsRelativePath: "/tc/globals",
+					BpfMapDefaultPath: "/sys/fs/bpf",
 				},
 			},
 			result: "/sys/fs/bpf/root_array",
@@ -850,13 +842,12 @@ func TestMapFullPath(t *testing.T) {
 			fields: fields{
 				Program: models.BPFProgram{
 					ProgType: models.TCType,
-					MapName:  "tc_ingress_array",
+					MapName:  "tc/globals/tc_ingress_array",
 				},
 				Cmd:          nil,
 				RestartCount: 0,
 				hostConfig: &config.Config{
-					BpfMapDefaultPath:  "/sys/fs/bpf",
-					TcMapsRelativePath: "/tc/globals",
+					BpfMapDefaultPath: "/sys/fs/bpf",
 				},
 			},
 			result: "/sys/fs/bpf/tc/globals/tc_ingress_array",
@@ -871,27 +862,25 @@ func TestMapFullPath(t *testing.T) {
 				Cmd:          nil,
 				RestartCount: 0,
 				hostConfig: &config.Config{
-					BpfMapDefaultPath:  "c:\\sys\\fs\\bpf",
-					TcMapsRelativePath: "tc\\globals",
+					BpfMapDefaultPath: "",
 				},
 			},
-			result: "c:\\sys\\fs\\bpf\\root_array",
+			result: "root_array",
 		},
 		{
 			name: "TcTypeMapName_windows",
 			fields: fields{
 				Program: models.BPFProgram{
 					ProgType: models.TCType,
-					MapName:  "tc_ingress_array",
+					MapName:  "tc\\globals\\tc_ingress_array",
 				},
 				Cmd:          nil,
 				RestartCount: 0,
 				hostConfig: &config.Config{
-					BpfMapDefaultPath:  "c:\\sys\\fs\\bpf",
-					TcMapsRelativePath: "tc\\globals",
+					BpfMapDefaultPath: "",
 				},
 			},
-			result: "c:\\sys\\fs\\bpf\\tc\\globals\\tc_ingress_array",
+			result: "tc\\globals\\tc_ingress_array",
 		},
 	}
 	counter := 0
@@ -909,8 +898,7 @@ func TestMapFullPath(t *testing.T) {
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
 				hostConfig: &config.Config{
-					BpfMapDefaultPath:  "/sys/fs/bpf",
-					TcMapsRelativePath: "/tc/globals",
+					BpfMapDefaultPath: "/sys/fs/bpf",
 				},
 			}
 			output := b.MapFullPath()
@@ -944,8 +932,7 @@ func TestPrevMapFullPath(t *testing.T) {
 				Cmd:          nil,
 				RestartCount: 0,
 				hostConfig: &config.Config{
-					BpfMapDefaultPath:  "/sys/fs/bpf",
-					TcMapsRelativePath: "/tc/globals",
+					BpfMapDefaultPath: "/sys/fs/bpf",
 				},
 				PrevMapName: "root_array",
 			},
@@ -960,10 +947,9 @@ func TestPrevMapFullPath(t *testing.T) {
 				Cmd:          nil,
 				RestartCount: 0,
 				hostConfig: &config.Config{
-					BpfMapDefaultPath:  "/sys/fs/bpf",
-					TcMapsRelativePath: "/tc/globals",
+					BpfMapDefaultPath: "/sys/fs/bpf",
 				},
-				PrevMapName: "tc_ingress_array",
+				PrevMapName: "tc/globals/tc_ingress_array",
 			},
 			result: "/sys/fs/bpf/tc/globals/tc_ingress_array",
 		},
@@ -977,8 +963,7 @@ func TestPrevMapFullPath(t *testing.T) {
 				RestartCount: 0,
 				PrevMapName:  "root_array",
 				hostConfig: &config.Config{
-					BpfMapDefaultPath:  "",
-					TcMapsRelativePath: "",
+					BpfMapDefaultPath: "",
 				},
 			},
 			result: "root_array",
@@ -999,8 +984,7 @@ func TestPrevMapFullPath(t *testing.T) {
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
 				hostConfig: &config.Config{
-					BpfMapDefaultPath:  "/sys/fs/bpf",
-					TcMapsRelativePath: "/tc/globals",
+					BpfMapDefaultPath: "/sys/fs/bpf",
 				},
 				PrevMapName: tt.fields.PrevMapName,
 			}

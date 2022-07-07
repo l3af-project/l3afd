@@ -19,18 +19,17 @@ const (
 )
 
 type Config struct {
-	PIDFilename        string
-	DataCenter         string
-	BPFDir             string
-	BPFLogDir          string
-	MinKernelMajorVer  int
-	MinKernelMinorVer  int
-	KFRepoURL          string
-	HttpClientTimeout  time.Duration
-	MaxNFReStartCount  int
-	Environment        string
-	BpfMapDefaultPath  string
-	TcMapsRelativePath string
+	PIDFilename       string
+	DataCenter        string
+	BPFDir            string
+	BPFLogDir         string
+	MinKernelMajorVer int
+	MinKernelMinorVer int
+	KFRepoURL         string
+	HttpClientTimeout time.Duration
+	MaxNFReStartCount int
+	Environment       string
+	BpfMapDefaultPath string
 	// Flag to enable chaining with root program
 	BpfChainingEnabled bool
 
@@ -119,7 +118,6 @@ func ReadConfig(configPath string) (*Config, error) {
 		SwaggerApiEnabled:               LoadOptionalConfigBool(confReader, "l3afd", "swagger-api-enabled", false),
 		Environment:                     LoadOptionalConfigString(confReader, "l3afd", "environment", ENV_PROD),
 		BpfMapDefaultPath:               LoadOptionalConfigString(confReader, "l3afd", "BpfMapDefaultPath", "/sys/fs/bpf"),
-		TcMapsRelativePath:              LoadOptionalConfigString(confReader, "l3afd", "TcMapsRelativePath", "tc/globals"),
 		AdmindHost:                      LoadConfigString(confReader, "admind", "host"),
 		AdmindUsername:                  LoadConfigString(confReader, "admind", "username"),
 		AdmindApiKey:                    LoadConfigString(confReader, "admind", "api-key"),

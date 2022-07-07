@@ -1018,18 +1018,10 @@ func (b *BPF) VerifyMetricsMapsVanish() error {
 
 // MapFullPath : It returns full absolute path for bpfmap
 func (b *BPF) MapFullPath() string {
-	if b.Program.ProgType == models.XDPType {
-		return filepath.Join(b.hostConfig.BpfMapDefaultPath, b.Program.MapName)
-	} else {
-		return filepath.Join(b.hostConfig.BpfMapDefaultPath, b.hostConfig.TcMapsRelativePath, b.Program.MapName)
-	}
+	return filepath.Join(b.hostConfig.BpfMapDefaultPath, b.Program.MapName)
 }
 
 // PrevMapFullPath : It returns full absolute path for previous bpf map
 func (b *BPF) PrevMapFullPath() string {
-	if b.Program.ProgType == models.XDPType {
-		return filepath.Join(b.hostConfig.BpfMapDefaultPath, b.PrevMapName)
-	} else {
-		return filepath.Join(b.hostConfig.BpfMapDefaultPath, b.hostConfig.TcMapsRelativePath, b.PrevMapName)
-	}
+	return filepath.Join(b.hostConfig.BpfMapDefaultPath, b.PrevMapName)
 }
