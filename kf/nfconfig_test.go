@@ -436,7 +436,7 @@ func Test_BinarySearch(t *testing.T) {
 			result: true,
 		},
 		{
-			name:   "NotFoundTheTarget",
+			name:   "DidNotFindTheTarget",
 			vals:   []string{"connection-limit", "ipfix-flow-exporter", "ratelimiting"},
 			target: "zsdf",
 			result: false,
@@ -634,11 +634,11 @@ func TestAddeBPFPrograms(t *testing.T) {
 					BpfPrograms: &models.BPFPrograms{
 						XDPIngress: []*models.BPFProgram{
 							&models.BPFProgram{
-								Name:              "ratelimiting",
+								Name:              "dummy_name",
 								SeqID:             1,
-								Artifact:          "l3af_ratelimiting.tar.gz",
+								Artifact:          "dummy_artifact_name",
 								MapName:           "xdp_rl_ingress_next_prog",
-								CmdStart:          "ratelimiting",
+								CmdStart:          "dummy_command",
 								Version:           "latest",
 								UserProgramDaemon: true,
 								AdminStatus:       "enabled",
@@ -723,7 +723,7 @@ func TestDeleteProgramsOnInterface(t *testing.T) {
 		wanterr bool
 	}{
 		{
-			name:    "UnknowHostName",
+			name:    "UnknownHostName",
 			field:   fields{},
 			arg:     args{},
 			wanterr: true,
