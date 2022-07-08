@@ -816,6 +816,7 @@ func TestMapFullPath(t *testing.T) {
 		FilePath     string
 		RestartCount int
 		hostConfig   *config.Config
+		Platform     string
 	}
 	tests := []struct {
 		name   string
@@ -823,7 +824,7 @@ func TestMapFullPath(t *testing.T) {
 		result string
 	}{
 		{
-			name: "XdpTypeMapName",
+			name: "XdpTypeMapName_linux",
 			fields: fields{
 				Program: models.BPFProgram{
 					ProgType: models.XDPType,
@@ -834,11 +835,12 @@ func TestMapFullPath(t *testing.T) {
 				hostConfig: &config.Config{
 					BpfMapDefaultPath: "/sys/fs/bpf",
 				},
+				Platform: "linux",
 			},
 			result: "/sys/fs/bpf/root_array",
 		},
 		{
-			name: "TcTypeMapName",
+			name: "TcTypeMapName_linux",
 			fields: fields{
 				Program: models.BPFProgram{
 					ProgType: models.TCType,
@@ -849,6 +851,7 @@ func TestMapFullPath(t *testing.T) {
 				hostConfig: &config.Config{
 					BpfMapDefaultPath: "/sys/fs/bpf",
 				},
+				Platform: "linux",
 			},
 			result: "/sys/fs/bpf/tc/globals/tc_ingress_array",
 		},
@@ -864,17 +867,13 @@ func TestMapFullPath(t *testing.T) {
 				hostConfig: &config.Config{
 					BpfMapDefaultPath: "",
 				},
+				Platform: "windows",
 			},
 			result: "root_array",
 		},
 	}
-	counter := 0
 	for _, tt := range tests {
-		counter++
-		if runtime.GOOS == "windows" && counter <= 2 {
-			continue
-		}
-		if runtime.GOOS != "windows" && counter > 2 {
+		if runtime.GOOS != tt.fields.Platform {
 			continue
 		}
 		t.Run(tt.name, func(t *testing.T) {
@@ -902,6 +901,7 @@ func TestPrevMapFullPath(t *testing.T) {
 		RestartCount int
 		hostConfig   *config.Config
 		PrevMapName  string
+		Platform     string
 	}
 	tests := []struct {
 		name   string
@@ -920,6 +920,7 @@ func TestPrevMapFullPath(t *testing.T) {
 					BpfMapDefaultPath: "/sys/fs/bpf",
 				},
 				PrevMapName: "root_array",
+				Platform:    "linux",
 			},
 			result: "/sys/fs/bpf/root_array",
 		},
@@ -935,6 +936,7 @@ func TestPrevMapFullPath(t *testing.T) {
 					BpfMapDefaultPath: "/sys/fs/bpf",
 				},
 				PrevMapName: "tc/globals/tc_ingress_array",
+				Platform:    "linux",
 			},
 			result: "/sys/fs/bpf/tc/globals/tc_ingress_array",
 		},
@@ -950,17 +952,14 @@ func TestPrevMapFullPath(t *testing.T) {
 				hostConfig: &config.Config{
 					BpfMapDefaultPath: "",
 				},
+				Platform: "windows",
 			},
 			result: "root_array",
 		},
 	}
-	counter := 0
+
 	for _, tt := range tests {
-		counter++
-		if runtime.GOOS == "windows" && counter <= 2 {
-			continue
-		}
-		if runtime.GOOS != "windows" && counter > 2 {
+		if runtime.GOOS != tt.fields.Platform {
 			continue
 		}
 		t.Run(tt.name, func(t *testing.T) {
@@ -972,6 +971,7 @@ func TestPrevMapFullPath(t *testing.T) {
 				hostConfig: &config.Config{
 					BpfMapDefaultPath: tt.fields.hostConfig.BpfMapDefaultPath,
 				},
+				PrevMapName: tt.fields.PrevMapName,
 			}
 			output := b.PrevMapFullPath()
 			if output != tt.result {
