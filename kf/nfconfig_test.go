@@ -499,11 +499,11 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 				bpfProgs: &models.BPFPrograms{
 					XDPIngress: []*models.BPFProgram{
 						&models.BPFProgram{
-							Name:              "ratelimiting",
+							Name:              "dummy_name",
 							SeqID:             1,
-							Artifact:          "l3af_ratelimiting.tar.gz",
+							Artifact:          "dummy_artifact.tar.gz",
 							MapName:           "xdp_rl_ingress_next_prog",
-							CmdStart:          "ratelimiting",
+							CmdStart:          "dummy_command",
 							Version:           "latest",
 							UserProgramDaemon: true,
 							AdminStatus:       "enabled",
