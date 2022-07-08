@@ -581,7 +581,7 @@ func TestAddeBPFPrograms(t *testing.T) {
 				hostName: "l3af-prod",
 				ifaces:   map[string]string{},
 				hostConfig: &config.Config{
-					L3afConfigStoreFileName: "/etc/l3afd/l3af-config.json",
+					L3afConfigStoreFileName: "../testdata/Test_l3af-config.json",
 				},
 			},
 			arg: []models.L3afBPFPrograms{
@@ -603,7 +603,7 @@ func TestAddeBPFPrograms(t *testing.T) {
 				hostName: "l3af-local-test",
 				ifaces:   map[string]string{},
 				hostConfig: &config.Config{
-					L3afConfigStoreFileName: "/etc/l3afd/l3af-config.json",
+					L3afConfigStoreFileName: "../testdata/Test_l3af-config.json",
 				},
 			},
 			arg: []models.L3afBPFPrograms{
@@ -624,7 +624,7 @@ func TestAddeBPFPrograms(t *testing.T) {
 				hostName: "l3af-local-test",
 				ifaces:   map[string]string{},
 				hostConfig: &config.Config{
-					L3afConfigStoreFileName: "/etc/l3afd/l3af-config.json",
+					L3afConfigStoreFileName: "../testdata/Test_l3af-config.json",
 				},
 			},
 			arg: []models.L3afBPFPrograms{
@@ -663,7 +663,7 @@ func TestAddeBPFPrograms(t *testing.T) {
 				egressTCBpfs:   map[string]*list.List{"fakeif0": nil},
 				ifaces:         map[string]string{},
 				hostConfig: &config.Config{
-					L3afConfigStoreFileName: "/etc/l3afd/l3af-config.json",
+					L3afConfigStoreFileName: "../testdata/Test_l3af-config.json",
 				},
 			},
 			arg: []models.L3afBPFPrograms{
@@ -820,7 +820,7 @@ func TestDeleteEbpfPrograms(t *testing.T) {
 				hostName: "l3af-prod",
 				ifaces:   map[string]string{},
 				hostConfig: &config.Config{
-					L3afConfigStoreFileName: "/etc/l3afd/l3af-config.json",
+					L3afConfigStoreFileName: "../testdata/Test_l3af-config.json",
 				},
 			},
 			arg: []models.DeleteApiValues{
@@ -842,7 +842,7 @@ func TestDeleteEbpfPrograms(t *testing.T) {
 				hostName: "l3af-local-test",
 				ifaces:   map[string]string{},
 				hostConfig: &config.Config{
-					L3afConfigStoreFileName: "/etc/l3afd/l3af-config.json",
+					L3afConfigStoreFileName: "../testdata/Test_l3af-config.json",
 				},
 			},
 			arg: []models.DeleteApiValues{
@@ -864,7 +864,7 @@ func TestDeleteEbpfPrograms(t *testing.T) {
 				hostName: "l3af-local-test",
 				ifaces:   map[string]string{},
 				hostConfig: &config.Config{
-					L3afConfigStoreFileName: "/etc/l3afd/l3af-config.json",
+					L3afConfigStoreFileName: "../testdata/Test_l3af-config.json",
 				},
 			},
 			arg: []models.DeleteApiValues{
@@ -891,7 +891,7 @@ func TestDeleteEbpfPrograms(t *testing.T) {
 				egressTCBpfs:   map[string]*list.List{"fakeif0": nil},
 				ifaces:         map[string]string{},
 				hostConfig: &config.Config{
-					L3afConfigStoreFileName: "/etc/l3afd/l3af-config.json",
+					L3afConfigStoreFileName: "../testdata/Test_l3af-config.json",
 				},
 			},
 			arg: []models.DeleteApiValues{
