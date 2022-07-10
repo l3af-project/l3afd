@@ -54,14 +54,12 @@ type BPF struct {
 	Cmd            *exec.Cmd
 	FilePath       string                    // Binary file path
 	RestartCount   int                       // To track restart count
-	LogDir         string                    // Log dir for the BPF program
 	PrevMapName    string                    // Map name to link
 	ProgID         int                       // eBPF Program ID
 	BpfMaps        map[string]BPFMap         // Config maps passed as map-args, Map name is Key
 	MetricsBpfMaps map[string]*MetricsBPFMap // Metrics map name+key+aggregator is key
 	Ctx            context.Context
 	Done           chan bool `json:"-"`
-	DataCenter     string
 	hostConfig     *config.Config
 }
 
@@ -71,12 +69,10 @@ func NewBpfProgram(ctx context.Context, program models.BPFProgram, conf *config.
 		RestartCount:   0,
 		Cmd:            nil,
 		FilePath:       "",
-		LogDir:         conf.BPFLogDir,
 		BpfMaps:        make(map[string]BPFMap, 0),
 		MetricsBpfMaps: make(map[string]*MetricsBPFMap, 0),
 		Ctx:            ctx,
 		Done:           nil,
-		DataCenter:     conf.DataCenter,
 		hostConfig:     conf,
 	}
 	return bpf
@@ -110,7 +106,6 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 			RestartCount: 0,
 			Cmd:          nil,
 			FilePath:     "",
-			LogDir:       "",
 			PrevMapName:  "",
 			hostConfig:   conf,
 		}
@@ -133,7 +128,6 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 			RestartCount: 0,
 			Cmd:          nil,
 			FilePath:     "",
-			LogDir:       "",
 			PrevMapName:  "",
 			hostConfig:   conf,
 		}
@@ -348,8 +342,8 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		}
 	}
 
-	if len(b.LogDir) > 1 {
-		args = append(args, "--log-dir="+b.LogDir)
+	if len(b.hostConfig.BPFLogDir) > 1 {
+		args = append(args, "--log-dir="+b.hostConfig.BPFLogDir)
 	}
 
 	if len(b.Program.RulesFile) > 1 && len(b.Program.Rules) > 1 {

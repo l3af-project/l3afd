@@ -101,8 +101,6 @@ func TestNewBpfProgram(t *testing.T) {
 				MetricsBpfMaps: make(map[string]*MetricsBPFMap, 0),
 				Ctx:            nil,
 				Done:           nil,
-				LogDir:         "",
-				DataCenter:     "localdc",
 				hostConfig: &config.Config{
 					BPFLogDir:  "",
 					DataCenter: "localdc",
@@ -219,6 +217,7 @@ func TestBPF_Start(t *testing.T) {
 		FilePath     string
 		RestartCount int
 		ifaceName    string
+		hostConfig   *config.Config
 	}
 	tests := []struct {
 		name    string
@@ -231,6 +230,9 @@ func TestBPF_Start(t *testing.T) {
 				Cmd:          nil,
 				FilePath:     "",
 				RestartCount: 0,
+				hostConfig: &config.Config{
+					BPFLogDir: "",
+				},
 			},
 			wantErr: true,
 		},
@@ -247,6 +249,9 @@ func TestBPF_Start(t *testing.T) {
 				Cmd:          nil,
 				FilePath:     GetTestExecutablePath(),
 				RestartCount: 0,
+				hostConfig: &config.Config{
+					BPFLogDir: "",
+				},
 			},
 			wantErr: false,
 		},
@@ -263,6 +268,9 @@ func TestBPF_Start(t *testing.T) {
 				Cmd:          fakeExecCommand(GetTestExecutablePathName()),
 				FilePath:     GetTestExecutablePath(),
 				RestartCount: 0,
+				hostConfig: &config.Config{
+					BPFLogDir: "",
+				},
 			},
 			wantErr: true,
 		},
@@ -281,6 +289,9 @@ func TestBPF_Start(t *testing.T) {
 				Cmd:          fakeExecCommand(GetTestExecutablePathName()),
 				FilePath:     GetTestExecutablePath(),
 				RestartCount: 0,
+				hostConfig: &config.Config{
+					BPFLogDir: "",
+				},
 			},
 			wantErr: false,
 		},
@@ -292,6 +303,7 @@ func TestBPF_Start(t *testing.T) {
 				Cmd:          tt.fields.Cmd,
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
+				hostConfig:   tt.fields.hostConfig,
 			}
 			if err := b.Start(tt.fields.ifaceName, models.IngressType, true); (err != nil) != tt.wantErr {
 				t.Errorf("BPF.Start() error = %v, wantErr %v", err, tt.wantErr)
