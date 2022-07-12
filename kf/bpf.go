@@ -953,7 +953,7 @@ func (b *BPF) VerifyPinnedMapExists(chain bool) error {
 		}
 		for i := 0; i < 10; i++ {
 			if _, err = os.Stat(path); err == nil {
-				log.Info().Msgf("VerifyPinnedMapExists : map file created %s", b.MapFullPath())
+				log.Info().Msgf("VerifyPinnedMapExists : map file created %s", path)
 				return nil
 			}
 			log.Warn().Msgf("failed to find pinned file, checking again after a second ... ")
@@ -961,7 +961,7 @@ func (b *BPF) VerifyPinnedMapExists(chain bool) error {
 		}
 
 		if err != nil {
-			err = fmt.Errorf("failed to find pinned file %s err %v", b.MapFullPath(), err)
+			err = fmt.Errorf("failed to find pinned file %s err %v", path, err)
 			log.Error().Err(err).Msg("")
 			return err
 		}
@@ -985,7 +985,7 @@ func (b *BPF) VerifyPinnedMapVanish(chain bool) error {
 	}
 	for i := 0; i < 10; i++ {
 		if _, err = os.Stat(path); os.IsNotExist(err) {
-			log.Info().Msgf("VerifyPinnedMapVanish : map file removed successfully - %s ", b.MapFullPath())
+			log.Info().Msgf("VerifyPinnedMapVanish : map file removed successfully - %s ", path)
 			return nil
 		} else if err != nil {
 			log.Warn().Err(err).Msg("VerifyPinnedMapVanish: Error checking for map file")
@@ -995,7 +995,7 @@ func (b *BPF) VerifyPinnedMapVanish(chain bool) error {
 		time.Sleep(1 * time.Second)
 	}
 
-	err = fmt.Errorf("%s map file was never removed by BPF program %s err %v", b.MapFullPath(), b.Program.Name, err)
+	err = fmt.Errorf("%s map file was never removed by BPF program %s err %v", path, b.Program.Name, err)
 	log.Error().Err(err).Msg("")
 	return err
 }
