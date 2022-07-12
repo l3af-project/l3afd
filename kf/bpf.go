@@ -193,7 +193,7 @@ func StopExternalRunningProcess(processName string) error {
 					err = osProcess.Kill()
 				}
 				if err != nil {
-					return fmt.Errorf("external BPFProgram stop failed with error: %w", err)
+					return fmt.Errorf("external BPFProgram stop failed with error: %v", err)
 				}
 			}
 		}
@@ -239,7 +239,7 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 
 	if len(b.Program.CmdStop) < 1 {
 		if err := b.ProcessTerminate(); err != nil {
-			return fmt.Errorf("BPFProgram %s process terminate failed with error: %w", b.Program.Name, err)
+			return fmt.Errorf("BPFProgram %s process terminate failed with error: %v", b.Program.Name, err)
 		}
 		if b.Cmd != nil {
 			if err := b.Cmd.Wait(); err != nil {
@@ -266,7 +266,7 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	cmd := filepath.Join(b.FilePath, b.Program.CmdStop)
 
 	if err := assertExecutable(cmd); err != nil {
-		return fmt.Errorf("no executable permissions on %s - error %w", b.Program.CmdStop, err)
+		return fmt.Errorf("no executable permissions on %s - error %v", b.Program.CmdStop, err)
 	}
 
 	args := make([]string, 0, len(b.Program.StopArgs)<<1)
@@ -316,13 +316,13 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	}
 
 	if err := StopExternalRunningProcess(b.Program.CmdStart); err != nil {
-		return fmt.Errorf("failed to stop external instance of the program %s with error : %w", b.Program.CmdStart, err)
+		return fmt.Errorf("failed to stop external instance of the program %s with error : %v", b.Program.CmdStart, err)
 	}
 
 	cmd := filepath.Join(b.FilePath, b.Program.CmdStart)
 	// Validate
 	if err := assertExecutable(cmd); err != nil {
-		return fmt.Errorf("no executable permissions on %s - error %w", b.Program.CmdStart, err)
+		return fmt.Errorf("no executable permissions on %s - error %v", b.Program.CmdStart, err)
 	}
 
 	// Making sure old map entry is removed before passing the prog fd map to the program.
@@ -372,12 +372,12 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	if !b.Program.UserProgramDaemon {
 		log.Info().Msgf("no user mode BPF program - %s No Pid", b.Program.Name)
 		if err := b.Cmd.Wait(); err != nil {
-			return fmt.Errorf("cmd wait at starting of bpf program returned with error %w", err)
+			return fmt.Errorf("cmd wait at starting of bpf program returned with error %v", err)
 		}
 		b.Cmd = nil
 
 		if err := b.VerifyPinnedMapExists(chain); err != nil {
-			return fmt.Errorf("no userprogram and failed to find pinned file %s, %w", b.MapFullPath(), err)
+			return fmt.Errorf("no userprogram and failed to find pinned file %s, %v", b.MapFullPath(), err)
 		}
 		return nil
 	}
@@ -385,18 +385,18 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	isRunning, err := b.isRunning()
 	if !isRunning {
 		log.Error().Err(err).Msg("eBPF program failed to start")
-		return fmt.Errorf("bpf program %s failed to start %w", b.Program.Name, err)
+		return fmt.Errorf("bpf program %s failed to start %v", b.Program.Name, err)
 	}
 
 	// making sure program fd map pinned file is created
 	if err := b.VerifyPinnedMapExists(chain); err != nil {
-		return fmt.Errorf("failed to find pinned file %s  %w", b.MapFullPath(), err)
+		return fmt.Errorf("failed to find pinned file %s  %v", b.MapFullPath(), err)
 	}
 
 	if len(b.Program.MapArgs) > 0 {
 		if err := b.Update(ifaceName, direction); err != nil {
 			log.Error().Err(err).Msg("failed to update network functions BPF maps")
-			return fmt.Errorf("failed to update network functions BPF maps %w", err)
+			return fmt.Errorf("failed to update network functions BPF maps %v", err)
 		}
 	}
 
@@ -415,7 +415,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 
 		if err != nil {
 			log.Error().Err(err).Msg("failed to fetch network functions program FD")
-			return fmt.Errorf("failed to fetch network functions program FD %w", err)
+			return fmt.Errorf("failed to fetch network functions program FD %v", err)
 		}
 	}
 
@@ -468,7 +468,7 @@ func (b *BPF) isRunning() (bool, error) {
 		cmd := filepath.Join(b.FilePath, b.Program.CmdStatus)
 
 		if err := assertExecutable(cmd); err != nil {
-			return false, fmt.Errorf("failed to execute %s with error: %w", b.Program.CmdStatus, err)
+			return false, fmt.Errorf("failed to execute %s with error: %v", b.Program.CmdStatus, err)
 		}
 
 		args := make([]string, 0, len(b.Program.StatusArgs)<<1)
@@ -537,9 +537,9 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 	URL, err := url.Parse(RepoURL)
 	if err != nil {
 		if isDefaultURLUsed {
-			return fmt.Errorf("unknown kf-repo format : %w", err)
+			return fmt.Errorf("unknown kf-repo format : %v", err)
 		} else {
-			return fmt.Errorf("unknown ebpf_package_repo_url format : %w", err)
+			return fmt.Errorf("unknown ebpf_package_repo_url format : %v", err)
 		}
 	}
 
@@ -548,7 +548,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 		{
 			platform, err := GetPlatform()
 			if err != nil {
-				return fmt.Errorf("failed to identify platform type: %w", err)
+				return fmt.Errorf("failed to identify platform type: %v", err)
 			}
 
 			URL.Path = path.Join(URL.Path, b.Program.Name, b.Program.Version, platform, b.Program.Artifact)
@@ -563,7 +563,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 			// Get the data
 			resp, err := client.Get(URL.String())
 			if err != nil {
-				return fmt.Errorf("download failed: %w", err)
+				return fmt.Errorf("download failed: %v", err)
 			}
 			defer resp.Body.Close()
 
@@ -579,7 +579,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 			if fileExists(URL.Path) {
 				f, err := os.Open(URL.Path)
 				if err != nil {
-					return fmt.Errorf("opening err : %w", err)
+					return fmt.Errorf("opening err : %v", err)
 				}
 
 				buf.ReadFrom(f)
@@ -596,7 +596,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 			c := bytes.NewReader(buf.Bytes())
 			zipReader, err := zip.NewReader(c, int64(c.Len()))
 			if err != nil {
-				return fmt.Errorf("failed to create zip reader: %w", err)
+				return fmt.Errorf("failed to create zip reader: %v", err)
 			}
 			tempDir := filepath.Join(conf.BPFDir, b.Program.Name, b.Program.Version)
 
@@ -604,7 +604,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 
 				zippedFile, err := file.Open()
 				if err != nil {
-					return fmt.Errorf("unzip failed: %w", err)
+					return fmt.Errorf("unzip failed: %v", err)
 				}
 				defer zippedFile.Close()
 
@@ -622,14 +622,14 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 						file.Mode(),
 					)
 					if err != nil {
-						return fmt.Errorf("unzip failed to create file: %w", err)
+						return fmt.Errorf("unzip failed to create file: %v", err)
 					}
 					defer outputFile.Close()
 
 					buf := copyBufPool.Get().(*bytes.Buffer)
 					_, err = io.CopyBuffer(outputFile, zippedFile, buf.Bytes())
 					if err != nil {
-						return fmt.Errorf("GetArtifacts failed to copy files: %w", err)
+						return fmt.Errorf("GetArtifacts failed to copy files: %v", err)
 					}
 					copyBufPool.Put(buf)
 				}
@@ -642,7 +642,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 		{
 			archive, err := gzip.NewReader(buf)
 			if err != nil {
-				return fmt.Errorf("failed to create Gzip reader: %w", err)
+				return fmt.Errorf("failed to create Gzip reader: %v", err)
 			}
 			defer archive.Close()
 			tarReader := tar.NewReader(archive)
@@ -654,7 +654,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 				if err == io.EOF {
 					break
 				} else if err != nil {
-					return fmt.Errorf("untar failed: %w", err)
+					return fmt.Errorf("untar failed: %v", err)
 				}
 
 				fPath, err := ValidatePath(header.Name, tempDir)
@@ -665,21 +665,21 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 				info := header.FileInfo()
 				if info.IsDir() {
 					if err = os.MkdirAll(fPath, info.Mode()); err != nil {
-						return fmt.Errorf("untar failed to create directories: %w", err)
+						return fmt.Errorf("untar failed to create directories: %v", err)
 					}
 					continue
 				}
 
 				file, err := os.OpenFile(fPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, info.Mode())
 				if err != nil {
-					return fmt.Errorf("untar failed to create file: %w", err)
+					return fmt.Errorf("untar failed to create file: %v", err)
 				}
 				defer file.Close()
 
 				buf := copyBufPool.Get().(*bytes.Buffer)
 				_, err = io.CopyBuffer(file, tarReader, buf.Bytes())
 				if err != nil {
-					return fmt.Errorf("GetArtifacts failed to copy files: %w", err)
+					return fmt.Errorf("GetArtifacts failed to copy files: %v", err)
 				}
 				copyBufPool.Put(buf)
 			}
@@ -702,7 +702,7 @@ func (b *BPF) createUpdateRulesFile(direction string) (string, error) {
 	fileName := path.Join(b.FilePath, direction, b.Program.RulesFile)
 
 	if err := ioutil.WriteFile(fileName, []byte(b.Program.Rules), 0644); err != nil {
-		return "", fmt.Errorf("create or Update Rules File failed with error %w", err)
+		return "", fmt.Errorf("create or Update Rules File failed with error %v", err)
 	}
 
 	return fileName, nil
@@ -886,7 +886,7 @@ func (b *BPF) GetProgID() (int, error) {
 
 	if err = ebpfMap.Lookup(unsafe.Pointer(&key), unsafe.Pointer(&value)); err != nil {
 		log.Warn().Err(err).Msgf("unable to lookup prog map %s", b.PrevMapName)
-		return 0, fmt.Errorf("unable to lookup prog map %w", err)
+		return 0, fmt.Errorf("unable to lookup prog map %v", err)
 	}
 
 	// verify progID before storing in locally.
@@ -961,7 +961,7 @@ func (b *BPF) VerifyPinnedMapExists(chain bool) error {
 		}
 
 		if err != nil {
-			err = fmt.Errorf("failed to find pinned file %s err %w", b.MapFullPath(), err)
+			err = fmt.Errorf("failed to find pinned file %s err %v", b.MapFullPath(), err)
 			log.Error().Err(err).Msg("")
 			return err
 		}
@@ -995,7 +995,7 @@ func (b *BPF) VerifyPinnedMapVanish(chain bool) error {
 		time.Sleep(1 * time.Second)
 	}
 
-	err = fmt.Errorf("%s map file was never removed by BPF program %s err %w", b.MapFullPath(), b.Program.Name, err)
+	err = fmt.Errorf("%s map file was never removed by BPF program %s err %v", b.MapFullPath(), b.Program.Name, err)
 	log.Error().Err(err).Msg("")
 	return err
 }

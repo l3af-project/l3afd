@@ -31,7 +31,7 @@ func GetTestExecutableName() string {
 func assertExecutable(fPath string) error {
 	info, err := os.Stat(fPath)
 	if err != nil {
-		return fmt.Errorf("could not stat file: %s with error: %w", fPath, err)
+		return fmt.Errorf("could not stat file: %s with error: %v", fPath, err)
 	}
 
 	if (info.Mode()&os.ModePerm)&os.FileMode(executePerm) == 0 {
