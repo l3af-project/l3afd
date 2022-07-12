@@ -59,7 +59,7 @@ func NewNFConfigs(ctx context.Context, host string, hostConf *config.Config, pMo
 
 	var err error
 	if nfConfigs.hostInterfaces, err = getHostInterfaces(); err != nil {
-		errOut := fmt.Errorf("%s failed to get network interfaces %w", host, err)
+		errOut := fmt.Errorf("%s failed to get network interfaces %v", host, err)
 		log.Error().Err(errOut)
 		return nil, errOut
 	}
@@ -141,14 +141,14 @@ func (c *NFConfigs) VerifyAndStartXDPRootProgram(ifaceName, direction string) er
 
 	if c.IngressXDPBpfs[ifaceName].Len() == 0 {
 		if err := DisableLRO(ifaceName); err != nil {
-			return fmt.Errorf("failed to disable lro %w", err)
+			return fmt.Errorf("failed to disable lro %v", err)
 		}
 		if err := VerifyNMountBPFFS(); err != nil {
 			return fmt.Errorf("failed to mount bpf file system")
 		}
 		rootBpf, err := LoadRootProgram(ifaceName, direction, models.XDPType, c.hostConfig)
 		if err != nil {
-			return fmt.Errorf("failed to load %s xdp root program: %w", direction, err)
+			return fmt.Errorf("failed to load %s xdp root program: %v", direction, err)
 		}
 		log.Info().Msg("ingress xdp root program attached")
 		c.IngressXDPBpfs[ifaceName].PushFront(rootBpf)
@@ -169,7 +169,7 @@ func (c *NFConfigs) VerifyAndStartTCRootProgram(ifaceName, direction string) err
 		if c.IngressTCBpfs[ifaceName].Len() == 0 { //Root program is not running start then
 			rootBpf, err := LoadRootProgram(ifaceName, direction, models.TCType, c.hostConfig)
 			if err != nil {
-				return fmt.Errorf("failed to load %s tc root program: %w", direction, err)
+				return fmt.Errorf("failed to load %s tc root program: %v", direction, err)
 			}
 			log.Info().Msg("ingress tc root program attached")
 			c.IngressTCBpfs[ifaceName].PushFront(rootBpf)
@@ -178,7 +178,7 @@ func (c *NFConfigs) VerifyAndStartTCRootProgram(ifaceName, direction string) err
 		if c.EgressTCBpfs[ifaceName].Len() == 0 { //Root program is not running start then
 			rootBpf, err := LoadRootProgram(ifaceName, direction, models.TCType, c.hostConfig)
 			if err != nil {
-				return fmt.Errorf("failed to load %s tc root program: %w", direction, err)
+				return fmt.Errorf("failed to load %s tc root program: %v", direction, err)
 			}
 			log.Info().Msg("egress tc root program attached")
 			c.EgressTCBpfs[ifaceName].PushFront(rootBpf)
@@ -228,11 +228,11 @@ func (c *NFConfigs) DownloadAndStartBPFProgram(element *list.Element, ifaceName,
 	}
 
 	if err := bpf.VerifyAndGetArtifacts(c.hostConfig); err != nil {
-		return fmt.Errorf("failed to get artifacts %s with error: %w", bpf.Program.Artifact, err)
+		return fmt.Errorf("failed to get artifacts %s with error: %v", bpf.Program.Artifact, err)
 	}
 
 	if err := bpf.Start(ifaceName, direction, c.hostConfig.BpfChainingEnabled); err != nil {
-		return fmt.Errorf("failed to start bpf program %s with error: %w", bpf.Program.Name, err)
+		return fmt.Errorf("failed to start bpf program %s with error: %v", bpf.Program.Name, err)
 	}
 
 	return nil
@@ -323,7 +323,7 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 			if tmpNextBPF != nil && tmpNextBPF.Prev() != nil { // relink the next element
 				if err := c.LinkBPFPrograms(tmpNextBPF.Prev().Value.(*BPF), tmpNextBPF.Value.(*BPF)); err != nil {
 					log.Error().Err(err).Msg("admin status disabled - failed LinkBPFPrograms")
-					return fmt.Errorf("admin status disabled - failed LinkBPFPrograms %w", err)
+					return fmt.Errorf("admin status disabled - failed LinkBPFPrograms %v", err)
 				}
 			}
 
@@ -435,12 +435,12 @@ func (c *NFConfigs) MoveToLocation(element *list.Element, bpfList *list.List) er
 			if element.Next() != nil && element.Prev() != nil {
 				if err := c.LinkBPFPrograms(element.Prev().Value.(*BPF), element.Next().Value.(*BPF)); err != nil {
 					log.Error().Err(err).Msg("MoveToLocation - failed LinkBPFPrograms before move")
-					return fmt.Errorf("MoveToLocation - failed LinkBPFPrograms before move %w", err)
+					return fmt.Errorf("MoveToLocation - failed LinkBPFPrograms before move %v", err)
 				}
 			} else if element.Next() == nil && element.Prev() != nil {
 				if err := element.Prev().Value.(*BPF).RemoveNextProgFD(); err != nil {
 					log.Error().Err(err).Msg("failed to remove program fd in map")
-					return fmt.Errorf("failed to remove program fd in map %w", err)
+					return fmt.Errorf("failed to remove program fd in map %v", err)
 				}
 			}
 
@@ -448,13 +448,13 @@ func (c *NFConfigs) MoveToLocation(element *list.Element, bpfList *list.List) er
 
 			if err := c.LinkBPFPrograms(element.Prev().Value.(*BPF), element.Value.(*BPF)); err != nil {
 				log.Error().Err(err).Msg("MoveToLocation - failed LinkBPFPrograms after move element to with prev prog")
-				return fmt.Errorf("MoveToLocation - failed LinkBPFPrograms after move element to with prev prog %w", err)
+				return fmt.Errorf("MoveToLocation - failed LinkBPFPrograms after move element to with prev prog %v", err)
 			}
 
 			if element.Next() != nil {
 				if err := c.LinkBPFPrograms(element.Value.(*BPF), element.Next().Value.(*BPF)); err != nil {
 					log.Error().Err(err).Msg("MoveToLocation - failed LinkBPFPrograms after move element to with next prog")
-					return fmt.Errorf("MoveToLocation - failed LinkBPFPrograms after move element to with next prog %w", err)
+					return fmt.Errorf("MoveToLocation - failed LinkBPFPrograms after move element to with next prog %v", err)
 				}
 			}
 			log.Info().Msgf("MoveToLocation : Moved - %s", element.Value.(*BPF).Program.Name)
@@ -466,7 +466,7 @@ func (c *NFConfigs) MoveToLocation(element *list.Element, bpfList *list.List) er
 	if element.Next() != nil && element.Prev() != nil {
 		if err := c.LinkBPFPrograms(element.Prev().Value.(*BPF), element.Next().Value.(*BPF)); err != nil {
 			log.Error().Err(err).Msg("MoveToLocation - failed LinkBPFPrograms before MoveToBack element to with prev prog")
-			return fmt.Errorf("MoveToLocation - failed LinkBPFPrograms before MoveToBack element to with prev prog %w", err)
+			return fmt.Errorf("MoveToLocation - failed LinkBPFPrograms before MoveToBack element to with prev prog %v", err)
 		}
 	}
 
@@ -474,14 +474,14 @@ func (c *NFConfigs) MoveToLocation(element *list.Element, bpfList *list.List) er
 	if element.Prev() != nil {
 		if err := c.LinkBPFPrograms(element.Prev().Value.(*BPF), element.Value.(*BPF)); err != nil {
 			log.Error().Err(err).Msg("MoveToLocation - failed LinkBPFPrograms after MoveToBack element to with prev prog")
-			return fmt.Errorf("MoveToLocation - failed LinkBPFPrograms after MoveToBack element to with prev prog %w", err)
+			return fmt.Errorf("MoveToLocation - failed LinkBPFPrograms after MoveToBack element to with prev prog %v", err)
 		}
 	}
 
 	if element.Next() == nil {
 		if err := element.Value.(*BPF).RemoveNextProgFD(); err != nil {
 			log.Error().Err(err).Msg("failed to remove MoveToBack program fd in map")
-			return fmt.Errorf("failed to remove MoveToBack program fd in map %w", err)
+			return fmt.Errorf("failed to remove MoveToBack program fd in map %v", err)
 		}
 	}
 
@@ -530,7 +530,7 @@ func (c *NFConfigs) InsertAndStartBPFProgram(bpfProg *models.BPFProgram, ifaceNa
 			if tmpBPF.Next() != nil {
 				if err := c.LinkBPFPrograms(tmpBPF.Value.(*BPF), tmpBPF.Next().Value.(*BPF)); err != nil {
 					log.Error().Err(err).Msg("InsertAndStartBPFProgram - failed LinkBPFPrograms after InsertBefore element to with next prog")
-					return fmt.Errorf("InsertAndStartBPFProgram - failed LinkBPFPrograms after InsertBefore element to with next prog %w", err)
+					return fmt.Errorf("InsertAndStartBPFProgram - failed LinkBPFPrograms after InsertBefore element to with next prog %v", err)
 				}
 			}
 			return nil
@@ -593,7 +593,7 @@ func (c *NFConfigs) LinkBPFPrograms(leftBPF, rightBPF *BPF) error {
 	rightBPF.PrevMapName = leftBPF.Program.MapName
 	if err := leftBPF.PutNextProgFDFromID(rightBPF.ProgID); err != nil {
 		log.Error().Err(err).Msgf("LinkBPFPrograms - failed to update program fd in prev prog map before move")
-		return fmt.Errorf("LinkBPFPrograms - failed to update program fd in prev prog prog map before move %w", err)
+		return fmt.Errorf("LinkBPFPrograms - failed to update program fd in prev prog prog map before move %v", err)
 	}
 	return nil
 }
@@ -651,15 +651,15 @@ func (c *NFConfigs) Deploy(ifaceName, hostName string, bpfProgs *models.BPFProgr
 				c.IngressXDPBpfs[ifaceName] = list.New()
 				if err := c.VerifyAndStartXDPRootProgram(ifaceName, models.XDPIngressType); err != nil {
 					c.IngressXDPBpfs[ifaceName] = nil
-					return fmt.Errorf("failed to chain XDP BPF programs: %w", err)
+					return fmt.Errorf("failed to chain XDP BPF programs: %v", err)
 				}
 				log.Info().Msgf("Push Back and Start XDP program : %s seq_id : %d", bpfProg.Name, bpfProg.SeqID)
 				if err := c.PushBackAndStartBPF(bpfProg, ifaceName, models.XDPIngressType); err != nil {
-					return fmt.Errorf("failed to update BPF Program: %w", err)
+					return fmt.Errorf("failed to update BPF Program: %v", err)
 				}
 			}
 		} else if err := c.VerifyNUpdateBPFProgram(bpfProg, ifaceName, models.XDPIngressType); err != nil {
-			return fmt.Errorf("failed to update xdp BPF Program: %w", err)
+			return fmt.Errorf("failed to update xdp BPF Program: %v", err)
 		}
 	}
 
@@ -669,14 +669,14 @@ func (c *NFConfigs) Deploy(ifaceName, hostName string, bpfProgs *models.BPFProgr
 				c.IngressTCBpfs[ifaceName] = list.New()
 				if err := c.VerifyAndStartTCRootProgram(ifaceName, models.IngressType); err != nil {
 					c.IngressTCBpfs[ifaceName] = nil
-					return fmt.Errorf("failed to chain ingress tc bpf programs: %w", err)
+					return fmt.Errorf("failed to chain ingress tc bpf programs: %v", err)
 				}
 				if err := c.PushBackAndStartBPF(bpfProg, ifaceName, models.IngressType); err != nil {
-					return fmt.Errorf("failed to update BPF Program: %w", err)
+					return fmt.Errorf("failed to update BPF Program: %v", err)
 				}
 			}
 		} else if err := c.VerifyNUpdateBPFProgram(bpfProg, ifaceName, models.IngressType); err != nil {
-			return fmt.Errorf("failed to update BPF Program: %w", err)
+			return fmt.Errorf("failed to update BPF Program: %v", err)
 		}
 	}
 
@@ -686,14 +686,14 @@ func (c *NFConfigs) Deploy(ifaceName, hostName string, bpfProgs *models.BPFProgr
 				c.EgressTCBpfs[ifaceName] = list.New()
 				if err := c.VerifyAndStartTCRootProgram(ifaceName, models.EgressType); err != nil {
 					c.EgressTCBpfs[ifaceName] = nil
-					return fmt.Errorf("failed to chain ingress tc bpf programs: %w", err)
+					return fmt.Errorf("failed to chain ingress tc bpf programs: %v", err)
 				}
 				if err := c.PushBackAndStartBPF(bpfProg, ifaceName, models.EgressType); err != nil {
-					return fmt.Errorf("failed to update BPF Program: %w", err)
+					return fmt.Errorf("failed to update BPF Program: %v", err)
 				}
 			}
 		} else if err := c.VerifyNUpdateBPFProgram(bpfProg, ifaceName, models.EgressType); err != nil {
-			return fmt.Errorf("failed to update BPF Program: %w", err)
+			return fmt.Errorf("failed to update BPF Program: %v", err)
 		}
 	}
 
@@ -705,9 +705,9 @@ func (c *NFConfigs) DeployeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error 
 	for _, bpfProg := range bpfProgs {
 		if err := c.Deploy(bpfProg.Iface, bpfProg.HostName, bpfProg.BpfPrograms); err != nil {
 			if err := c.SaveConfigsToConfigStore(); err != nil {
-				return fmt.Errorf("deploy eBPF Programs failed to save configs %w", err)
+				return fmt.Errorf("deploy eBPF Programs failed to save configs %v", err)
 			}
-			return fmt.Errorf("failed to deploy BPF program on iface %s with error: %w", bpfProg.Iface, err)
+			return fmt.Errorf("failed to deploy BPF program on iface %s with error: %v", bpfProg.Iface, err)
 		}
 		c.ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
 	}
@@ -716,7 +716,7 @@ func (c *NFConfigs) DeployeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error 
 		log.Warn().Err(err).Msgf("Remove missing interfaces and BPF programs in the config failed with error ")
 	}
 	if err := c.SaveConfigsToConfigStore(); err != nil {
-		return fmt.Errorf("deploy eBPF Programs failed to save configs %w", err)
+		return fmt.Errorf("deploy eBPF Programs failed to save configs %v", err)
 	}
 	return nil
 }
@@ -735,12 +735,12 @@ func (c *NFConfigs) SaveConfigsToConfigStore() error {
 	file, err := json.MarshalIndent(bpfProgs, "", " ")
 	if err != nil {
 		log.Error().Err(err).Msgf("failed to marshal configs to save")
-		return fmt.Errorf("failed to marshal configs %w", err)
+		return fmt.Errorf("failed to marshal configs %v", err)
 	}
 
 	if err = ioutil.WriteFile(c.hostConfig.L3afConfigStoreFileName, file, 0644); err != nil {
 		log.Error().Err(err).Msgf("failed write to file operation")
-		return fmt.Errorf("failed to save configs %w", err)
+		return fmt.Errorf("failed to save configs %v", err)
 	}
 
 	return nil
@@ -910,7 +910,7 @@ func (c *NFConfigs) RemoveMissingBPFProgramsInConfig(bpfProg models.L3afBPFProgr
 			if tmpNextBPF != nil && tmpNextBPF.Prev() != nil { // relink the next element
 				if err := c.LinkBPFPrograms(tmpNextBPF.Prev().Value.(*BPF), tmpNextBPF.Value.(*BPF)); err != nil {
 					log.Error().Err(err).Msgf("missing config - failed LinkBPFPrograms")
-					return fmt.Errorf("missing config - failed LinkBPFPrograms %w", err)
+					return fmt.Errorf("missing config - failed LinkBPFPrograms %v", err)
 				}
 			}
 			// Check if list contains root program only then stop the root program.
@@ -931,7 +931,7 @@ func getHostInterfaces() (map[string]bool, error) {
 	var hostIfaces = make(map[string]bool, 0)
 	ifaces, err := net.Interfaces()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get net interfaces: %w", err)
+		return nil, fmt.Errorf("failed to get net interfaces: %v", err)
 	}
 
 	for _, iface := range ifaces {
