@@ -338,7 +338,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 
 	if chain {
 		if len(b.PrevMapName) > 1 {
-			args = append(args, "--map-name="+b.PrevMapFullPath())
+			args = append(args, "--map-name="+b.PrevMapName)
 		}
 	}
 
@@ -369,6 +369,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		log.Info().Err(err).Msgf("user mode BPF program failed - %s", b.Program.Name)
 		return fmt.Errorf("failed to start : %s %v", cmd, args)
 	}
+	mapFullPath := b.MapFullPath()
 	if !b.Program.UserProgramDaemon {
 		log.Info().Msgf("no user mode BPF program - %s No Pid", b.Program.Name)
 		if err := b.Cmd.Wait(); err != nil {
@@ -377,7 +378,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		b.Cmd = nil
 
 		if err := b.VerifyPinnedMapExists(chain); err != nil {
-			return fmt.Errorf("no userprogram and failed to find pinned file %s, %v", b.MapFullPath(), err)
+			return fmt.Errorf("no userprogram and failed to find pinned file %s, %v", mapFullPath, err)
 		}
 		return nil
 	}
@@ -390,7 +391,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 
 	// making sure program fd map pinned file is created
 	if err := b.VerifyPinnedMapExists(chain); err != nil {
-		return fmt.Errorf("failed to find pinned file %s  %v", b.MapFullPath(), err)
+		return fmt.Errorf("failed to find pinned file %s  %v", mapFullPath, err)
 	}
 
 	if len(b.Program.MapArgs) > 0 {
@@ -875,7 +876,7 @@ func (b *BPF) PutNextProgFDFromID(progID int) error {
 // GetProgID - This returns ID of the bpf program
 func (b *BPF) GetProgID() (int, error) {
 
-	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapFullPath(), &ebpf.LoadPinOptions{ReadOnly: true})
+	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapName, &ebpf.LoadPinOptions{ReadOnly: true})
 	if err != nil {
 		log.Error().Err(err).Msgf("unable to access pinned prog map %s", b.PrevMapName)
 		return 0, fmt.Errorf("unable to access pinned prog map %s %v", b.PrevMapName, err)
@@ -923,7 +924,7 @@ func (b *BPF) RemoveNextProgFD() error {
 // Delete the entry if the last element
 func (b *BPF) RemovePrevProgFD() error {
 
-	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapFullPath(), nil)
+	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapName, nil)
 	if err != nil {
 		return fmt.Errorf("unable to access pinned prev prog map %s %v", b.PrevMapName, err)
 	}
@@ -1051,10 +1052,6 @@ func (b *BPF) MapFullPath() string {
 	return filepath.Join(b.hostConfig.BpfMapDefaultPath, b.Program.MapName)
 }
 
-// PrevMapFullPath : It returns full absolute path for previous bpf map
-func (b *BPF) PrevMapFullPath() string {
-	return filepath.Join(b.hostConfig.BpfMapDefaultPath, b.PrevMapName)
-}
 func ValidatePath(filePath string, destination string) (string, error) {
 	destpath := filepath.Join(destination, filePath)
 	if strings.Contains(filePath, "..") {
