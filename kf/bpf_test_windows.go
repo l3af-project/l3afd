@@ -32,7 +32,7 @@ func GetTestExecutableName() string {
 func assertExecutable(fPath string) error {
 	_, err := os.Stat(fPath)
 	if err != nil {
-		return fmt.Errorf("could not stat file: %s with error: %w", fPath, err)
+		return fmt.Errorf("could not stat file: %s with error: %v", fPath, err)
 	}
 
 	// info.Mode() does not return the correct permissions on Windows,
