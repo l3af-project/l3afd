@@ -95,12 +95,7 @@ func Test_addprog(t *testing.T) {
 			req.Header.Set(key, val)
 		}
 		rr := httptest.NewRecorder()
-		cfg := &kf.NFConfigs{
-			HostConfig: &config.Config{
-				L3afConfigStoreFileName: filepath.FromSlash("../../testdata/Test_l3af-config.json"),
-			},
-		}
-		handler := AddEbpfPrograms(context.Background(), cfg)
+		handler := AddEbpfPrograms(context.Background(), tt.cfg)
 		handler.ServeHTTP(rr, req)
 		if rr.Code != tt.status {
 			t.Error("AddEbpfPrograms Failed")

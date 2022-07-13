@@ -12,17 +12,15 @@ import (
 	"github.com/l3af-project/l3afd/kf"
 )
 
-const paylaodfordelete string = `[
+const payloadfordelete string = `[
     {
         "host_name": "l3af-local-test",
-        "iface": "mockif0",
+        "iface": "enp0s3",
         "want_to_remove": {
             "xdp_ingress": [
-            ],
-			"tc_ingress":[
-			],
-			"tc_egress":[
-			],
+                "ratelimiting",
+                "connection-limit"
+            ]
         }
     }
 ]
@@ -48,19 +46,6 @@ func Test_DeleteEbpfPrograms(t *testing.T) {
 			},
 		},
 		{
-			name:   "FailedToReadBody",
-			Body:   strings.NewReader(""),
-			status: http.StatusInternalServerError,
-			header: map[string]string{
-				"Content-Length": "1000",
-			},
-			cfg: &kf.NFConfigs{
-				HostConfig: &config.Config{
-					L3afConfigStoreFileName: filepath.FromSlash("../../testdata/Test_l3af-config.json"),
-				},
-			},
-		},
-		{
 			name:   "FailedToUnmarshal",
 			Body:   strings.NewReader("Something"),
 			status: http.StatusInternalServerError,
@@ -73,7 +58,7 @@ func Test_DeleteEbpfPrograms(t *testing.T) {
 		},
 		{
 			name: "EmptyInput",
-			Body: strings.NewReader("[]"),
+			Body: strings.NewReader(`[]`),
 			header: map[string]string{
 				"Content-Type": "application/json",
 			},
@@ -86,7 +71,7 @@ func Test_DeleteEbpfPrograms(t *testing.T) {
 		},
 		{
 			name:   "UnknownHostName",
-			Body:   strings.NewReader(paylaodfordelete),
+			Body:   strings.NewReader(payloadfordelete),
 			status: http.StatusInternalServerError,
 			header: map[string]string{},
 			cfg: &kf.NFConfigs{
@@ -108,12 +93,7 @@ func Test_DeleteEbpfPrograms(t *testing.T) {
 			req.Header.Set(key, val)
 		}
 		rr := httptest.NewRecorder()
-		cfg := &kf.NFConfigs{
-			HostConfig: &config.Config{
-				L3afConfigStoreFileName: filepath.FromSlash("../../testdata/Test_l3af-config.json"),
-			},
-		}
-		handler := DeleteEbpfPrograms(context.Background(), cfg)
+		handler := DeleteEbpfPrograms(context.Background(), tt.cfg)
 		handler.ServeHTTP(rr, req)
 		if rr.Code != tt.status {
 			t.Error("DeleteEbpfPrograms Failed")

@@ -66,12 +66,7 @@ func Test_UpdateConfig(t *testing.T) {
 			req.Header.Set(key, val)
 		}
 		rr := httptest.NewRecorder()
-		cfg := &kf.NFConfigs{
-			HostConfig: &config.Config{
-				L3afConfigStoreFileName: filepath.FromSlash("../../testdata/Test_l3af-config.json"),
-			},
-		}
-		handler := UpdateConfig(context.Background(), cfg)
+		handler := UpdateConfig(context.Background(), tt.cfg)
 		handler.ServeHTTP(rr, req)
 		if rr.Code != tt.status {
 			t.Error("UpdateConfig Failed")
