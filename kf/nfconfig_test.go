@@ -150,12 +150,12 @@ func TestNewNFConfigs(t *testing.T) {
 				hostConf: nil,
 				pMon:     pMon,
 				mMon:     mMon},
-			want: &NFConfigs{hostName: machineHostname,
+			want: &NFConfigs{HostName: machineHostname,
 				hostInterfaces: hostIfaces,
 				IngressXDPBpfs: ingressXDPBpfs,
 				IngressTCBpfs:  ingressTCBpfs,
 				EgressTCBpfs:   egressTCBpfs,
-				hostConfig:     nil,
+				HostConfig:     nil,
 				processMon:     pMon,
 				kfMetricsMon:   mMon,
 				mu:             new(sync.Mutex),
@@ -225,7 +225,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "InvalidHostName",
+			name: "InvalidhostName",
 			fields: fields{
 				hostName:       machineHostname,
 				ingressXDPBpfs: make(map[string]*list.List),
@@ -243,7 +243,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "ValidHostNameInvalidIfaceName",
+			name: "ValidhostNameInvalidIfaceName",
 			fields: fields{
 				hostName:       machineHostname,
 				ingressXDPBpfs: make(map[string]*list.List),
@@ -261,7 +261,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "ValidHostNameValidIfaceName",
+			name: "ValidhostNameValidIfaceName",
 			fields: fields{
 				hostName:       machineHostname,
 				hostInterfaces: map[string]bool{"enp0s3": true},
@@ -340,13 +340,13 @@ func TestNFConfigs_Deploy(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &NFConfigs{
-				hostName: tt.fields.hostName,
+				HostName: tt.fields.hostName,
 				//				configs:    tt.fields.configs,
 				hostInterfaces: tt.fields.hostInterfaces,
 				IngressXDPBpfs: tt.fields.ingressXDPBpfs,
 				IngressTCBpfs:  tt.fields.ingressTCBpfs,
 				EgressTCBpfs:   tt.fields.egressTCBpfs,
-				hostConfig:     tt.fields.hostConfig,
+				HostConfig:     tt.fields.hostConfig,
 				processMon:     tt.fields.processMon,
 				mu:             new(sync.Mutex),
 			}
@@ -387,11 +387,11 @@ func TestNFConfigs_Close(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &NFConfigs{
-				hostName:       tt.fields.hostName,
+				HostName:       tt.fields.hostName,
 				IngressXDPBpfs: tt.fields.ingressXDPBpfs,
 				IngressTCBpfs:  tt.fields.ingressTCBpfs,
 				EgressTCBpfs:   tt.fields.egressTCBpfs,
-				hostConfig:     tt.fields.hostConfig,
+				HostConfig:     tt.fields.hostConfig,
 				processMon:     tt.fields.processMon,
 			}
 			ctx, cancelfunc := context.WithTimeout(context.Background(), 1*time.Second)
@@ -473,7 +473,7 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 		wanterr bool
 	}{
 		{
-			name:    "UnknowHostName",
+			name:    "UnknowhostName",
 			field:   fields{},
 			arg:     args{},
 			wanterr: true,
@@ -540,11 +540,11 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &NFConfigs{
-				hostName:       tt.field.hostName,
+				HostName:       tt.field.hostName,
 				IngressXDPBpfs: tt.field.ingressXDPBpfs,
 				IngressTCBpfs:  tt.field.ingressTCBpfs,
 				EgressTCBpfs:   tt.field.egressTCBpfs,
-				hostConfig:     tt.field.hostConfig,
+				HostConfig:     tt.field.hostConfig,
 				processMon:     tt.field.processMon,
 				hostInterfaces: tt.field.hostInterfaces,
 				mu:             tt.field.mu,
@@ -576,7 +576,7 @@ func TestAddeBPFPrograms(t *testing.T) {
 		wanterr bool
 	}{
 		{
-			name: "UnknowHostName",
+			name: "UnknowhostName",
 			field: fields{
 				hostName: "l3af-prod",
 				ifaces:   map[string]string{},
@@ -683,11 +683,11 @@ func TestAddeBPFPrograms(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &NFConfigs{
-				hostName:       tt.field.hostName,
+				HostName:       tt.field.hostName,
 				IngressXDPBpfs: tt.field.ingressXDPBpfs,
 				IngressTCBpfs:  tt.field.ingressTCBpfs,
 				EgressTCBpfs:   tt.field.egressTCBpfs,
-				hostConfig:     tt.field.hostConfig,
+				HostConfig:     tt.field.hostConfig,
 				processMon:     tt.field.processMon,
 				hostInterfaces: tt.field.hostInterfaces,
 				mu:             tt.field.mu,
@@ -723,7 +723,7 @@ func TestDeleteProgramsOnInterface(t *testing.T) {
 		wanterr bool
 	}{
 		{
-			name:    "UnknownHostName",
+			name:    "UnknownhostName",
 			field:   fields{},
 			arg:     args{},
 			wanterr: true,
@@ -779,11 +779,11 @@ func TestDeleteProgramsOnInterface(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &NFConfigs{
-				hostName:       tt.field.hostName,
+				HostName:       tt.field.hostName,
 				IngressXDPBpfs: tt.field.ingressXDPBpfs,
 				IngressTCBpfs:  tt.field.ingressTCBpfs,
 				EgressTCBpfs:   tt.field.egressTCBpfs,
-				hostConfig:     tt.field.hostConfig,
+				HostConfig:     tt.field.hostConfig,
 				processMon:     tt.field.processMon,
 				hostInterfaces: tt.field.hostInterfaces,
 				mu:             tt.field.mu,
@@ -815,7 +815,7 @@ func TestDeleteEbpfPrograms(t *testing.T) {
 		wanterr bool
 	}{
 		{
-			name: "UnknowHostName",
+			name: "UnknowhostName",
 			field: fields{
 				hostName: "l3af-prod",
 				ifaces:   map[string]string{},
@@ -911,11 +911,11 @@ func TestDeleteEbpfPrograms(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &NFConfigs{
-				hostName:       tt.field.hostName,
+				HostName:       tt.field.hostName,
 				IngressXDPBpfs: tt.field.ingressXDPBpfs,
 				IngressTCBpfs:  tt.field.ingressTCBpfs,
 				EgressTCBpfs:   tt.field.egressTCBpfs,
-				hostConfig:     tt.field.hostConfig,
+				HostConfig:     tt.field.hostConfig,
 				processMon:     tt.field.processMon,
 				hostInterfaces: tt.field.hostInterfaces,
 				mu:             tt.field.mu,

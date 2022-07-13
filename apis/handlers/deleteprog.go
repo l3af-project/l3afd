@@ -41,6 +41,10 @@ func DeleteEbpfPrograms(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFu
 			}
 		}(&mesg, &statusCode)
 
+		if r.Body == nil {
+			log.Warn().Msgf("Empty request body")
+			return
+		}
 		bodyBuffer, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			mesg = fmt.Sprintf("failed to read request body: %v", err)
