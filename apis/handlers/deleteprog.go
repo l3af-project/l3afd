@@ -17,7 +17,7 @@ import (
 	"github.com/l3af-project/l3afd/models"
 )
 
-// DeleteEbpfProgram   remove Ebpf programs on node
+// DeleteEbpfPrograms   remove Ebpf programs on node
 // @Summary removing Ebpf Programs on node
 // @Description remove Ebpf Programs on node
 // @Accept  json
