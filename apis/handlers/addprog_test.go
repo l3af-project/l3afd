@@ -15,7 +15,7 @@ import (
 const dummypayload string = `[
 	{
 	  "host_name" : "l3af-local-test",
-	  "iface" : "mockif0",
+	  "iface" : "fackif0",
 	  "bpf_programs" : {
 		"xdp_ingress" : [
 		],

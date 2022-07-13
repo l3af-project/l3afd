@@ -26,12 +26,12 @@ func Test_GetConfig(t *testing.T) {
 		},
 		{
 			name:   "GoodInput",
-			iface:  "mockif0",
+			iface:  "fackif0",
 			status: http.StatusOK,
 			cfg: &kf.NFConfigs{
-				IngressXDPBpfs: map[string]*list.List{"mockif0": nil},
-				IngressTCBpfs:  map[string]*list.List{"mockif0": nil},
-				EgressTCBpfs:   map[string]*list.List{"mockif0": nil},
+				IngressXDPBpfs: map[string]*list.List{"fackif0": nil},
+				IngressTCBpfs:  map[string]*list.List{"fackif0": nil},
+				EgressTCBpfs:   map[string]*list.List{"fackif0": nil},
 			},
 		},
 	}

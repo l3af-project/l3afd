@@ -38,7 +38,7 @@ var (
 func setupDBTest() {
 	machineHostname, _ = os.Hostname()
 	hostInterfaces = make(map[string]bool)
-	hostInterfaces["enp0s3"] = true
+	hostInterfaces["fackif0"] = true
 	pMon = NewpCheck(3, true, 10)
 	mMon = NewpKFMetrics(true, 30)
 
@@ -265,7 +265,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 			name: "ValidhostNameValidIfaceName",
 			fields: fields{
 				hostName:       machineHostname,
-				hostInterfaces: map[string]bool{"enp0s3": true},
+				hostInterfaces: map[string]bool{"fackif0": true},
 				ingressXDPBpfs: make(map[string]*list.List),
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
@@ -274,7 +274,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    "enp0s3",
+				iface:    "fackif0",
 				hostName: machineHostname,
 				bpfProgs: &models.BPFPrograms{},
 			},
@@ -284,7 +284,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 			name: "TestEBPFRepoDownload",
 			fields: fields{
 				hostName:       machineHostname,
-				hostInterfaces: map[string]bool{"enp0s3": true},
+				hostInterfaces: map[string]bool{"fackif0": true},
 				ingressXDPBpfs: make(map[string]*list.List),
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
@@ -293,7 +293,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    "enp0s3",
+				iface:    "fackif0",
 				hostName: machineHostname,
 				bpfProgs: bpfProgs,
 			},
@@ -303,7 +303,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 			name: "NewBPFWithVersionChange",
 			fields: fields{
 				hostName:       machineHostname,
-				hostInterfaces: map[string]bool{"enp0s3": true},
+				hostInterfaces: map[string]bool{"fackif0": true},
 				ingressXDPBpfs: make(map[string]*list.List),
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
@@ -312,7 +312,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    "enp0s3",
+				iface:    "fackif0",
 				hostName: machineHostname,
 				bpfProgs: valVerChange,
 			},
@@ -322,7 +322,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 			name: "NewBPFWithStatusChange",
 			fields: fields{
 				hostName:       machineHostname,
-				hostInterfaces: map[string]bool{"enp0s3": true},
+				hostInterfaces: map[string]bool{"fackif0": true},
 				ingressXDPBpfs: make(map[string]*list.List),
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
@@ -331,7 +331,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    "enp0s3",
+				iface:    "fackif0",
 				hostName: machineHostname,
 				bpfProgs: valStatusChange,
 			},

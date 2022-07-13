@@ -1113,7 +1113,7 @@ func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfPro
 	return nil
 }
 
-// DeleteProgramOnInterfaceHelper : helper function for DeleteProgramOnInterface function
+// DeleteProgramsOnInterfaceHelper : helper function for DeleteProgramsOnInterface function
 func (c *NFConfigs) DeleteProgramsOnInterfaceHelper(e *list.Element, ifaceName string, direction string, bpfList *list.List) error {
 	if e == nil {
 		return nil
