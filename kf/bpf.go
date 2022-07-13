@@ -50,31 +50,34 @@ const fileScheme string = "file"
 
 // BPF defines run time details for BPFProgram.
 type BPF struct {
-	Program        models.BPFProgram
-	Cmd            *exec.Cmd
-	FilePath       string                    // Binary file path
-	RestartCount   int                       // To track restart count
-	PrevMapName    string                    // Map name to link
-	ProgID         int                       // eBPF Program ID
-	BpfMaps        map[string]BPFMap         // Config maps passed as map-args, Map name is Key
-	MetricsBpfMaps map[string]*MetricsBPFMap // Metrics map name+key+aggregator is key
-	Ctx            context.Context
-	Done           chan bool `json:"-"`
-	hostConfig     *config.Config
+	Program         models.BPFProgram
+	Cmd             *exec.Cmd
+	FilePath        string                    // Binary file path
+	RestartCount    int                       // To track restart count
+	PrevMapName     string                    // Map name to link
+	MapNameWithPath string                    // Map name with full path
+	ProgID          int                       // eBPF Program ID
+	BpfMaps         map[string]BPFMap         // Config maps passed as map-args, Map name is Key
+	MetricsBpfMaps  map[string]*MetricsBPFMap // Metrics map name+key+aggregator is key
+	Ctx             context.Context
+	Done            chan bool `json:"-"`
+	hostConfig      *config.Config
 }
 
 func NewBpfProgram(ctx context.Context, program models.BPFProgram, conf *config.Config) *BPF {
 	bpf := &BPF{
-		Program:        program,
-		RestartCount:   0,
-		Cmd:            nil,
-		FilePath:       "",
-		BpfMaps:        make(map[string]BPFMap, 0),
-		MetricsBpfMaps: make(map[string]*MetricsBPFMap, 0),
-		Ctx:            ctx,
-		Done:           nil,
-		hostConfig:     conf,
+		Program:         program,
+		RestartCount:    0,
+		Cmd:             nil,
+		FilePath:        "",
+		BpfMaps:         make(map[string]BPFMap, 0),
+		MetricsBpfMaps:  make(map[string]*MetricsBPFMap, 0),
+		Ctx:             ctx,
+		Done:            nil,
+		hostConfig:      conf,
+		MapNameWithPath: filepath.Join(conf.BpfMapDefaultPath, program.MapName),
 	}
+
 	return bpf
 }
 
@@ -103,11 +106,12 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 				StopArgs:          map[string]interface{}{},
 				StatusArgs:        map[string]interface{}{},
 			},
-			RestartCount: 0,
-			Cmd:          nil,
-			FilePath:     "",
-			PrevMapName:  "",
-			hostConfig:   conf,
+			RestartCount:    0,
+			Cmd:             nil,
+			FilePath:        "",
+			PrevMapName:     "",
+			hostConfig:      conf,
+			MapNameWithPath: filepath.Join(conf.BpfMapDefaultPath, conf.XDPRootProgramMapName),
 		}
 	case models.TCType:
 		rootProgBPF = &BPF{
@@ -133,8 +137,10 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 		}
 		if direction == models.IngressType {
 			rootProgBPF.Program.MapName = conf.TCRootProgramIngressMapName
+			rootProgBPF.MapNameWithPath = filepath.Join(conf.BpfMapDefaultPath, conf.TCRootProgramIngressMapName)
 		} else if direction == models.EgressType {
 			rootProgBPF.Program.MapName = conf.TCRootProgramEgressMapName
+			rootProgBPF.MapNameWithPath = filepath.Join(conf.BpfMapDefaultPath, conf.TCRootProgramEgressMapName)
 		}
 	default:
 		return nil, fmt.Errorf("unknown direction %s for root program in iface %s", direction, ifaceName)
@@ -151,7 +157,7 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 
 	// On l3afd crashing scenario verify root program are unloaded properly by checking existence of persisted maps
 	// if map file exists then root program is still running
-	if fileExists(rootProgBPF.MapFullPath()) {
+	if fileExists(rootProgBPF.MapNameWithPath) {
 		log.Warn().Msgf("previous instance of root program %s is running, stopping it ", rootProgBPF.Program.Name)
 		if err := rootProgBPF.Stop(ifaceName, direction, conf.BpfChainingEnabled); err != nil {
 			return nil, fmt.Errorf("failed to stop root program on iface %s name %s direction %s", ifaceName, rootProgBPF.Program.Name, direction)
@@ -369,7 +375,6 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		log.Info().Err(err).Msgf("user mode BPF program failed - %s", b.Program.Name)
 		return fmt.Errorf("failed to start : %s %v", cmd, args)
 	}
-	mapFullPath := b.MapFullPath()
 	if !b.Program.UserProgramDaemon {
 		log.Info().Msgf("no user mode BPF program - %s No Pid", b.Program.Name)
 		if err := b.Cmd.Wait(); err != nil {
@@ -378,7 +383,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		b.Cmd = nil
 
 		if err := b.VerifyPinnedMapExists(chain); err != nil {
-			return fmt.Errorf("no userprogram and failed to find pinned file %s, %v", mapFullPath, err)
+			return fmt.Errorf("no userprogram and failed to find pinned file %s, %v", b.MapNameWithPath, err)
 		}
 		return nil
 	}
@@ -391,7 +396,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 
 	// making sure program fd map pinned file is created
 	if err := b.VerifyPinnedMapExists(chain); err != nil {
-		return fmt.Errorf("failed to find pinned file %s  %v", mapFullPath, err)
+		return fmt.Errorf("failed to find pinned file %s  %v", b.MapNameWithPath, err)
 	}
 
 	if len(b.Program.MapArgs) > 0 {
@@ -854,7 +859,7 @@ func (b *BPF) PutNextProgFDFromID(progID int) error {
 	}
 
 	log.Info().Msgf("PutNextProgFDFromID : Map Name %s ID %d", b.Program.MapName, progID)
-	ebpfMap, err := ebpf.LoadPinnedMap(b.MapFullPath(), nil)
+	ebpfMap, err := ebpf.LoadPinnedMap(b.MapNameWithPath, nil)
 	if err != nil {
 		return fmt.Errorf("unable to access pinned next prog map %s %v", b.Program.MapName, err)
 	}
@@ -908,7 +913,7 @@ func (b *BPF) RemoveNextProgFD() error {
 		// no chaining map in case of root programs
 		return nil
 	}
-	ebpfMap, err := ebpf.LoadPinnedMap(b.MapFullPath(), nil)
+	ebpfMap, err := ebpf.LoadPinnedMap(b.MapNameWithPath, nil)
 	if err != nil {
 		return fmt.Errorf("unable to access pinned next prog map %s %v", b.Program.MapName, err)
 	}
@@ -948,13 +953,10 @@ func (b *BPF) VerifyPinnedMapExists(chain bool) error {
 	var err error
 	if len(b.Program.MapName) > 0 {
 		log.Debug().Msgf("VerifyPinnedMapExists : Program %s MapName %s", b.Program.Name, b.Program.MapName)
-		path := b.MapFullPath()
-		if strings.Contains(path, "..") {
-			return fmt.Errorf("VerifyPinnedMapExists: invalid path: %v", path)
-		}
+
 		for i := 0; i < 10; i++ {
-			if _, err = os.Stat(path); err == nil {
-				log.Info().Msgf("VerifyPinnedMapExists : map file created %s", path)
+			if _, err = os.Stat(b.MapNameWithPath); err == nil {
+				log.Info().Msgf("VerifyPinnedMapExists : map file created %s", b.MapNameWithPath)
 				return nil
 			}
 			log.Warn().Msgf("failed to find pinned file, checking again after a second ... ")
@@ -962,7 +964,7 @@ func (b *BPF) VerifyPinnedMapExists(chain bool) error {
 		}
 
 		if err != nil {
-			err = fmt.Errorf("failed to find pinned file %s err %v", path, err)
+			err = fmt.Errorf("failed to find pinned file %s err %v", b.MapNameWithPath, err)
 			log.Error().Err(err).Msg("")
 			return err
 		}
@@ -980,13 +982,10 @@ func (b *BPF) VerifyPinnedMapVanish(chain bool) error {
 
 	var err error
 	log.Debug().Msgf("VerifyPinnedMapVanish : Program %s MapName %s", b.Program.Name, b.Program.MapName)
-	path := b.MapFullPath()
-	if strings.Contains(path, "..") {
-		return fmt.Errorf("VerifyPinnedMapVanish: invalid path: %v", path)
-	}
+
 	for i := 0; i < 10; i++ {
-		if _, err = os.Stat(path); os.IsNotExist(err) {
-			log.Info().Msgf("VerifyPinnedMapVanish : map file removed successfully - %s ", path)
+		if _, err = os.Stat(b.MapNameWithPath); os.IsNotExist(err) {
+			log.Info().Msgf("VerifyPinnedMapVanish : map file removed successfully - %s ", b.MapNameWithPath)
 			return nil
 		} else if err != nil {
 			log.Warn().Err(err).Msg("VerifyPinnedMapVanish: Error checking for map file")
@@ -996,7 +995,7 @@ func (b *BPF) VerifyPinnedMapVanish(chain bool) error {
 		time.Sleep(1 * time.Second)
 	}
 
-	err = fmt.Errorf("%s map file was never removed by BPF program %s err %v", path, b.Program.Name, err)
+	err = fmt.Errorf("%s map file was never removed by BPF program %s err %v", b.MapNameWithPath, b.Program.Name, err)
 	log.Error().Err(err).Msg("")
 	return err
 }
@@ -1045,11 +1044,6 @@ func (b *BPF) VerifyMetricsMapsVanish() error {
 	err := fmt.Errorf("metrics maps are never removed by Kernel %s", b.Program.Name)
 	log.Error().Err(err).Msg("")
 	return err
-}
-
-// MapFullPath : It returns full absolute path for bpfmap
-func (b *BPF) MapFullPath() string {
-	return filepath.Join(b.hostConfig.BpfMapDefaultPath, b.Program.MapName)
 }
 
 func ValidatePath(filePath string, destination string) (string, error) {
