@@ -75,7 +75,7 @@ environment: PROD
 |egress-map-name|`"tc_egress_root_array"`|Egress map name of tc_root program,for more info about ingress/egress check [cilium](https://docs.cilium.io/en/v1.9/concepts/ebpf/intro/)| Yes |
 |command|`"tc_root"`|Command to run tc_root program| Yes |
 |version|`"1.0"`|Version of tc_root program| Yes |
-|user-program-daemon|`"false"`|Boolean to check xdp-root is user-program daemon or not| Yes |
+|user-program-daemon|`"false"`|Set to true it requires l3afd to stop the application (via SIGTERM on Linux or SIGKILL on Windows)| Yes |
 
 ## [l3af-configs]
 | FieldName     | Example       | Description     | Required        |
@@ -92,7 +92,7 @@ environment: PROD
 | ------------- | ------------- | --------------- | --------------- |
 |enabled| `"true"` | Boolean to check mtls enabled or not on REST API exposed by l3afd| Yes |
 |min-tls-version|`"1.3"`| Minimum tls version allowed| No |
-|cert-dir|`"/etc/l3af/certs"`|Absolute path of ca certificates. In Linux Context it is pointing to a filesystem directory, but in Windows it can point to [certificate store](https://docs.microsoft.com/en-us/windows-hardware/drivers/install/certificate-stores) | Yes |
+|cert-dir|`"/etc/l3af/certs"`|Absolute path of ca certificates. On Linux this points to a filesystem directory, but on Windows it can point to [certificate store](https://docs.microsoft.com/en-us/windows-hardware/drivers/install/certificate-stores) | Yes |
 |server-crt-filename|`"server.crt"`|Server's ca certificate filename| Yes |
 |server-key-filename|`"server.key"`|Server's mtls key filename| Yes |
 |cert-expiry-warning-days|`"30"`|How many days before expiry you want warning| No |
