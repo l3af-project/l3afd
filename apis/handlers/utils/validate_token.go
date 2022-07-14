@@ -8,7 +8,8 @@ import (
 	"net/http"
 	"os"
 
-	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt"
+
 	"github.com/l3af-project/l3afd/config"
 	"github.com/rs/zerolog/log"
 

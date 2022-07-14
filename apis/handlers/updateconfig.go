@@ -7,14 +7,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/l3af-project/l3afd/apis/handlers/utils"
 	"io/ioutil"
 	"net/http"
 
-	"github.com/rs/zerolog/log"
-
+	"github.com/l3af-project/l3afd/apis/handlers/utils"
 	"github.com/l3af-project/l3afd/kf"
 	"github.com/l3af-project/l3afd/models"
+
+	"github.com/rs/zerolog/log"
 )
 
 // UpdateConfig Update eBPF Programs configuration
