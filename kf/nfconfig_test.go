@@ -715,7 +715,7 @@ func TestDeleteProgramsOnInterface(t *testing.T) {
 	type args struct {
 		iface    string
 		hostName string
-		bpfProgs *models.WantToRemove
+		bpfProgs *models.BPFProgramNames
 	}
 	tests := []struct {
 		name    string
@@ -747,10 +747,10 @@ func TestDeleteProgramsOnInterface(t *testing.T) {
 			arg: args{
 				hostName: "l3af-local-test",
 				iface:    "dummyinterface",
-				bpfProgs: &models.WantToRemove{
+				bpfProgs: &models.BPFProgramNames{
 					XDPIngress: []string{},
-					TcIngress:  []string{},
-					TcEgress:   []string{},
+					TCIngress:  []string{},
+					TCEgress:   []string{},
 				},
 			},
 			wanterr: true,
@@ -768,10 +768,10 @@ func TestDeleteProgramsOnInterface(t *testing.T) {
 			arg: args{
 				hostName: "l3af-local-test",
 				iface:    "fakeif0",
-				bpfProgs: &models.WantToRemove{
+				bpfProgs: &models.BPFProgramNames{
 					XDPIngress: []string{},
-					TcIngress:  []string{},
-					TcEgress:   []string{},
+					TCIngress:  []string{},
+					TCEgress:   []string{},
 				},
 			},
 			wanterr: false,
@@ -812,7 +812,7 @@ func TestDeleteEbpfPrograms(t *testing.T) {
 	tests := []struct {
 		name    string
 		field   fields
-		arg     []models.DeleteApiValues
+		arg     []models.L3afBPFProgramNames
 		wanterr bool
 	}{
 		{
@@ -824,14 +824,14 @@ func TestDeleteEbpfPrograms(t *testing.T) {
 					L3afConfigStoreFileName: filepath.FromSlash("../testdata/Test_l3af-config.json"),
 				},
 			},
-			arg: []models.DeleteApiValues{
+			arg: []models.L3afBPFProgramNames{
 				{
 					HostName: "l3af-local-test",
 					Iface:    "fakeif0",
-					WantToRemove: &models.WantToRemove{
+					BpfProgramNames: &models.BPFProgramNames{
 						XDPIngress: []string{},
-						TcIngress:  []string{},
-						TcEgress:   []string{},
+						TCIngress:  []string{},
+						TCEgress:   []string{},
 					},
 				},
 			},
@@ -846,14 +846,14 @@ func TestDeleteEbpfPrograms(t *testing.T) {
 					L3afConfigStoreFileName: filepath.FromSlash("../testdata/Test_l3af-config.json"),
 				},
 			},
-			arg: []models.DeleteApiValues{
+			arg: []models.L3afBPFProgramNames{
 				{
 					HostName: "l3af-local-test",
 					Iface:    "fakeif0",
-					WantToRemove: &models.WantToRemove{
+					BpfProgramNames: &models.BPFProgramNames{
 						XDPIngress: []string{},
-						TcIngress:  []string{},
-						TcEgress:   []string{},
+						TCIngress:  []string{},
+						TCEgress:   []string{},
 					},
 				},
 			},
@@ -868,14 +868,14 @@ func TestDeleteEbpfPrograms(t *testing.T) {
 					L3afConfigStoreFileName: filepath.FromSlash("../testdata/Test_l3af-config.json"),
 				},
 			},
-			arg: []models.DeleteApiValues{
+			arg: []models.L3afBPFProgramNames{
 				{
 					HostName: "l3af-local-test",
 					Iface:    "fakeif0",
-					WantToRemove: &models.WantToRemove{
+					BpfProgramNames: &models.BPFProgramNames{
 						XDPIngress: []string{},
-						TcIngress:  []string{},
-						TcEgress:   []string{},
+						TCIngress:  []string{},
+						TCEgress:   []string{},
 					},
 				},
 			},
@@ -895,14 +895,14 @@ func TestDeleteEbpfPrograms(t *testing.T) {
 					L3afConfigStoreFileName: filepath.FromSlash("../testdata/Test_l3af-config.json"),
 				},
 			},
-			arg: []models.DeleteApiValues{
+			arg: []models.L3afBPFProgramNames{
 				{
 					HostName: "l3af-local-test",
 					Iface:    "fakeif0",
-					WantToRemove: &models.WantToRemove{
+					BpfProgramNames: &models.BPFProgramNames{
 						XDPIngress: []string{},
-						TcIngress:  []string{},
-						TcEgress:   []string{},
+						TCIngress:  []string{},
+						TCEgress:   []string{},
 					},
 				},
 			},

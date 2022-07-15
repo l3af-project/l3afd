@@ -73,13 +73,16 @@ type BPFPrograms struct {
 	TCEgress   []*BPFProgram `json:"tc_egress"`   // list of tc egress bpf programs
 }
 
-type DeleteApiValues struct {
-	HostName     string        `json:"host_name"`      // Host name or pod name
-	Iface        string        `json:"iface"`          // Interface name
-	WantToRemove *WantToRemove `json:"want_to_remove"` // List of bpf programs you want to remove
+// L3afBPFProgramNames defines names of Bpf programs on interface
+type L3afBPFProgramNames struct {
+	HostName        string           `json:"host_name"`    // Host name or pod name
+	Iface           string           `json:"iface"`        // Interface name
+	BpfProgramNames *BPFProgramNames `json:"bpf_programs"` // List of bpf program names to remove
 }
-type WantToRemove struct {
-	XDPIngress []string `json:"xdp_ingress"` // names of the XDP ingress eBPF programs you want to remove
-	TcIngress  []string `json:"tc_ingress"`  // names of the TC ingress eBPF programs you want to remove
-	TcEgress   []string `json:"tc_egress"`   // names of the TC egress eBPF programs you want to remove
+
+// BPFProgramNames defines name bpf programs on node
+type BPFProgramNames struct {
+	XDPIngress []string `json:"xdp_ingress"` // names of the XDP ingress eBPF programs
+	TCIngress  []string `json:"tc_ingress"`  // names of the TC ingress eBPF programs
+	TCEgress   []string `json:"tc_egress"`   // names of the TC egress eBPF programs
 }

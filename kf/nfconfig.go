@@ -1035,13 +1035,13 @@ func (c *NFConfigs) AddeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error {
 		c.ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
 	}
 	if err := c.SaveConfigsToConfigStore(); err != nil {
-		return fmt.Errorf("deploy eBPF Programs failed to save configs %v", err)
+		return fmt.Errorf("AddeBPFPrograms failed to save configs %v", err)
 	}
 	return nil
 }
 
 // DeleteProgramsOnInterface : It will delete ebpf Programs on the given interface
-func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfProgs *models.WantToRemove) error {
+func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfProgs *models.BPFProgramNames) error {
 	if HostName != c.HostName {
 		errOut := fmt.Errorf("provided bpf programs do not belong to this host")
 		log.Error().Err(errOut)
@@ -1079,13 +1079,13 @@ func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfPro
 		}
 	}
 
-	sort.Strings(bpfProgs.TcIngress)
+	sort.Strings(bpfProgs.TCIngress)
 	if c.IngressTCBpfs[ifaceName] != nil {
 		bpfList := c.IngressTCBpfs[ifaceName]
 		for e := bpfList.Front(); e != nil; {
 			data := e.Value.(*BPF)
 			nextprog := e.Next()
-			if BinarySearch(bpfProgs.TcIngress, data.Program.Name) {
+			if BinarySearch(bpfProgs.TCIngress, data.Program.Name) {
 				err := c.DeleteProgramsOnInterfaceHelper(e, ifaceName, models.IngressType, bpfList)
 				if err != nil {
 					return fmt.Errorf("DeleteProgramsOnInterfaceHelper function failed : %v", err)
@@ -1095,13 +1095,13 @@ func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfPro
 		}
 	}
 
-	sort.Strings(bpfProgs.TcEgress)
+	sort.Strings(bpfProgs.TCEgress)
 	if c.EgressTCBpfs[ifaceName] != nil {
 		bpfList := c.EgressTCBpfs[ifaceName]
 		for e := bpfList.Front(); e != nil; {
 			data := e.Value.(*BPF)
 			nextprog := e.Next()
-			if BinarySearch(bpfProgs.TcEgress, data.Program.Name) {
+			if BinarySearch(bpfProgs.TCEgress, data.Program.Name) {
 				err := c.DeleteProgramsOnInterfaceHelper(e, ifaceName, models.EgressType, bpfList)
 				if err != nil {
 					return fmt.Errorf("DeleteProgramsOnInterfaceHelper function failed : %v", err)
@@ -1144,9 +1144,9 @@ func (c *NFConfigs) DeleteProgramsOnInterfaceHelper(e *list.Element, ifaceName s
 }
 
 // DeleteEbpfPrograms - Delete eBPF programs on the node if they are running
-func (c *NFConfigs) DeleteEbpfPrograms(bpfProgs []models.DeleteApiValues) error {
+func (c *NFConfigs) DeleteEbpfPrograms(bpfProgs []models.L3afBPFProgramNames) error {
 	for _, bpfProg := range bpfProgs {
-		if err := c.DeleteProgramsOnInterface(bpfProg.Iface, bpfProg.HostName, bpfProg.WantToRemove); err != nil {
+		if err := c.DeleteProgramsOnInterface(bpfProg.Iface, bpfProg.HostName, bpfProg.BpfProgramNames); err != nil {
 			if err := c.SaveConfigsToConfigStore(); err != nil {
 				return fmt.Errorf("SaveConfigsToConfigStore failed to save configs %v", err)
 			}
@@ -1155,7 +1155,7 @@ func (c *NFConfigs) DeleteEbpfPrograms(bpfProgs []models.DeleteApiValues) error 
 		c.ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
 	}
 	if err := c.SaveConfigsToConfigStore(); err != nil {
-		return fmt.Errorf("deploy eBPF Programs failed to save configs %v", err)
+		return fmt.Errorf("DeleteEbpfPrograms failed to save configs %v", err)
 	}
 	return nil
 }

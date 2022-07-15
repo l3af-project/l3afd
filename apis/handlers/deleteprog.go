@@ -53,7 +53,7 @@ func DeleteEbpfPrograms(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFu
 			return
 		}
 
-		var t []models.DeleteApiValues
+		var t []models.L3afBPFProgramNames
 		if err := json.Unmarshal(bodyBuffer, &t); err != nil {
 			mesg = fmt.Sprintf("failed to unmarshal payload: %v", err)
 			log.Error().Msg(mesg)
