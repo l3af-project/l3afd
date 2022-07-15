@@ -16,7 +16,7 @@ const payloadfordelete string = `[
     {
         "host_name": "l3af-local-test",
         "iface": "fackif0",
-        "want_to_remove": {
+        "bpf_programs": {
             "xdp_ingress": [
                 "ratelimiting",
                 "connection-limit"
