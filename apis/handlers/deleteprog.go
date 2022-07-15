@@ -22,7 +22,7 @@ import (
 // @Description remove Ebpf Programs on node
 // @Accept  json
 // @Produce  json
-// @Param cfgs body []models.L3afBPFProgramNames  "BPF programs names"
+// @Param cfgs body []models.L3afBPFProgramNames true "BPF program names"
 // @Success 200
 // @Router /l3af/configs/v1/delete [post]
 func DeleteEbpfPrograms(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFunc {
