@@ -93,7 +93,7 @@ You can Refer to above documentation.
 
 # Delete API 
 
-See [remove.json](https://github.com/l3af-project/l3af-arch/blob/main/dev_environment/cfg/remove.json) for a full example payload.
+See [delete_payload.json](https://github.com/l3af-project/l3af-arch/blob/main/dev_environment/cfg/delete_payload.json) for a full example payload.
 
 The payload will look more like this standard JSON:
 
