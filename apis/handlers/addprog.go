@@ -17,7 +17,7 @@ import (
 	"github.com/l3af-project/l3afd/models"
 )
 
-// AddEbpfPrograms add new Ebpf programs on nodes
+// AddEbpfPrograms add new Ebpf programs on node
 // @Summary Adding new Ebpf Programs on node
 // @Description Adding new Ebpf Programs on node
 // @Accept  json

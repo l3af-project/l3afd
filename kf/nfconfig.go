@@ -1040,7 +1040,7 @@ func (c *NFConfigs) AddeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error {
 	return nil
 }
 
-// DeleteProgramOnInterface : It will delete ebpf Programs on the given interface
+// DeleteProgramsOnInterface : It will delete ebpf Programs on the given interface
 func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfProgs *models.WantToRemove) error {
 	if HostName != c.HostName {
 		errOut := fmt.Errorf("provided bpf programs do not belong to this host")
