@@ -78,13 +78,13 @@ type Config struct {
 	L3afConfigStoreFileName string
 
 	// mTLS
-	MTLSEnabled            bool
-	MTLSMinVersion         uint16
-	MTLSCertDir            string
-	MTLSCACertFilename     string
-	MTLSServerCertFilename string
-	MTLSServerKeyFilename  string
-	CertExpiryWarningDays  int
+	MTLSEnabled               bool
+	MTLSMinVersion            uint16
+	MTLSCertDir               string
+	MTLSCACertFilename        string
+	MTLSServerCertFilename    string
+	MTLSServerKeyFilename     string
+	MTLSCertExpiryWarningDays int
 }
 
 // ReadConfig - Initializes configuration from file
@@ -146,7 +146,7 @@ func ReadConfig(configPath string) (*Config, error) {
 		MTLSCACertFilename:              LoadOptionalConfigString(confReader, "mtls", "cacert-filename", "ca.pem"),
 		MTLSServerCertFilename:          LoadOptionalConfigString(confReader, "mtls", "server-cert-filename", "server.crt"),
 		MTLSServerKeyFilename:           LoadOptionalConfigString(confReader, "mtls", "server-key-filename", "server.key"),
-		CertExpiryWarningDays:           LoadOptionalConfigInt(confReader, "mtls", "cert-expiry-warning-days", 30),
+		MTLSCertExpiryWarningDays:       LoadOptionalConfigInt(confReader, "mtls", "cert-expiry-warning-days", 30),
 	}, nil
 }
 

@@ -168,7 +168,7 @@ func MonitorTLS(start time.Time, expiry time.Time, conf *config.Config) {
 	startDate := start
 	diff := expiryDate.Sub(todayDate)
 	remaingHoursToStart := todayDate.Sub(startDate)
-	limit := conf.CertExpiryWarningDays * 24
+	limit := conf.MTLSCertExpiryWarningDays * 24
 	remainingHoursToExpire := int(diff.Hours())
 	if remaingHoursToStart > 0 {
 		log.Fatal().Msgf("tls certificate start from : %v", startDate)
