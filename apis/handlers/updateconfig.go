@@ -7,14 +7,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
 	"io/ioutil"
 	"net/http"
 
-	"github.com/rs/zerolog/log"
-
+	"github.com/l3af-project/l3afd/apis/handlers/utils"
 	"github.com/l3af-project/l3afd/kf"
 	"github.com/l3af-project/l3afd/models"
+
+	"github.com/rs/zerolog/log"
 )
 
 // UpdateConfig Update eBPF Programs configuration
@@ -40,6 +40,19 @@ func UpdateConfig(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFunc {
 				log.Warn().Msgf("Failed to write response bytes: %v", err)
 			}
 		}(&mesg, &statusCode)
+
+		// Grab the raw Authorization header
+		reqToken := r.Header.Get("Authorization")
+		if reqToken == "" {
+			log.Error().Msgf("missing authorization token")
+			statusCode = http.StatusUnauthorized
+			return
+		}
+
+		valid, statusCode := utils.ValidateToken(ctx, kfcfg.HostConfig, reqToken)
+		if !valid {
+			return
+		}
 
 		bodyBuffer, err := ioutil.ReadAll(r.Body)
 		if err != nil {

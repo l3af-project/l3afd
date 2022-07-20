@@ -155,7 +155,7 @@ func TestNewNFConfigs(t *testing.T) {
 				IngressXDPBpfs: ingressXDPBpfs,
 				IngressTCBpfs:  ingressTCBpfs,
 				EgressTCBpfs:   egressTCBpfs,
-				hostConfig:     nil,
+				HostConfig:     nil,
 				processMon:     pMon,
 				kfMetricsMon:   mMon,
 				mu:             new(sync.Mutex),
@@ -346,7 +346,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				IngressXDPBpfs: tt.fields.ingressXDPBpfs,
 				IngressTCBpfs:  tt.fields.ingressTCBpfs,
 				EgressTCBpfs:   tt.fields.egressTCBpfs,
-				hostConfig:     tt.fields.hostConfig,
+				HostConfig:     tt.fields.hostConfig,
 				processMon:     tt.fields.processMon,
 				mu:             new(sync.Mutex),
 			}
@@ -391,7 +391,7 @@ func TestNFConfigs_Close(t *testing.T) {
 				IngressXDPBpfs: tt.fields.ingressXDPBpfs,
 				IngressTCBpfs:  tt.fields.ingressTCBpfs,
 				EgressTCBpfs:   tt.fields.egressTCBpfs,
-				hostConfig:     tt.fields.hostConfig,
+				HostConfig:     tt.fields.hostConfig,
 				processMon:     tt.fields.processMon,
 			}
 			ctx, cancelfunc := context.WithTimeout(context.Background(), 1*time.Second)
@@ -417,7 +417,7 @@ func Test_getHostInterfaces(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := getHostInterfaces()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("getHostInterfaces() error : %w", err)
+				t.Errorf("getHostInterfaces() error : %v", err)
 			}
 		})
 	}

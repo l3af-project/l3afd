@@ -85,6 +85,14 @@ type Config struct {
 	MTLSServerCertFilename    string
 	MTLSServerKeyFilename     string
 	MTLSCertExpiryWarningDays int
+
+	// secrets
+	SecretsKey  string
+	SecretsType string
+
+	// vault
+	VaultURL   string
+	VaultToken string
 }
 
 // ReadConfig - Initializes configuration from file
@@ -146,6 +154,10 @@ func ReadConfig(configPath string) (*Config, error) {
 		MTLSServerCertFilename:          LoadOptionalConfigString(confReader, "mtls", "server-cert-filename", "server.crt"),
 		MTLSServerKeyFilename:           LoadOptionalConfigString(confReader, "mtls", "server-key-filename", "server.key"),
 		MTLSCertExpiryWarningDays:       LoadOptionalConfigInt(confReader, "mtls", "cert-expiry-warning-days", 30),
+		SecretsKey:                      LoadOptionalConfigString(confReader, "secrets", "key", "L3AFD_AUTH_KEY"),
+		SecretsType:                     LoadOptionalConfigString(confReader, "secrets", "Type", "ENV"),
+		VaultURL:                        LoadOptionalConfigString(confReader, "vault", "url", "127.0.0.1:8200"),
+		VaultToken:                      LoadOptionalConfigString(confReader, "vault", "token", ""),
 	}, nil
 }
 

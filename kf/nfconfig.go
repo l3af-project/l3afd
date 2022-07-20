@@ -34,7 +34,7 @@ type NFConfigs struct {
 	IngressTCBpfs  map[string]*list.List
 	EgressTCBpfs   map[string]*list.List
 
-	hostConfig   *config.Config
+	HostConfig   *config.Config
 	processMon   *pCheck
 	kfMetricsMon *kfMetrics
 
@@ -50,7 +50,7 @@ func NewNFConfigs(ctx context.Context, host string, hostConf *config.Config, pMo
 	nfConfigs := &NFConfigs{
 		ctx:            ctx,
 		hostName:       host,
-		hostConfig:     hostConf,
+		HostConfig:     hostConf,
 		IngressXDPBpfs: make(map[string]*list.List),
 		IngressTCBpfs:  make(map[string]*list.List),
 		EgressTCBpfs:   make(map[string]*list.List),
@@ -135,7 +135,7 @@ func (c *NFConfigs) Close(ctx context.Context) error {
 func (c *NFConfigs) VerifyAndStartXDPRootProgram(ifaceName, direction string) error {
 
 	// chaining is disabled nothing to do
-	if !c.hostConfig.BpfChainingEnabled {
+	if !c.HostConfig.BpfChainingEnabled {
 		return nil
 	}
 
@@ -146,7 +146,7 @@ func (c *NFConfigs) VerifyAndStartXDPRootProgram(ifaceName, direction string) er
 		if err := VerifyNMountBPFFS(); err != nil {
 			return fmt.Errorf("failed to mount bpf file system")
 		}
-		rootBpf, err := LoadRootProgram(ifaceName, direction, models.XDPType, c.hostConfig)
+		rootBpf, err := LoadRootProgram(ifaceName, direction, models.XDPType, c.HostConfig)
 		if err != nil {
 			return fmt.Errorf("failed to load %s xdp root program: %w", direction, err)
 		}
@@ -161,13 +161,13 @@ func (c *NFConfigs) VerifyAndStartXDPRootProgram(ifaceName, direction string) er
 func (c *NFConfigs) VerifyAndStartTCRootProgram(ifaceName, direction string) error {
 
 	// Check for chaining flag
-	if !c.hostConfig.BpfChainingEnabled {
+	if !c.HostConfig.BpfChainingEnabled {
 		return nil
 	}
 
 	if direction == models.IngressType {
 		if c.IngressTCBpfs[ifaceName].Len() == 0 { //Root program is not running start then
-			rootBpf, err := LoadRootProgram(ifaceName, direction, models.TCType, c.hostConfig)
+			rootBpf, err := LoadRootProgram(ifaceName, direction, models.TCType, c.HostConfig)
 			if err != nil {
 				return fmt.Errorf("failed to load %s tc root program: %w", direction, err)
 			}
@@ -176,7 +176,7 @@ func (c *NFConfigs) VerifyAndStartTCRootProgram(ifaceName, direction string) err
 		}
 	} else {
 		if c.EgressTCBpfs[ifaceName].Len() == 0 { //Root program is not running start then
-			rootBpf, err := LoadRootProgram(ifaceName, direction, models.TCType, c.hostConfig)
+			rootBpf, err := LoadRootProgram(ifaceName, direction, models.TCType, c.HostConfig)
 			if err != nil {
 				return fmt.Errorf("failed to load %s tc root program: %w", direction, err)
 			}
@@ -192,7 +192,7 @@ func (c *NFConfigs) VerifyAndStartTCRootProgram(ifaceName, direction string) err
 func (c *NFConfigs) PushBackAndStartBPF(bpfProg *models.BPFProgram, ifaceName, direction string) error {
 
 	log.Info().Msgf("PushBackAndStartBPF : iface %s, direction %s", ifaceName, direction)
-	bpf := NewBpfProgram(c.ctx, *bpfProg, c.hostConfig.BPFLogDir, c.hostConfig.DataCenter)
+	bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig.BPFLogDir, c.HostConfig.DataCenter)
 	var bpfList *list.List
 
 	switch direction {
@@ -227,11 +227,11 @@ func (c *NFConfigs) DownloadAndStartBPFProgram(element *list.Element, ifaceName,
 		log.Info().Msgf("DownloadAndStartBPFProgram : program name %s previous prorgam map name: %s", bpf.Program.Name, bpf.PrevMapName)
 	}
 
-	if err := bpf.VerifyAndGetArtifacts(c.hostConfig); err != nil {
+	if err := bpf.VerifyAndGetArtifacts(c.HostConfig); err != nil {
 		return fmt.Errorf("failed to get artifacts %s with error: %w", bpf.Program.Artifact, err)
 	}
 
-	if err := bpf.Start(ifaceName, direction, c.hostConfig.BpfChainingEnabled); err != nil {
+	if err := bpf.Start(ifaceName, direction, c.HostConfig.BpfChainingEnabled); err != nil {
 		return fmt.Errorf("failed to start bpf program %s with error: %w", bpf.Program.Name, err)
 	}
 
@@ -264,7 +264,7 @@ func (c *NFConfigs) StopNRemoveAllBPFPrograms(ifaceName, direction string) error
 
 	for e := bpfList.Front(); e != nil; {
 		data := e.Value.(*BPF)
-		if err := data.Stop(ifaceName, direction, c.hostConfig.BpfChainingEnabled); err != nil {
+		if err := data.Stop(ifaceName, direction, c.HostConfig.BpfChainingEnabled); err != nil {
 			return fmt.Errorf("failed to stop program %s direction %s", data.Program.Name, direction)
 		}
 		nextBPF := e.Next()
@@ -314,7 +314,7 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 		if data.Program.AdminStatus != bpfProg.AdminStatus {
 			log.Info().Msgf("verifyNUpdateBPFProgram :admin_status change detected - disabling the program %s", data.Program.Name)
 			data.Program.AdminStatus = bpfProg.AdminStatus
-			if err := data.Stop(ifaceName, direction, c.hostConfig.BpfChainingEnabled); err != nil {
+			if err := data.Stop(ifaceName, direction, c.HostConfig.BpfChainingEnabled); err != nil {
 				return fmt.Errorf("failed to stop to on admin_status change BPF %s iface %s direction %s admin_status %s", bpfProg.Name, ifaceName, direction, bpfProg.AdminStatus)
 			}
 			tmpNextBPF := e.Next()
@@ -345,7 +345,7 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 			// Check if list contains root program only then stop the root program.
 			if tmpPreviousBPF.Prev() == nil && tmpPreviousBPF.Next() == nil {
 				log.Info().Msg("no network functions are running, stopping root program")
-				if c.hostConfig.BpfChainingEnabled {
+				if c.HostConfig.BpfChainingEnabled {
 					if err := c.StopRootProgram(ifaceName, direction); err != nil {
 						return fmt.Errorf("failed to stop to root program  %s iface %s direction %s", bpfProg.Name, ifaceName, direction)
 					}
@@ -358,7 +358,7 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 		if data.Program.Version != bpfProg.Version || !reflect.DeepEqual(data.Program.StartArgs, bpfProg.StartArgs) {
 			log.Info().Msgf("VerifyNUpdateBPFProgram : version update initiated - current version %s new version %s", data.Program.Version, bpfProg.Version)
 
-			if err := data.Stop(ifaceName, direction, c.hostConfig.BpfChainingEnabled); err != nil {
+			if err := data.Stop(ifaceName, direction, c.HostConfig.BpfChainingEnabled); err != nil {
 				return fmt.Errorf("failed to stop older version of network function BPF %s iface %s direction %s version %s", bpfProg.Name, ifaceName, direction, bpfProg.Version)
 			}
 
@@ -501,7 +501,7 @@ func (c *NFConfigs) InsertAndStartBPFProgram(bpfProg *models.BPFProgram, ifaceNa
 		return nil
 	}
 
-	bpf := NewBpfProgram(c.ctx, *bpfProg, c.hostConfig.BPFLogDir, c.hostConfig.DataCenter)
+	bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig.BPFLogDir, c.HostConfig.DataCenter)
 
 	switch direction {
 	case models.XDPIngressType:
@@ -555,7 +555,7 @@ func (c *NFConfigs) StopRootProgram(ifaceName, direction string) error {
 			return nil
 		}
 
-		if err := c.IngressXDPBpfs[ifaceName].Front().Value.(*BPF).Stop(ifaceName, direction, c.hostConfig.BpfChainingEnabled); err != nil {
+		if err := c.IngressXDPBpfs[ifaceName].Front().Value.(*BPF).Stop(ifaceName, direction, c.HostConfig.BpfChainingEnabled); err != nil {
 			return fmt.Errorf("failed to stop xdp root program iface %s", ifaceName)
 		}
 		c.IngressXDPBpfs[ifaceName].Remove(c.IngressXDPBpfs[ifaceName].Front())
@@ -565,7 +565,7 @@ func (c *NFConfigs) StopRootProgram(ifaceName, direction string) error {
 			log.Warn().Msgf("tc root program %s not running", direction)
 			return nil
 		}
-		if err := c.IngressTCBpfs[ifaceName].Front().Value.(*BPF).Stop(ifaceName, direction, c.hostConfig.BpfChainingEnabled); err != nil {
+		if err := c.IngressTCBpfs[ifaceName].Front().Value.(*BPF).Stop(ifaceName, direction, c.HostConfig.BpfChainingEnabled); err != nil {
 			return fmt.Errorf("failed to stop ingress tc root program on interface %s", ifaceName)
 		}
 		c.IngressTCBpfs[ifaceName].Remove(c.IngressTCBpfs[ifaceName].Front())
@@ -575,7 +575,7 @@ func (c *NFConfigs) StopRootProgram(ifaceName, direction string) error {
 			log.Warn().Msgf("tc root program %s not running", direction)
 			return nil
 		}
-		if err := c.EgressTCBpfs[ifaceName].Front().Value.(*BPF).Stop(ifaceName, direction, c.hostConfig.BpfChainingEnabled); err != nil {
+		if err := c.EgressTCBpfs[ifaceName].Front().Value.(*BPF).Stop(ifaceName, direction, c.HostConfig.BpfChainingEnabled); err != nil {
 			return fmt.Errorf("failed to stop egress tc root program on interface %s", ifaceName)
 		}
 		c.EgressTCBpfs[ifaceName].Remove(c.EgressTCBpfs[ifaceName].Front())
@@ -738,7 +738,7 @@ func (c *NFConfigs) SaveConfigsToConfigStore() error {
 		return fmt.Errorf("failed to marshal configs %w", err)
 	}
 
-	if err = ioutil.WriteFile(c.hostConfig.L3afConfigStoreFileName, file, 0644); err != nil {
+	if err = ioutil.WriteFile(c.HostConfig.L3afConfigStoreFileName, file, 0644); err != nil {
 		log.Error().Err(err).Msgf("failed write to file operation")
 		return fmt.Errorf("failed to save configs %w", err)
 	}
@@ -757,7 +757,7 @@ func (c *NFConfigs) EBPFPrograms(iface string) models.L3afBPFPrograms {
 	bpfList := c.IngressXDPBpfs[iface]
 	if bpfList != nil {
 		e := bpfList.Front()
-		if c.hostConfig.BpfChainingEnabled && e.Value.(*BPF).Program.Name == c.hostConfig.XDPRootProgramName {
+		if c.HostConfig.BpfChainingEnabled && e.Value.(*BPF).Program.Name == c.HostConfig.XDPRootProgramName {
 			e = e.Next()
 		}
 		for ; e != nil; e = e.Next() {
@@ -767,7 +767,7 @@ func (c *NFConfigs) EBPFPrograms(iface string) models.L3afBPFPrograms {
 	bpfList = c.IngressTCBpfs[iface]
 	if bpfList != nil {
 		e := bpfList.Front()
-		if c.hostConfig.BpfChainingEnabled && e.Value.(*BPF).Program.Name == c.hostConfig.TCRootProgramName {
+		if c.HostConfig.BpfChainingEnabled && e.Value.(*BPF).Program.Name == c.HostConfig.TCRootProgramName {
 			e = e.Next()
 		}
 		for ; e != nil; e = e.Next() {
@@ -777,7 +777,7 @@ func (c *NFConfigs) EBPFPrograms(iface string) models.L3afBPFPrograms {
 	bpfList = c.EgressTCBpfs[iface]
 	if bpfList != nil {
 		e := bpfList.Front()
-		if c.hostConfig.BpfChainingEnabled && e.Value.(*BPF).Program.Name == c.hostConfig.TCRootProgramName {
+		if c.HostConfig.BpfChainingEnabled && e.Value.(*BPF).Program.Name == c.HostConfig.TCRootProgramName {
 			e = e.Next()
 		}
 		for ; e != nil; e = e.Next() {
@@ -886,7 +886,7 @@ func (c *NFConfigs) RemoveMissingBPFProgramsInConfig(bpfProg models.L3afBPFProgr
 	}
 
 	e := bpfList.Front()
-	if e != nil && c.hostConfig.BpfChainingEnabled {
+	if e != nil && c.HostConfig.BpfChainingEnabled {
 		e = e.Next()
 	}
 	for ; e != nil; e = e.Next() {
@@ -901,7 +901,7 @@ func (c *NFConfigs) RemoveMissingBPFProgramsInConfig(bpfProg models.L3afBPFProgr
 		if !Found {
 			log.Info().Msgf("eBPF Program not found in config stopping - %s direction %s", prog.Program.Name, direction)
 			prog.Program.AdminStatus = models.Disabled
-			if err := prog.Stop(ifaceName, direction, c.hostConfig.BpfChainingEnabled); err != nil {
+			if err := prog.Stop(ifaceName, direction, c.HostConfig.BpfChainingEnabled); err != nil {
 				return fmt.Errorf("failed to stop to on removed config BPF %s iface %s direction %s", prog.Program.Name, ifaceName, models.XDPIngressType)
 			}
 			tmpNextBPF := e.Next()
