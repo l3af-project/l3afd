@@ -15,7 +15,7 @@ import (
 const payloadfordelete string = `[
     {
         "host_name": "l3af-local-test",
-        "iface": "fackif0",
+        "iface": "fakeif0",
         "bpf_programs": {
             "xdp_ingress": [
                 "ratelimiting",
