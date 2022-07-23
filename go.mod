@@ -3,7 +3,7 @@ module github.com/l3af-project/l3afd
 go 1.17
 
 require (
-	github.com/cilium/ebpf v0.9.0
+	github.com/cilium/ebpf v0.9.1
 	github.com/go-chi/chi/v5 v5.0.7
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/prometheus/client_golang v1.11.0
