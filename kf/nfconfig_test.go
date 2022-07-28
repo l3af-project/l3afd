@@ -375,11 +375,13 @@ func TestNFConfigs_Close(t *testing.T) {
 			name: "EmptyMap",
 			fields: fields{
 				hostName:       machineHostname,
-				ingressXDPBpfs: ingressXDPBpfs,
-				ingressTCBpfs:  ingressTCBpfs,
-				egressTCBpfs:   egressTCBpfs,
-				hostConfig:     nil,
-				processMon:     pMon,
+				ingressXDPBpfs: make(map[string]*list.List),
+				ingressTCBpfs:  make(map[string]*list.List),
+				egressTCBpfs:   make(map[string]*list.List),
+				hostConfig: &config.Config{
+					BpfMapDefaultPath: "/sys/fs/bpf",
+				},
+				processMon: pMon,
 			},
 			wantErr: false,
 		},
@@ -394,7 +396,7 @@ func TestNFConfigs_Close(t *testing.T) {
 				hostConfig:     tt.fields.hostConfig,
 				processMon:     tt.fields.processMon,
 			}
-			ctx, cancelfunc := context.WithTimeout(context.Background(), 1*time.Second)
+			ctx, cancelfunc := context.WithTimeout(context.Background(), 900*time.Millisecond)
 			defer cancelfunc()
 			if err := cfg.Close(ctx); (err != nil) != tt.wantErr {
 				t.Errorf("NFConfigs.Close() error = %v, wantErr %v", err, tt.wantErr)
@@ -417,7 +419,7 @@ func Test_getHostInterfaces(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := getHostInterfaces()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("getHostInterfaces() error : %w", err)
+				t.Errorf("getHostInterfaces() error : %v", err)
 			}
 		})
 	}

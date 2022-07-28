@@ -52,6 +52,7 @@ func TestNewBpfProgram(t *testing.T) {
 		direction  string
 		ctx        context.Context
 		datacenter string
+		hostConfig *config.Config
 	}
 	execCommand = fakeExecCommand
 	defer func() { execCommand = exec.Command }()
@@ -77,6 +78,10 @@ func TestNewBpfProgram(t *testing.T) {
 				chain:      false,
 				direction:  "ingress",
 				datacenter: "localdc",
+				hostConfig: &config.Config{
+					BPFLogDir:  "",
+					DataCenter: "localdc",
+				},
 			},
 			want: &BPF{
 				Program: models.BPFProgram{
@@ -92,18 +97,20 @@ func TestNewBpfProgram(t *testing.T) {
 				},
 				Cmd:            nil,
 				FilePath:       "",
-				LogDir:         "",
 				BpfMaps:        make(map[string]BPFMap, 0),
 				MetricsBpfMaps: make(map[string]*MetricsBPFMap, 0),
 				Ctx:            nil,
 				Done:           nil,
-				DataCenter:     "localdc",
+				hostConfig: &config.Config{
+					BPFLogDir:  "",
+					DataCenter: "localdc",
+				},
 			},
 		},
 		{name: "EmptyBPFProgram",
 			args: args{
-				program: models.BPFProgram{},
-				logDir:  "",
+				program:    models.BPFProgram{},
+				hostConfig: &config.Config{},
 			},
 			want: &BPF{
 				Program:        models.BPFProgram{},
@@ -111,12 +118,13 @@ func TestNewBpfProgram(t *testing.T) {
 				FilePath:       "",
 				BpfMaps:        make(map[string]BPFMap, 0),
 				MetricsBpfMaps: make(map[string]*MetricsBPFMap, 0),
+				hostConfig:     &config.Config{},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewBpfProgram(tt.args.ctx, tt.args.program, tt.args.logDir, tt.args.datacenter); !reflect.DeepEqual(got, tt.want) {
+			if got := NewBpfProgram(tt.args.ctx, tt.args.program, tt.args.hostConfig); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewBpfProgram() = %#v, want %#v", got, tt.want)
 			}
 		})
@@ -209,6 +217,7 @@ func TestBPF_Start(t *testing.T) {
 		FilePath     string
 		RestartCount int
 		ifaceName    string
+		hostConfig   *config.Config
 	}
 	tests := []struct {
 		name    string
@@ -221,6 +230,9 @@ func TestBPF_Start(t *testing.T) {
 				Cmd:          nil,
 				FilePath:     "",
 				RestartCount: 0,
+				hostConfig: &config.Config{
+					BPFLogDir: "",
+				},
 			},
 			wantErr: true,
 		},
@@ -237,6 +249,9 @@ func TestBPF_Start(t *testing.T) {
 				Cmd:          nil,
 				FilePath:     GetTestExecutablePath(),
 				RestartCount: 0,
+				hostConfig: &config.Config{
+					BPFLogDir: "",
+				},
 			},
 			wantErr: false,
 		},
@@ -253,6 +268,9 @@ func TestBPF_Start(t *testing.T) {
 				Cmd:          fakeExecCommand(GetTestExecutablePathName()),
 				FilePath:     GetTestExecutablePath(),
 				RestartCount: 0,
+				hostConfig: &config.Config{
+					BPFLogDir: "",
+				},
 			},
 			wantErr: true,
 		},
@@ -271,6 +289,9 @@ func TestBPF_Start(t *testing.T) {
 				Cmd:          fakeExecCommand(GetTestExecutablePathName()),
 				FilePath:     GetTestExecutablePath(),
 				RestartCount: 0,
+				hostConfig: &config.Config{
+					BPFLogDir: "",
+				},
 			},
 			wantErr: false,
 		},
@@ -282,6 +303,7 @@ func TestBPF_Start(t *testing.T) {
 				Cmd:          tt.fields.Cmd,
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
+				hostConfig:   tt.fields.hostConfig,
 			}
 			if err := b.Start(tt.fields.ifaceName, models.IngressType, true); (err != nil) != tt.wantErr {
 				t.Errorf("BPF.Start() error = %v, wantErr %v", err, tt.wantErr)
@@ -646,7 +668,7 @@ func Test_StopExternalRunningProcess(t *testing.T) {
 	for _, tt := range tests {
 		err := StopExternalRunningProcess(tt.processName)
 		if (err != nil) != tt.wantErr {
-			t.Errorf("Error During execution StopExternalRunningProcess : %w", err)
+			t.Errorf("Error During execution StopExternalRunningProcess : %v", err)
 		}
 	}
 }
@@ -699,7 +721,7 @@ func Test_createUpdateRulesFile(t *testing.T) {
 			}
 			_, err := b.createUpdateRulesFile("ingress")
 			if (err != nil) != tt.wantErr {
-				t.Errorf("createUpdateRulesFile() error : %w", err)
+				t.Errorf("createUpdateRulesFile() error : %v", err)
 			}
 		})
 	}
@@ -712,18 +734,23 @@ func Test_PutNextProgFDFromID(t *testing.T) {
 		//		Pid          int
 		FilePath     string
 		RestartCount int
+		hostConfig   *config.Config
 	}
 	tests := []struct {
-		name    string
-		fields  fields
-		wantErr bool
-		progId  int
+		name       string
+		fields     fields
+		wantErr    bool
+		progId     int
+		hostConfig *config.Config
 	}{
 		{
 			name: "emptyMapName",
 			fields: fields{
 				Program: models.BPFProgram{
 					MapName: "",
+				},
+				hostConfig: &config.Config{
+					BpfMapDefaultPath: "/sys/fs/bpf",
 				},
 			},
 			wantErr: false,
@@ -734,6 +761,9 @@ func Test_PutNextProgFDFromID(t *testing.T) {
 			fields: fields{
 				Program: models.BPFProgram{
 					MapName: "invalidname",
+				},
+				hostConfig: &config.Config{
+					BpfMapDefaultPath: "/sys/fs/bpf",
 				},
 			},
 			wantErr: true,
@@ -746,13 +776,16 @@ func Test_PutNextProgFDFromID(t *testing.T) {
 					Name:              "ratelimiting",
 					SeqID:             1,
 					Artifact:          "l3af_ratelimiting.tar.gz",
-					MapName:           "/sys/fs/bpf/xdp_rl_ingress_next_prog",
+					MapName:           "xdp_rl_ingress_next_prog",
 					CmdStart:          "ratelimiting",
 					Version:           "latest",
 					UserProgramDaemon: true,
 					AdminStatus:       "enabled",
 					ProgType:          "xdp",
 					CfgVersion:        1,
+				},
+				hostConfig: &config.Config{
+					BpfMapDefaultPath: "/sys/fs/bpf",
 				},
 			},
 			progId:  -1,
@@ -766,10 +799,11 @@ func Test_PutNextProgFDFromID(t *testing.T) {
 				Cmd:          tt.fields.Cmd,
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
+				hostConfig:   tt.fields.hostConfig,
 			}
 			err := b.PutNextProgFDFromID(tt.progId)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("PutNextProgFDFromID() error : %w", err)
+				t.Errorf("PutNextProgFDFromID() error : %v", err)
 			}
 		})
 	}
@@ -782,6 +816,7 @@ func Test_VerifyPinnedMapExists(t *testing.T) {
 		//		Pid          int
 		FilePath     string
 		RestartCount int
+		hostConfig   *config.Config
 	}
 	tests := []struct {
 		name    string
@@ -794,6 +829,9 @@ func Test_VerifyPinnedMapExists(t *testing.T) {
 				Program: models.BPFProgram{
 					MapName: "invalid",
 				},
+				hostConfig: &config.Config{
+					BpfMapDefaultPath: "/sys/fs/bpf",
+				},
 			},
 			wantErr: true,
 		},
@@ -805,10 +843,11 @@ func Test_VerifyPinnedMapExists(t *testing.T) {
 				Cmd:          tt.fields.Cmd,
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
+				hostConfig:   tt.fields.hostConfig,
 			}
 			err := b.VerifyPinnedMapExists(true)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("VerifyPinnedMapExists() error : %w", err)
+				t.Errorf("VerifyPinnedMapExists() error : %v", err)
 			}
 		})
 	}
@@ -858,7 +897,7 @@ func Test_VerifyProcessObject(t *testing.T) {
 			}
 			err := b.VerifyProcessObject()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("VerifyProcessObject() error : %w", err)
+				t.Errorf("VerifyProcessObject() error : %v", err)
 			}
 		})
 	}
@@ -870,6 +909,7 @@ func Test_VerifyPinnedMapVanish(t *testing.T) {
 		Cmd          *exec.Cmd
 		FilePath     string
 		RestartCount int
+		hostConfig   *config.Config
 	}
 	tests := []struct {
 		name    string
@@ -882,6 +922,9 @@ func Test_VerifyPinnedMapVanish(t *testing.T) {
 				Program: models.BPFProgram{
 					MapName: "",
 				},
+				hostConfig: &config.Config{
+					BpfMapDefaultPath: "/sys/fs/bpf",
+				},
 			},
 			wantErr: false,
 		},
@@ -889,18 +932,11 @@ func Test_VerifyPinnedMapVanish(t *testing.T) {
 			name: "invalidProgType",
 			fields: fields{
 				Program: models.BPFProgram{
-					MapName:  "something",
+					MapName:  "tc/globals/something",
 					ProgType: models.TCType,
 				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "invalidMapfile",
-			fields: fields{
-				Program: models.BPFProgram{
-					MapName:  "dummy",
-					ProgType: models.XDPType,
+				hostConfig: &config.Config{
+					BpfMapDefaultPath: "/sys/fs/bpf",
 				},
 			},
 			wantErr: false,
@@ -913,10 +949,13 @@ func Test_VerifyPinnedMapVanish(t *testing.T) {
 				Cmd:          tt.fields.Cmd,
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
+				hostConfig: &config.Config{
+					BpfMapDefaultPath: tt.fields.hostConfig.BpfMapDefaultPath,
+				},
 			}
 			err := b.VerifyPinnedMapVanish(true)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("VerifyPinnedMapVanish() error : %w", err)
+				t.Errorf("VerifyPinnedMapVanish() error : %v", err)
 			}
 		})
 	}

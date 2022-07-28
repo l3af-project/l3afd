@@ -28,7 +28,7 @@ import (
 func DisableLRO(ifaceName string) error {
 	ethHandle, err := ethtool.NewEthtool()
 	if err != nil {
-		err = fmt.Errorf("ethtool failed to get the handle %w", err)
+		err = fmt.Errorf("ethtool failed to get the handle %v", err)
 		log.Error().Err(err).Msg("")
 		return err
 	}
@@ -37,7 +37,7 @@ func DisableLRO(ifaceName string) error {
 	config := make(map[string]bool, 1)
 	config["rx-lro"] = false
 	if err := ethHandle.Change(ifaceName, config); err != nil {
-		err = fmt.Errorf("ethtool failed to disable LRO on %s with err %w", ifaceName, err)
+		err = fmt.Errorf("ethtool failed to disable LRO on %s with err %v", ifaceName, err)
 		log.Error().Err(err).Msg("")
 		return err
 	}
@@ -92,7 +92,7 @@ func (b *BPF) SetPrLimits() error {
 // ProcessTerminate - Send sigterm to the process
 func (b *BPF) ProcessTerminate() error {
 	if err := b.Cmd.Process.Signal(syscall.SIGTERM); err != nil {
-		return fmt.Errorf("BPFProgram %s SIGTERM failed with error: %w", b.Program.Name, err)
+		return fmt.Errorf("BPFProgram %s SIGTERM failed with error: %v", b.Program.Name, err)
 	}
 	return nil
 }
@@ -128,7 +128,7 @@ func GetPlatform() (string, error) {
 	linuxDistrib.Stdout = &out
 
 	if err := linuxDistrib.Run(); err != nil {
-		return "", fmt.Errorf("l3afd/nf : Failed to run command with error: %w", err)
+		return "", fmt.Errorf("l3afd/nf : Failed to run command with error: %v", err)
 	}
 
 	return strings.TrimSpace(out.String()), nil
@@ -137,12 +137,12 @@ func GetPlatform() (string, error) {
 func IsProcessRunning(pid int, name string) (bool, error) {
 	procState, err := ioutil.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
 	if err != nil {
-		return false, fmt.Errorf("BPF Program not running %s because of error: %w", name, err)
+		return false, fmt.Errorf("BPF Program not running %s because of error: %v", name, err)
 	}
 	var u1, u2, state string
 	_, err = fmt.Sscanf(string(procState), "%s %s %s", &u1, &u2, &state)
 	if err != nil {
-		return false, fmt.Errorf("failed to scan proc state with error: %w", err)
+		return false, fmt.Errorf("failed to scan proc state with error: %v", err)
 	}
 	if state == "Z" {
 		return false, fmt.Errorf("process %d in Zombie state", pid)
