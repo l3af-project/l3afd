@@ -193,7 +193,7 @@ func (c *NFConfigs) VerifyAndStartTCRootProgram(ifaceName, direction string) err
 func (c *NFConfigs) PushBackAndStartBPF(bpfProg *models.BPFProgram, ifaceName, direction string) error {
 
 	log.Info().Msgf("PushBackAndStartBPF : iface %s, direction %s", ifaceName, direction)
-	bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig.BPFLogDir, c.HostConfig.DataCenter)
+	bpf := NewBpfProgram(c.ctx, *bpfProg, c.hostConfig)
 	var bpfList *list.List
 
 	switch direction {
@@ -224,15 +224,15 @@ func (c *NFConfigs) DownloadAndStartBPFProgram(element *list.Element, ifaceName,
 
 	if element.Prev() != nil {
 		prevBPF := element.Prev().Value.(*BPF)
-		bpf.PrevMapName = prevBPF.Program.MapName
-		log.Info().Msgf("DownloadAndStartBPFProgram : program name %s previous prorgam map name: %s", bpf.Program.Name, bpf.PrevMapName)
+		bpf.PrevMapNamePath = prevBPF.MapNamePath
+		log.Info().Msgf("DownloadAndStartBPFProgram : program name %s previous prorgam map name: %s", bpf.Program.Name, bpf.PrevMapNamePath)
 	}
 
-	if err := bpf.VerifyAndGetArtifacts(c.HostConfig); err != nil {
+	if err := bpf.VerifyAndGetArtifacts(c.hostConfig); err != nil {
 		return fmt.Errorf("failed to get artifacts %s with error: %v", bpf.Program.Artifact, err)
 	}
 
-	if err := bpf.Start(ifaceName, direction, c.HostConfig.BpfChainingEnabled); err != nil {
+	if err := bpf.Start(ifaceName, direction, c.hostConfig.BpfChainingEnabled); err != nil {
 		return fmt.Errorf("failed to start bpf program %s with error: %v", bpf.Program.Name, err)
 	}
 
@@ -502,7 +502,7 @@ func (c *NFConfigs) InsertAndStartBPFProgram(bpfProg *models.BPFProgram, ifaceNa
 		return nil
 	}
 
-	bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig.BPFLogDir, c.HostConfig.DataCenter)
+	bpf := NewBpfProgram(c.ctx, *bpfProg, c.hostConfig)
 
 	switch direction {
 	case models.XDPIngressType:
@@ -591,7 +591,7 @@ func (c *NFConfigs) StopRootProgram(ifaceName, direction string) error {
 // Link BPF programs
 func (c *NFConfigs) LinkBPFPrograms(leftBPF, rightBPF *BPF) error {
 	log.Info().Msgf("LinkBPFPrograms : left BPF Prog %s right BPF Prog %s", leftBPF.Program.Name, rightBPF.Program.Name)
-	rightBPF.PrevMapName = leftBPF.Program.MapName
+	rightBPF.PrevMapNamePath = leftBPF.MapNamePath
 	if err := leftBPF.PutNextProgFDFromID(rightBPF.ProgID); err != nil {
 		log.Error().Err(err).Msgf("LinkBPFPrograms - failed to update program fd in prev prog map before move")
 		return fmt.Errorf("LinkBPFPrograms - failed to update program fd in prev prog prog map before move %v", err)
