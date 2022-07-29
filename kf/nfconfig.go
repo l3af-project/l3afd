@@ -193,7 +193,7 @@ func (c *NFConfigs) VerifyAndStartTCRootProgram(ifaceName, direction string) err
 func (c *NFConfigs) PushBackAndStartBPF(bpfProg *models.BPFProgram, ifaceName, direction string) error {
 
 	log.Info().Msgf("PushBackAndStartBPF : iface %s, direction %s", ifaceName, direction)
-	bpf := NewBpfProgram(c.ctx, *bpfProg, c.hostConfig)
+	bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig)
 	var bpfList *list.List
 
 	switch direction {
@@ -228,11 +228,11 @@ func (c *NFConfigs) DownloadAndStartBPFProgram(element *list.Element, ifaceName,
 		log.Info().Msgf("DownloadAndStartBPFProgram : program name %s previous prorgam map name: %s", bpf.Program.Name, bpf.PrevMapNamePath)
 	}
 
-	if err := bpf.VerifyAndGetArtifacts(c.hostConfig); err != nil {
+	if err := bpf.VerifyAndGetArtifacts(c.HostConfig); err != nil {
 		return fmt.Errorf("failed to get artifacts %s with error: %v", bpf.Program.Artifact, err)
 	}
 
-	if err := bpf.Start(ifaceName, direction, c.hostConfig.BpfChainingEnabled); err != nil {
+	if err := bpf.Start(ifaceName, direction, c.HostConfig.BpfChainingEnabled); err != nil {
 		return fmt.Errorf("failed to start bpf program %s with error: %v", bpf.Program.Name, err)
 	}
 
@@ -502,7 +502,7 @@ func (c *NFConfigs) InsertAndStartBPFProgram(bpfProg *models.BPFProgram, ifaceNa
 		return nil
 	}
 
-	bpf := NewBpfProgram(c.ctx, *bpfProg, c.hostConfig)
+	bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig)
 
 	switch direction {
 	case models.XDPIngressType:
