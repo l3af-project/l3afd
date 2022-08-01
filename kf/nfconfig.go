@@ -981,8 +981,12 @@ func (c *NFConfigs) AddProgramsOnInterface(ifaceName, HostName string, bpfProgs 
 					return fmt.Errorf("failed to PushBackAndStartBPF BPF Program: %v", err)
 				}
 			}
-		} else if err := c.PushBackAndStartBPF(bpfProg, ifaceName, models.XDPIngressType); err != nil {
-			return fmt.Errorf("failed to PushBackAndStartBPF xdp BPF Program: %v", err)
+		} else {
+			if bpfProg.AdminStatus == models.Enabled {
+				if err := c.PushBackAndStartBPF(bpfProg, ifaceName, models.XDPIngressType); err != nil {
+					return fmt.Errorf("failed to PushBackAndStartBPF xdp BPF Program: %v", err)
+				}
+			}
 		}
 	}
 
@@ -998,8 +1002,12 @@ func (c *NFConfigs) AddProgramsOnInterface(ifaceName, HostName string, bpfProgs 
 					return fmt.Errorf("failed to PushBackAndStartBPF BPF Program: %v", err)
 				}
 			}
-		} else if err := c.PushBackAndStartBPF(bpfProg, ifaceName, models.IngressType); err != nil {
-			return fmt.Errorf("failed to PushBackAndStartBPF BPF Program: %v", err)
+		} else {
+			if bpfProg.AdminStatus == models.Enabled {
+				if err := c.PushBackAndStartBPF(bpfProg, ifaceName, models.IngressType); err != nil {
+					return fmt.Errorf("failed to PushBackAndStartBPF BPF Program: %v", err)
+				}
+			}
 		}
 	}
 
@@ -1015,8 +1023,12 @@ func (c *NFConfigs) AddProgramsOnInterface(ifaceName, HostName string, bpfProgs 
 					return fmt.Errorf("failed to PushBackAndStartBPF BPF Program: %v", err)
 				}
 			}
-		} else if err := c.PushBackAndStartBPF(bpfProg, ifaceName, models.EgressType); err != nil {
-			return fmt.Errorf("failed to PushBackAndStartBPF BPF Program: %v", err)
+		} else {
+			if bpfProg.AdminStatus == models.Enabled {
+				if err := c.PushBackAndStartBPF(bpfProg, ifaceName, models.EgressType); err != nil {
+					return fmt.Errorf("failed to PushBackAndStartBPF BPF Program: %v", err)
+				}
+			}
 		}
 	}
 
@@ -1164,7 +1176,7 @@ func (c *NFConfigs) DeleteEbpfPrograms(bpfProgs []models.L3afBPFProgramNames) er
 func BinarySearch(name []string, target string) bool {
 	i := sort.SearchStrings(name, target)
 	n := len(name)
-	if i < n && name[i] == target {
+	if i < n {
 		return true
 	} else {
 		return false
