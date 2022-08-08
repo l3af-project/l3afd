@@ -46,7 +46,7 @@ func IsProcessRunning(pid int, name string) (bool, error) {
 // ProcessTerminate - Kills the process
 func (b *BPF) ProcessTerminate() error {
 	if err := b.Cmd.Process.Kill(); err != nil {
-		return fmt.Errorf("BPFProgram %s kill failed with error: %w", b.Program.Name, err)
+		return fmt.Errorf("BPFProgram %s kill failed with error: %v", b.Program.Name, err)
 	}
 	return nil
 }

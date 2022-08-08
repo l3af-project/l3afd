@@ -6,6 +6,7 @@ package kf
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"bytes"
 	"compress/gzip"
 	"container/ring"
@@ -43,36 +44,40 @@ var (
 //lint:ignore U1000 avoid false linter error on windows, since this variable is only used in linux code
 const executePerm uint32 = 0111
 const bpfStatus string = "RUNNING"
+const httpScheme string = "http"
+const httpsScheme string = "https"
+const fileScheme string = "file"
 
 // BPF defines run time details for BPFProgram.
 type BPF struct {
-	Program        models.BPFProgram
-	Cmd            *exec.Cmd
-	FilePath       string                    // Binary file path
-	RestartCount   int                       // To track restart count
-	LogDir         string                    // Log dir for the BPF program
-	PrevMapName    string                    // Map name to link
-	ProgID         int                       // eBPF Program ID
-	BpfMaps        map[string]BPFMap         // Config maps passed as map-args, Map name is Key
-	MetricsBpfMaps map[string]*MetricsBPFMap // Metrics map name+key+aggregator is key
-	Ctx            context.Context
-	Done           chan bool `json:"-"`
-	DataCenter     string
+	Program         models.BPFProgram
+	Cmd             *exec.Cmd
+	FilePath        string                    // Binary file path
+	RestartCount    int                       // To track restart count
+	PrevMapNamePath string                    // Previous Map name with path to link
+	MapNamePath     string                    // Map name with path
+	ProgID          int                       // eBPF Program ID
+	BpfMaps         map[string]BPFMap         // Config maps passed as map-args, Map name is Key
+	MetricsBpfMaps  map[string]*MetricsBPFMap // Metrics map name+key+aggregator is key
+	Ctx             context.Context
+	Done            chan bool `json:"-"`
+	hostConfig      *config.Config
 }
 
-func NewBpfProgram(ctx context.Context, program models.BPFProgram, logDir, dataCenter string) *BPF {
+func NewBpfProgram(ctx context.Context, program models.BPFProgram, conf *config.Config) *BPF {
 	bpf := &BPF{
 		Program:        program,
 		RestartCount:   0,
 		Cmd:            nil,
 		FilePath:       "",
-		LogDir:         logDir,
 		BpfMaps:        make(map[string]BPFMap, 0),
 		MetricsBpfMaps: make(map[string]*MetricsBPFMap, 0),
 		Ctx:            ctx,
 		Done:           nil,
-		DataCenter:     dataCenter,
+		hostConfig:     conf,
+		MapNamePath:    filepath.Join(conf.BpfMapDefaultPath, program.MapName),
 	}
+
 	return bpf
 }
 
@@ -95,16 +100,18 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 				CmdStop:           conf.XDPRootProgramCommand,
 				CmdStatus:         "",
 				AdminStatus:       models.Enabled,
+				ProgType:          models.XDPType,
 				SeqID:             0,
 				StartArgs:         map[string]interface{}{},
 				StopArgs:          map[string]interface{}{},
 				StatusArgs:        map[string]interface{}{},
 			},
-			RestartCount: 0,
-			Cmd:          nil,
-			FilePath:     "",
-			LogDir:       "",
-			PrevMapName:  "",
+			RestartCount:    0,
+			Cmd:             nil,
+			FilePath:        "",
+			PrevMapNamePath: "",
+			hostConfig:      conf,
+			MapNamePath:     filepath.Join(conf.BpfMapDefaultPath, conf.XDPRootProgramMapName),
 		}
 	case models.TCType:
 		rootProgBPF = &BPF{
@@ -117,20 +124,23 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 				CmdStop:           conf.TCRootProgramCommand,
 				CmdStatus:         "",
 				AdminStatus:       models.Enabled,
+				ProgType:          models.TCType,
 				StartArgs:         map[string]interface{}{},
 				StopArgs:          map[string]interface{}{},
 				StatusArgs:        map[string]interface{}{},
 			},
-			RestartCount: 0,
-			Cmd:          nil,
-			FilePath:     "",
-			LogDir:       "",
-			PrevMapName:  "",
+			RestartCount:    0,
+			Cmd:             nil,
+			FilePath:        "",
+			PrevMapNamePath: "",
+			hostConfig:      conf,
 		}
 		if direction == models.IngressType {
 			rootProgBPF.Program.MapName = conf.TCRootProgramIngressMapName
+			rootProgBPF.MapNamePath = filepath.Join(conf.BpfMapDefaultPath, conf.TCRootProgramIngressMapName)
 		} else if direction == models.EgressType {
 			rootProgBPF.Program.MapName = conf.TCRootProgramEgressMapName
+			rootProgBPF.MapNamePath = filepath.Join(conf.BpfMapDefaultPath, conf.TCRootProgramEgressMapName)
 		}
 	default:
 		return nil, fmt.Errorf("unknown direction %s for root program in iface %s", direction, ifaceName)
@@ -147,7 +157,7 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 
 	// On l3afd crashing scenario verify root program are unloaded properly by checking existence of persisted maps
 	// if map file exists then root program is still running
-	if fileExists(rootProgBPF.Program.MapName) {
+	if fileExists(rootProgBPF.MapNamePath) {
 		log.Warn().Msgf("previous instance of root program %s is running, stopping it ", rootProgBPF.Program.Name)
 		if err := rootProgBPF.Stop(ifaceName, direction, conf.BpfChainingEnabled); err != nil {
 			return nil, fmt.Errorf("failed to stop root program on iface %s name %s direction %s", ifaceName, rootProgBPF.Program.Name, direction)
@@ -189,7 +199,7 @@ func StopExternalRunningProcess(processName string) error {
 					err = osProcess.Kill()
 				}
 				if err != nil {
-					return fmt.Errorf("external BPFProgram stop failed with error: %w", err)
+					return fmt.Errorf("external BPFProgram stop failed with error: %v", err)
 				}
 			}
 		}
@@ -235,7 +245,7 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 
 	if len(b.Program.CmdStop) < 1 {
 		if err := b.ProcessTerminate(); err != nil {
-			return fmt.Errorf("BPFProgram %s process terminate failed with error: %w", b.Program.Name, err)
+			return fmt.Errorf("BPFProgram %s process terminate failed with error: %v", b.Program.Name, err)
 		}
 		if b.Cmd != nil {
 			if err := b.Cmd.Wait(); err != nil {
@@ -262,7 +272,7 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	cmd := filepath.Join(b.FilePath, b.Program.CmdStop)
 
 	if err := assertExecutable(cmd); err != nil {
-		return fmt.Errorf("no executable permissions on %s - error %w", b.Program.CmdStop, err)
+		return fmt.Errorf("no executable permissions on %s - error %v", b.Program.CmdStop, err)
 	}
 
 	args := make([]string, 0, len(b.Program.StopArgs)<<1)
@@ -312,19 +322,19 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	}
 
 	if err := StopExternalRunningProcess(b.Program.CmdStart); err != nil {
-		return fmt.Errorf("failed to stop external instance of the program %s with error : %w", b.Program.CmdStart, err)
+		return fmt.Errorf("failed to stop external instance of the program %s with error : %v", b.Program.CmdStart, err)
 	}
 
 	cmd := filepath.Join(b.FilePath, b.Program.CmdStart)
 	// Validate
 	if err := assertExecutable(cmd); err != nil {
-		return fmt.Errorf("no executable permissions on %s - error %w", b.Program.CmdStart, err)
+		return fmt.Errorf("no executable permissions on %s - error %v", b.Program.CmdStart, err)
 	}
 
 	// Making sure old map entry is removed before passing the prog fd map to the program.
-	if len(b.PrevMapName) > 0 {
+	if len(b.PrevMapNamePath) > 0 {
 		if err := b.RemovePrevProgFD(); err != nil {
-			log.Error().Err(err).Msgf("ProgramMap %s entry removal failed", b.PrevMapName)
+			log.Error().Err(err).Msgf("ProgramMap %s entry removal failed", b.PrevMapNamePath)
 		}
 	}
 
@@ -333,13 +343,13 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	args = append(args, "--direction="+direction) // direction xdpingress or ingress or egress
 
 	if chain {
-		if len(b.PrevMapName) > 1 {
-			args = append(args, "--map-name="+b.PrevMapName)
+		if len(b.PrevMapNamePath) > 1 {
+			args = append(args, "--map-name="+b.PrevMapNamePath)
 		}
 	}
 
-	if len(b.LogDir) > 1 {
-		args = append(args, "--log-dir="+b.LogDir)
+	if len(b.hostConfig.BPFLogDir) > 1 {
+		args = append(args, "--log-dir="+b.hostConfig.BPFLogDir)
 	}
 
 	if len(b.Program.RulesFile) > 1 && len(b.Program.Rules) > 1 {
@@ -368,12 +378,12 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	if !b.Program.UserProgramDaemon {
 		log.Info().Msgf("no user mode BPF program - %s No Pid", b.Program.Name)
 		if err := b.Cmd.Wait(); err != nil {
-			return fmt.Errorf("cmd wait at starting of bpf program returned with error %w", err)
+			return fmt.Errorf("cmd wait at starting of bpf program returned with error %v", err)
 		}
 		b.Cmd = nil
 
 		if err := b.VerifyPinnedMapExists(chain); err != nil {
-			return fmt.Errorf("no userprogram and failed to find pinned file %s, %w", b.Program.MapName, err)
+			return fmt.Errorf("no userprogram and failed to find pinned file %s, %v", b.MapNamePath, err)
 		}
 		return nil
 	}
@@ -381,23 +391,23 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	isRunning, err := b.isRunning()
 	if !isRunning {
 		log.Error().Err(err).Msg("eBPF program failed to start")
-		return fmt.Errorf("bpf program %s failed to start %w", b.Program.Name, err)
+		return fmt.Errorf("bpf program %s failed to start %v", b.Program.Name, err)
 	}
 
 	// making sure program fd map pinned file is created
 	if err := b.VerifyPinnedMapExists(chain); err != nil {
-		return fmt.Errorf("failed to find pinned file %s  %w", b.Program.MapName, err)
+		return fmt.Errorf("failed to find pinned file %s  %v", b.MapNamePath, err)
 	}
 
 	if len(b.Program.MapArgs) > 0 {
 		if err := b.Update(ifaceName, direction); err != nil {
 			log.Error().Err(err).Msg("failed to update network functions BPF maps")
-			return fmt.Errorf("failed to update network functions BPF maps %w", err)
+			return fmt.Errorf("failed to update network functions BPF maps %v", err)
 		}
 	}
 
 	// Fetch when prev program map is updated
-	if len(b.PrevMapName) > 0 {
+	if len(b.PrevMapNamePath) > 0 {
 		// retry 10 times to verify entry is created
 		for i := 0; i < 10; i++ {
 			b.ProgID, err = b.GetProgID()
@@ -411,7 +421,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 
 		if err != nil {
 			log.Error().Err(err).Msg("failed to fetch network functions program FD")
-			return fmt.Errorf("failed to fetch network functions program FD %w", err)
+			return fmt.Errorf("failed to fetch network functions program FD %v", err)
 		}
 	}
 
@@ -464,7 +474,7 @@ func (b *BPF) isRunning() (bool, error) {
 		cmd := filepath.Join(b.FilePath, b.Program.CmdStatus)
 
 		if err := assertExecutable(cmd); err != nil {
-			return false, fmt.Errorf("failed to execute %s with error: %w", b.Program.CmdStatus, err)
+			return false, fmt.Errorf("failed to execute %s with error: %v", b.Program.CmdStatus, err)
 		}
 
 		args := make([]string, 0, len(b.Program.StatusArgs)<<1)
@@ -519,92 +529,173 @@ func (b *BPF) VerifyAndGetArtifacts(conf *config.Config) error {
 	return nil
 }
 
-// GetArtifacts downloads artifacts from the nexus repo
+// GetArtifacts downloads artifacts from the specified eBPF repo
 func (b *BPF) GetArtifacts(conf *config.Config) error {
-	var fPath = ""
-
-	kfRepoURL, err := url.Parse(conf.KFRepoURL)
-	if err != nil {
-		return fmt.Errorf("unknown KF repo url format: %w", err)
-	}
-
-	platform, err := GetPlatform()
-	if err != nil {
-		return fmt.Errorf("failed to find KF repo download path: %w", err)
-	}
-
-	kfRepoURL.Path = path.Join(kfRepoURL.Path, b.Program.Name, b.Program.Version, platform, b.Program.Artifact)
-	log.Info().Msgf("Downloading - %s", kfRepoURL)
-
-	timeOut := time.Duration(conf.HttpClientTimeout) * time.Second
-	var netTransport = &http.Transport{
-		ResponseHeaderTimeout: timeOut,
-	}
-	client := http.Client{Transport: netTransport, Timeout: timeOut}
-
-	// Get the data
-	resp, err := client.Get(kfRepoURL.String())
-	if err != nil {
-		return fmt.Errorf("download failed: %w", err)
-	}
-	defer resp.Body.Close()
 
 	buf := &bytes.Buffer{}
-	buf.ReadFrom(resp.Body)
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("get request returned unexpected status code: %d (%s), %d was expected\n\tResponse Body: %s", resp.StatusCode, http.StatusText(resp.StatusCode), http.StatusOK, buf.Bytes())
+	isDefaultURLUsed := false
+	RepoURL := b.Program.EPRURL
+	if len(b.Program.EPRURL) == 0 {
+		RepoURL = conf.KFRepoURL
+		isDefaultURLUsed = true
 	}
 
-	archive, err := gzip.NewReader(buf)
+	URL, err := url.Parse(RepoURL)
 	if err != nil {
-		return fmt.Errorf("failed to create Gzip reader: %w", err)
+		if isDefaultURLUsed {
+			return fmt.Errorf("unknown kf-repo format : %v", err)
+		} else {
+			return fmt.Errorf("unknown ebpf_package_repo_url format : %v", err)
+		}
 	}
-	defer archive.Close()
 
-	tarReader := tar.NewReader(archive)
-	tempDir := filepath.Join(conf.BPFDir, b.Program.Name, b.Program.Version)
-
-	for {
-		header, err := tarReader.Next()
-
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			return fmt.Errorf("untar failed: %w", err)
-		}
-
-		if strings.Contains(header.Name, "..") {
-			return fmt.Errorf("zipped file contians filepath (%s) that includes (..)", header.Name)
-		}
-
-		fPath = filepath.Join(tempDir, header.Name)
-		info := header.FileInfo()
-		if info.IsDir() {
-			if err = os.MkdirAll(fPath, info.Mode()); err != nil {
-				return fmt.Errorf("untar failed to create directories: %w", err)
+	switch URL.Scheme {
+	case httpsScheme, httpScheme:
+		{
+			platform, err := GetPlatform()
+			if err != nil {
+				return fmt.Errorf("failed to identify platform type: %v", err)
 			}
-			continue
-		}
 
-		file, err := os.OpenFile(fPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, info.Mode())
-		if err != nil {
-			return fmt.Errorf("untar failed to create file: %w", err)
-		}
-		defer file.Close()
+			URL.Path = path.Join(URL.Path, b.Program.Name, b.Program.Version, platform, b.Program.Artifact)
+			log.Info().Msgf("Downloading - %s", URL)
 
-		buf := copyBufPool.Get().(*bytes.Buffer)
-		_, err = io.CopyBuffer(file, tarReader, buf.Bytes())
-		if err != nil {
-			return fmt.Errorf("GetArtifacts failed to copy files: %w", err)
+			timeOut := time.Duration(conf.HttpClientTimeout) * time.Second
+			var netTransport = &http.Transport{
+				ResponseHeaderTimeout: timeOut,
+			}
+			client := http.Client{Transport: netTransport, Timeout: timeOut}
+
+			// Get the data
+			resp, err := client.Get(URL.String())
+			if err != nil {
+				return fmt.Errorf("download failed: %v", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				return fmt.Errorf("get request returned unexpected status code: %d (%s), %d was expected\n\tResponse Body: %s", resp.StatusCode, http.StatusText(resp.StatusCode), http.StatusOK, buf.Bytes())
+			}
+
+			buf.ReadFrom(resp.Body)
+
 		}
-		copyBufPool.Put(buf)
+	case fileScheme:
+		{
+			if fileExists(URL.Path) {
+				f, err := os.Open(URL.Path)
+				if err != nil {
+					return fmt.Errorf("opening err : %v", err)
+				}
+
+				buf.ReadFrom(f)
+				f.Close()
+			} else {
+				return fmt.Errorf("artifact is not found")
+			}
+		}
 	}
 
-	newDir := strings.Split(b.Program.Artifact, ".")
-	b.FilePath = filepath.Join(tempDir, newDir[0])
+	switch artifact := b.Program.Artifact; {
+	case strings.HasSuffix(artifact, ".zip"):
+		{
+			c := bytes.NewReader(buf.Bytes())
+			zipReader, err := zip.NewReader(c, int64(c.Len()))
+			if err != nil {
+				return fmt.Errorf("failed to create zip reader: %v", err)
+			}
+			tempDir := filepath.Join(conf.BPFDir, b.Program.Name, b.Program.Version)
 
-	return nil
+			for _, file := range zipReader.File {
+
+				zippedFile, err := file.Open()
+				if err != nil {
+					return fmt.Errorf("unzip failed: %v", err)
+				}
+				defer zippedFile.Close()
+
+				extractedFilePath, err := ValidatePath(file.Name, tempDir)
+				if err != nil {
+					return err
+				}
+
+				if file.FileInfo().IsDir() {
+					os.MkdirAll(extractedFilePath, file.Mode())
+				} else {
+					outputFile, err := os.OpenFile(
+						extractedFilePath,
+						os.O_WRONLY|os.O_CREATE|os.O_TRUNC,
+						file.Mode(),
+					)
+					if err != nil {
+						return fmt.Errorf("unzip failed to create file: %v", err)
+					}
+					defer outputFile.Close()
+
+					buf := copyBufPool.Get().(*bytes.Buffer)
+					_, err = io.CopyBuffer(outputFile, zippedFile, buf.Bytes())
+					if err != nil {
+						return fmt.Errorf("GetArtifacts failed to copy files: %v", err)
+					}
+					copyBufPool.Put(buf)
+				}
+			}
+			newDir := strings.Split(b.Program.Artifact, ".")
+			b.FilePath = filepath.Join(tempDir, newDir[0])
+			return nil
+		}
+	case strings.HasSuffix(b.Program.Artifact, ".tar.gz"):
+		{
+			archive, err := gzip.NewReader(buf)
+			if err != nil {
+				return fmt.Errorf("failed to create Gzip reader: %v", err)
+			}
+			defer archive.Close()
+			tarReader := tar.NewReader(archive)
+			tempDir := filepath.Join(conf.BPFDir, b.Program.Name, b.Program.Version)
+
+			for {
+				header, err := tarReader.Next()
+
+				if err == io.EOF {
+					break
+				} else if err != nil {
+					return fmt.Errorf("untar failed: %v", err)
+				}
+
+				fPath, err := ValidatePath(header.Name, tempDir)
+				if err != nil {
+					return err
+				}
+
+				info := header.FileInfo()
+				if info.IsDir() {
+					if err = os.MkdirAll(fPath, info.Mode()); err != nil {
+						return fmt.Errorf("untar failed to create directories: %v", err)
+					}
+					continue
+				}
+
+				file, err := os.OpenFile(fPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, info.Mode())
+				if err != nil {
+					return fmt.Errorf("untar failed to create file: %v", err)
+				}
+				defer file.Close()
+
+				buf := copyBufPool.Get().(*bytes.Buffer)
+				_, err = io.CopyBuffer(file, tarReader, buf.Bytes())
+				if err != nil {
+					return fmt.Errorf("GetArtifacts failed to copy files: %v", err)
+				}
+				copyBufPool.Put(buf)
+			}
+			newDir := strings.Split(b.Program.Artifact, ".")
+			b.FilePath = filepath.Join(tempDir, newDir[0])
+			return nil
+		}
+	default:
+		return fmt.Errorf("unknown artifact format")
+	}
 }
 
 // create rules file
@@ -617,7 +708,7 @@ func (b *BPF) createUpdateRulesFile(direction string) (string, error) {
 	fileName := path.Join(b.FilePath, direction, b.Program.RulesFile)
 
 	if err := ioutil.WriteFile(fileName, []byte(b.Program.Rules), 0644); err != nil {
-		return "", fmt.Errorf("create or Update Rules File failed with error %w", err)
+		return "", fmt.Errorf("create or Update Rules File failed with error %v", err)
 	}
 
 	return fileName, nil
@@ -768,7 +859,7 @@ func (b *BPF) PutNextProgFDFromID(progID int) error {
 	}
 
 	log.Info().Msgf("PutNextProgFDFromID : Map Name %s ID %d", b.Program.MapName, progID)
-	ebpfMap, err := ebpf.LoadPinnedMap(b.Program.MapName, nil)
+	ebpfMap, err := ebpf.LoadPinnedMap(b.MapNamePath, nil)
 	if err != nil {
 		return fmt.Errorf("unable to access pinned next prog map %s %v", b.Program.MapName, err)
 	}
@@ -790,28 +881,28 @@ func (b *BPF) PutNextProgFDFromID(progID int) error {
 // GetProgID - This returns ID of the bpf program
 func (b *BPF) GetProgID() (int, error) {
 
-	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapName, &ebpf.LoadPinOptions{ReadOnly: true})
+	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapNamePath, &ebpf.LoadPinOptions{ReadOnly: true})
 	if err != nil {
-		log.Error().Err(err).Msgf("unable to access pinned prog map %s", b.PrevMapName)
-		return 0, fmt.Errorf("unable to access pinned prog map %s %v", b.PrevMapName, err)
+		log.Error().Err(err).Msgf("unable to access pinned prog map %s", b.PrevMapNamePath)
+		return 0, fmt.Errorf("unable to access pinned prog map %s %v", b.PrevMapNamePath, err)
 	}
 	defer ebpfMap.Close()
 	var value int
 	key := 0
 
 	if err = ebpfMap.Lookup(unsafe.Pointer(&key), unsafe.Pointer(&value)); err != nil {
-		log.Warn().Err(err).Msgf("unable to lookup prog map %s", b.PrevMapName)
-		return 0, fmt.Errorf("unable to lookup prog map %w", err)
+		log.Warn().Err(err).Msgf("unable to lookup prog map %s", b.PrevMapNamePath)
+		return 0, fmt.Errorf("unable to lookup prog map %v", err)
 	}
 
 	// verify progID before storing in locally.
 	_, err = ebpf.NewProgramFromID(ebpf.ProgramID(value))
 	if err != nil {
-		log.Warn().Err(err).Msgf("failed to verify program ID %s", b.PrevMapName)
+		log.Warn().Err(err).Msgf("failed to verify program ID %s", b.PrevMapNamePath)
 		return 0, fmt.Errorf("failed to verify program ID %s %v", b.Program.Name, err)
 	}
 
-	log.Info().Msgf("GetProgID - Name %s PrevMapName %s ID %d", b.Program.Name, b.PrevMapName, value)
+	log.Info().Msgf("GetProgID - Name %s PrevMapName %s ID %d", b.Program.Name, b.PrevMapNamePath, value)
 	return value, nil
 }
 
@@ -822,7 +913,7 @@ func (b *BPF) RemoveNextProgFD() error {
 		// no chaining map in case of root programs
 		return nil
 	}
-	ebpfMap, err := ebpf.LoadPinnedMap(b.Program.MapName, nil)
+	ebpfMap, err := ebpf.LoadPinnedMap(b.MapNamePath, nil)
 	if err != nil {
 		return fmt.Errorf("unable to access pinned next prog map %s %v", b.Program.MapName, err)
 	}
@@ -838,9 +929,9 @@ func (b *BPF) RemoveNextProgFD() error {
 // Delete the entry if the last element
 func (b *BPF) RemovePrevProgFD() error {
 
-	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapName, nil)
+	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapNamePath, nil)
 	if err != nil {
-		return fmt.Errorf("unable to access pinned prev prog map %s %v", b.PrevMapName, err)
+		return fmt.Errorf("unable to access pinned prev prog map %s %v", b.PrevMapNamePath, err)
 	}
 	defer ebpfMap.Close()
 	key := 0
@@ -862,9 +953,10 @@ func (b *BPF) VerifyPinnedMapExists(chain bool) error {
 	var err error
 	if len(b.Program.MapName) > 0 {
 		log.Debug().Msgf("VerifyPinnedMapExists : Program %s MapName %s", b.Program.Name, b.Program.MapName)
+
 		for i := 0; i < 10; i++ {
-			if _, err = os.Stat(b.Program.MapName); err == nil {
-				log.Info().Msgf("VerifyPinnedMapExists : map file created %s", b.Program.MapName)
+			if _, err = os.Stat(b.MapNamePath); err == nil {
+				log.Info().Msgf("VerifyPinnedMapExists : map file created %s", b.MapNamePath)
 				return nil
 			}
 			log.Warn().Msgf("failed to find pinned file, checking again after a second ... ")
@@ -872,7 +964,7 @@ func (b *BPF) VerifyPinnedMapExists(chain bool) error {
 		}
 
 		if err != nil {
-			err = fmt.Errorf("failed to find pinned file %s err %w", b.Program.MapName, err)
+			err = fmt.Errorf("failed to find pinned file %s err %v", b.MapNamePath, err)
 			log.Error().Err(err).Msg("")
 			return err
 		}
@@ -890,9 +982,10 @@ func (b *BPF) VerifyPinnedMapVanish(chain bool) error {
 
 	var err error
 	log.Debug().Msgf("VerifyPinnedMapVanish : Program %s MapName %s", b.Program.Name, b.Program.MapName)
+
 	for i := 0; i < 10; i++ {
-		if _, err = os.Stat(b.Program.MapName); os.IsNotExist(err) {
-			log.Info().Msgf("VerifyPinnedMapVanish : map file removed successfully - %s ", b.Program.MapName)
+		if _, err = os.Stat(b.MapNamePath); os.IsNotExist(err) {
+			log.Info().Msgf("VerifyPinnedMapVanish : map file removed successfully - %s ", b.MapNamePath)
 			return nil
 		} else if err != nil {
 			log.Warn().Err(err).Msg("VerifyPinnedMapVanish: Error checking for map file")
@@ -902,7 +995,7 @@ func (b *BPF) VerifyPinnedMapVanish(chain bool) error {
 		time.Sleep(1 * time.Second)
 	}
 
-	err = fmt.Errorf("%s map file was never removed by BPF program %s err %w", b.Program.MapName, b.Program.Name, err)
+	err = fmt.Errorf("%s map file was never removed by BPF program %s err %v", b.MapNamePath, b.Program.Name, err)
 	log.Error().Err(err).Msg("")
 	return err
 }
@@ -951,4 +1044,15 @@ func (b *BPF) VerifyMetricsMapsVanish() error {
 	err := fmt.Errorf("metrics maps are never removed by Kernel %s", b.Program.Name)
 	log.Error().Err(err).Msg("")
 	return err
+}
+
+func ValidatePath(filePath string, destination string) (string, error) {
+	destpath := filepath.Join(destination, filePath)
+	if strings.Contains(filePath, "..") {
+		return "", fmt.Errorf(" file contains filepath (%s) that includes (..)", filePath)
+	}
+	if !strings.HasPrefix(destpath, filepath.Clean(destination)+string(os.PathSeparator)) {
+		return "", fmt.Errorf("%s: illegal file path", filePath)
+	}
+	return destpath, nil
 }

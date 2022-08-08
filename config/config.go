@@ -28,9 +28,8 @@ type Config struct {
 	KFRepoURL         string
 	HttpClientTimeout time.Duration
 	MaxNFReStartCount int
-	MaxNFsAttachCount int
 	Environment       string
-
+	BpfMapDefaultPath string
 	// Flag to enable chaining with root program
 	BpfChainingEnabled bool
 
@@ -79,12 +78,13 @@ type Config struct {
 	L3afConfigStoreFileName string
 
 	// mTLS
-	MTLSEnabled            bool
-	MTLSMinVersion         uint16
-	MTLSCertDir            string
-	MTLSCACertFilename     string
-	MTLSServerCertFilename string
-	MTLSServerKeyFilename  string
+	MTLSEnabled               bool
+	MTLSMinVersion            uint16
+	MTLSCertDir               string
+	MTLSCACertFilename        string
+	MTLSServerCertFilename    string
+	MTLSServerKeyFilename     string
+	MTLSCertExpiryWarningDays int
 }
 
 // ReadConfig - Initializes configuration from file
@@ -110,7 +110,6 @@ func ReadConfig(configPath string) (*Config, error) {
 		KFRepoURL:                       LoadConfigString(confReader, "kf-repo", "url"),
 		HttpClientTimeout:               LoadConfigDuration(confReader, "l3afd", "http-client-timeout"),
 		MaxNFReStartCount:               LoadConfigInt(confReader, "l3afd", "max-nf-restart-count"),
-		MaxNFsAttachCount:               LoadConfigInt(confReader, "l3afd", "max-nfs-attach-count"),
 		BpfChainingEnabled:              LoadOptionalConfigBool(confReader, "l3afd", "bpf-chaining-enabled", true),
 		MetricsAddr:                     LoadConfigString(confReader, "web", "metrics-addr"),
 		KFPollInterval:                  LoadOptionalConfigDuration(confReader, "web", "kf-poll-interval", 30*time.Second),
@@ -118,6 +117,7 @@ func ReadConfig(configPath string) (*Config, error) {
 		ShutdownTimeout:                 LoadConfigDuration(confReader, "l3afd", "shutdown-timeout"),
 		SwaggerApiEnabled:               LoadOptionalConfigBool(confReader, "l3afd", "swagger-api-enabled", false),
 		Environment:                     LoadOptionalConfigString(confReader, "l3afd", "environment", ENV_PROD),
+		BpfMapDefaultPath:               LoadOptionalConfigString(confReader, "l3afd", "BpfMapDefaultPath", "/sys/fs/bpf"),
 		AdmindHost:                      LoadConfigString(confReader, "admind", "host"),
 		AdmindUsername:                  LoadConfigString(confReader, "admind", "username"),
 		AdmindApiKey:                    LoadConfigString(confReader, "admind", "api-key"),
@@ -125,14 +125,14 @@ func ReadConfig(configPath string) (*Config, error) {
 		AdmindApiEnabled:                LoadOptionalConfigBool(confReader, "admind", "api-enabled", true),
 		XDPRootProgramName:              LoadOptionalConfigString(confReader, "xdp-root-program", "name", "xdp_root"),
 		XDPRootProgramArtifact:          LoadOptionalConfigString(confReader, "xdp-root-program", "artifact", "l3af_xdp_root.tar.gz"),
-		XDPRootProgramMapName:           LoadOptionalConfigString(confReader, "xdp-root-program", "ingress-map-name", "/sys/fs/bpf/xdp_root_array"),
+		XDPRootProgramMapName:           LoadOptionalConfigString(confReader, "xdp-root-program", "ingress-map-name", "xdp_root_array"),
 		XDPRootProgramCommand:           LoadOptionalConfigString(confReader, "xdp-root-program", "command", "xdp_root"),
 		XDPRootProgramVersion:           LoadOptionalConfigString(confReader, "xdp-root-program", "version", "1.01"),
 		XDPRootProgramUserProgramDaemon: LoadOptionalConfigBool(confReader, "xdp-root-program", "user-program-daemon", false),
 		TCRootProgramName:               LoadOptionalConfigString(confReader, "tc-root-program", "name", "tc_root"),
 		TCRootProgramArtifact:           LoadOptionalConfigString(confReader, "tc-root-program", "artifact", "l3af_tc_root.tar.gz"),
-		TCRootProgramIngressMapName:     LoadOptionalConfigString(confReader, "tc-root-program", "ingress-map-name", "/sys/fs/bpf/tc/globals/tc_ingress_root_array"),
-		TCRootProgramEgressMapName:      LoadOptionalConfigString(confReader, "tc-root-program", "egress-map-name", "/sys/fs/bpf/tc/globals/tc_egress_root_array"),
+		TCRootProgramIngressMapName:     LoadOptionalConfigString(confReader, "tc-root-program", "ingress-map-name", "tc/globals/tc_ingress_root_array"),
+		TCRootProgramEgressMapName:      LoadOptionalConfigString(confReader, "tc-root-program", "egress-map-name", "tc/globals/tc_egress_root_array"),
 		TCRootProgramCommand:            LoadOptionalConfigString(confReader, "tc-root-program", "command", "tc_root"),
 		TCRootProgramVersion:            LoadOptionalConfigString(confReader, "tc-root-program", "version", "1.0"),
 		TCRootProgramUserProgramDaemon:  LoadOptionalConfigBool(confReader, "tc-root-program", "user-program-daemon", false),
@@ -146,6 +146,7 @@ func ReadConfig(configPath string) (*Config, error) {
 		MTLSCACertFilename:              LoadOptionalConfigString(confReader, "mtls", "cacert-filename", "ca.pem"),
 		MTLSServerCertFilename:          LoadOptionalConfigString(confReader, "mtls", "server-cert-filename", "server.crt"),
 		MTLSServerKeyFilename:           LoadOptionalConfigString(confReader, "mtls", "server-key-filename", "server.key"),
+		MTLSCertExpiryWarningDays:       LoadOptionalConfigInt(confReader, "mtls", "cert-expiry-warning-days", 30),
 	}, nil
 }
 
