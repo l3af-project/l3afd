@@ -36,6 +36,7 @@ type Server struct {
 	KFRTConfigs *kf.NFConfigs
 	HostName    string
 	l3afdServer *http.Server
+	CaCertPool  *x509.CertPool
 }
 
 // @title L3AFD APIs
@@ -83,17 +84,23 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 			if err != nil {
 				log.Fatal().Err(err).Msgf("client CA %s file not found", conf.MTLSCACertFilename)
 			}
-			caCertPool := x509.NewCertPool()
-			caCertPool.AppendCertsFromPEM(caCert)
+			s.CaCertPool = x509.NewCertPool()
+			s.CaCertPool.AppendCertsFromPEM(caCert)
 
+			serverCrtFile := path.Join(conf.MTLSCertDir, conf.MTLSServerCertFilename)
+			serverKeyFile := path.Join(conf.MTLSCertDir, conf.MTLSServerKeyFilename)
+			serverCert, _ := tls.LoadX509KeyPair(serverCrtFile, serverKeyFile)
+
+			var cHelloInfo *tls.ClientHelloInfo
 			// Create the TLS Config with the CA pool and enable Client certificate validation
 			s.l3afdServer.TLSConfig = &tls.Config{
-				ClientCAs:  caCertPool,
+				ClientCAs:  s.CaCertPool,
 				ClientAuth: tls.RequireAndVerifyClientCert,
 				MinVersion: conf.MTLSMinVersion,
 				GetCertificate: func(hi *tls.ClientHelloInfo) (*tls.Certificate, error) {
-					return &s.l3afdServer.TLSConfig , nil
+					return &serverCert, nil
 				},
+				VerifyPeerCertificate: s.getClientValidator(cHelloInfo),
 			}
 
 			cpb, _ := pem.Decode(caCert)
@@ -117,9 +124,10 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 				}
 			}()
 
-			if err := s.l3afdServer.ListenAndServeTLS(path.Join(conf.MTLSCertDir, conf.MTLSServerCertFilename), path.Join(conf.MTLSCertDir, conf.MTLSServerKeyFilename)); err != nil {
+			if err := s.l3afdServer.ListenAndServeTLS(serverCrtFile, serverKeyFile); err != nil {
 				log.Fatal().Err(err).Msgf("failed to start L3AFD server with mTLS enabled")
 			}
+
 		} else {
 			log.Info().Msgf("l3afd server listening - %s ", conf.L3afConfigsRestAPIAddr)
 
@@ -170,10 +178,10 @@ func MonitorTLS(start time.Time, expiry time.Time, conf *config.Config) {
 	expiryDate := expiry
 	startDate := start
 	diff := expiryDate.Sub(todayDate)
-	remaingHoursToStart := todayDate.Sub(startDate)
+	remainingHoursToStart := todayDate.Sub(startDate)
 	limit := conf.MTLSCertExpiryWarningDays * 24
 	remainingHoursToExpire := int(diff.Hours())
-	if remaingHoursToStart > 0 {
+	if remainingHoursToStart > 0 {
 		log.Fatal().Msgf("tls certificate start from : %v", startDate)
 	}
 	if remainingHoursToExpire <= limit {
@@ -182,5 +190,23 @@ func MonitorTLS(start time.Time, expiry time.Time, conf *config.Config) {
 		} else {
 			log.Warn().Msgf("tls certificate will expire in %v days", int64(remainingHoursToExpire/24))
 		}
+	}
+}
+
+func (s *Server) getClientValidator(helloInfo *tls.ClientHelloInfo) func([][]byte, [][]*x509.Certificate) error {
+
+	log.Debug().Msgf("Inside get client validator")
+	return func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+		//added DNSName
+		log.Debug().Msgf("tls config in validator")
+		opts := x509.VerifyOptions{
+			Roots:         s.CaCertPool,
+			CurrentTime:   time.Now(),
+			Intermediates: x509.NewCertPool(),
+			KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+			DNSName:       strings.Split(helloInfo.Conn.RemoteAddr().String(), ":")[0],
+		}
+		_, err := verifiedChains[0][0].Verify(opts)
+		return err
 	}
 }
