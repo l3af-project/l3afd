@@ -84,23 +84,36 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 			if err != nil {
 				log.Fatal().Err(err).Msgf("client CA %s file not found", conf.MTLSCACertFilename)
 			}
-			s.CaCertPool = x509.NewCertPool()
-			s.CaCertPool.AppendCertsFromPEM(caCert)
+
+			s.CaCertPool, _ = x509.SystemCertPool()
+			if s.CaCertPool == nil {
+				s.CaCertPool = x509.NewCertPool()
+			}
+			if ok := s.CaCertPool.AppendCertsFromPEM(caCert); !ok {
+				log.Warn().Msgf("No certs appended, using system certs only")
+			}
 
 			serverCrtFile := path.Join(conf.MTLSCertDir, conf.MTLSServerCertFilename)
 			serverKeyFile := path.Join(conf.MTLSCertDir, conf.MTLSServerKeyFilename)
 			serverCert, _ := tls.LoadX509KeyPair(serverCrtFile, serverKeyFile)
 
-			var cHelloInfo *tls.ClientHelloInfo
-			// Create the TLS Config with the CA pool and enable Client certificate validation
+			//build server config
 			s.l3afdServer.TLSConfig = &tls.Config{
-				ClientCAs:  s.CaCertPool,
-				ClientAuth: tls.RequireAndVerifyClientCert,
-				MinVersion: conf.MTLSMinVersion,
 				GetCertificate: func(hi *tls.ClientHelloInfo) (*tls.Certificate, error) {
 					return &serverCert, nil
 				},
-				VerifyPeerCertificate: s.getClientValidator(cHelloInfo),
+				GetConfigForClient: func(hi *tls.ClientHelloInfo) (*tls.Config, error) {
+					serverConf := &tls.Config{
+						GetCertificate: func(hi *tls.ClientHelloInfo) (*tls.Certificate, error) {
+							return &serverCert, nil
+						},
+						MinVersion:            tls.VersionTLS12,
+						ClientAuth:            tls.RequireAndVerifyClientCert,
+						ClientCAs:             s.CaCertPool,
+						VerifyPeerCertificate: s.getClientValidator(hi),
+					}
+					return serverConf, nil
+				},
 			}
 
 			cpb, _ := pem.Decode(caCert)
@@ -195,10 +208,9 @@ func MonitorTLS(start time.Time, expiry time.Time, conf *config.Config) {
 
 func (s *Server) getClientValidator(helloInfo *tls.ClientHelloInfo) func([][]byte, [][]*x509.Certificate) error {
 
-	log.Debug().Msgf("Inside get client validator")
+	log.Debug().Msgf("Inside get client validator - %v", helloInfo.Conn.RemoteAddr())
 	return func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 		//added DNSName
-		log.Debug().Msgf("tls config in validator")
 		opts := x509.VerifyOptions{
 			Roots:         s.CaCertPool,
 			CurrentTime:   time.Now(),
