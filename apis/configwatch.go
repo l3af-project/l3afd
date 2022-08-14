@@ -93,9 +93,9 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 				log.Warn().Msgf("No certs appended, using system certs only")
 			}
 
-			serverCrtFile := path.Join(conf.MTLSCertDir, conf.MTLSServerCertFilename)
+			serverCertFile := path.Join(conf.MTLSCertDir, conf.MTLSServerCertFilename)
 			serverKeyFile := path.Join(conf.MTLSCertDir, conf.MTLSServerKeyFilename)
-			serverCert, _ := tls.LoadX509KeyPair(serverCrtFile, serverKeyFile)
+			serverCert, _ := tls.LoadX509KeyPair(serverCertFile, serverKeyFile)
 
 			//build server config
 			s.l3afdServer.TLSConfig = &tls.Config{
@@ -137,7 +137,7 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 				}
 			}()
 
-			if err := s.l3afdServer.ListenAndServeTLS(serverCrtFile, serverKeyFile); err != nil {
+			if err := s.l3afdServer.ListenAndServeTLS(serverCertFile, serverKeyFile); err != nil {
 				log.Fatal().Err(err).Msgf("failed to start L3AFD server with mTLS enabled")
 			}
 
