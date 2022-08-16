@@ -62,7 +62,7 @@ func AddEbpfPrograms(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFunc 
 		}
 
 		if err := kfcfg.AddeBPFPrograms(t); err != nil {
-			mesg = fmt.Sprintf("failed to AddeBPFPrograms : %v", err)
+			mesg = fmt.Sprintf("failed to AddEbpfPrograms : %v", err)
 			log.Error().Msg(mesg)
 
 			statusCode = http.StatusInternalServerError
