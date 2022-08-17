@@ -582,7 +582,7 @@ func TestAddeBPFPrograms(t *testing.T) {
 		wanterr bool
 	}{
 		{
-			name: "UnknowHostName",
+			name: "UnknownHostName",
 			field: fields{
 				hostName: "l3af-prod",
 				ifaces:   map[string]string{},
