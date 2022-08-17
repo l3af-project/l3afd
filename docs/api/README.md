@@ -1,5 +1,7 @@
 # L3AFD API Documentation
 
+# Update API
+
 See [payload.json](https://github.com/l3af-project/l3af-arch/blob/main/dev_environment/cfg/payload.json) for a full example payload.
 
 The payload will look more like this standard JSON:
@@ -80,3 +82,53 @@ LTS (Focal Fossa), then we would look for the artifact at:
 |name|string|`"rl_drop_count_map"`|The name of the map where metrics are stored|
 |key|number|0|The index in the map specified by `name` where metrics are stored|
 |aggregator|string|scalar|The type of metrics aggregation to use for the configured metric sampling interval. Supported values are `"scalar"`, `"max-rate"`, and `"avg"`.|
+
+
+
+
+# Add API 
+The JSON is the same as for the Update API. Refer to above documentation.
+
+
+
+# Delete API 
+
+See [delete_payload.json](https://github.com/l3af-project/l3af-arch/blob/main/dev_environment/cfg/delete_payload.json) for a full example payload.
+
+The payload will look more like this standard JSON:
+
+```
+[
+    {
+        "host_name": "l3af-local-test",
+        "iface": "fakeif0",
+        "bpf_programs": {
+            "xdp_ingress": [
+                "ratelimiting",
+                "connection-limit"
+            ],
+            "tc_ingress": [
+              "...",
+              "..."
+            ],
+            "tc_egress": [
+              "...", 
+              "..."
+            ]
+        }
+    }
+]
+
+```
+
+### Below is the detailed documentation for each field
+
+| FieldName     | Example       | Description     |
+| ------------- | ------------- | --------------- |
+| host_name | `"l3af-local-test"` | The host's name |
+| iface | `"fakeif0"` | Interface name |
+| bpf_programs | `""` | List of eBPF program names |
+| xdp_ingress | `""` | Names of xdp ingress type eBPF programs |
+| tc_ingress | `""` | Names of tc ingress type eBPF programs |
+| tc_egress | `""` | Names of tc egress type eBPF programs |
+

@@ -7,6 +7,7 @@ import (
 	"container/list"
 	"context"
 	"os"
+	"path/filepath"
 	"reflect"
 	"sync"
 	"testing"
@@ -37,7 +38,7 @@ var (
 func setupDBTest() {
 	machineHostname, _ = os.Hostname()
 	hostInterfaces = make(map[string]bool)
-	hostInterfaces["enp0s3"] = true
+	hostInterfaces["fakeif0"] = true
 	pMon = NewpCheck(3, true, 10)
 	mMon = NewpKFMetrics(true, 30)
 
@@ -150,12 +151,12 @@ func TestNewNFConfigs(t *testing.T) {
 				hostConf: nil,
 				pMon:     pMon,
 				mMon:     mMon},
-			want: &NFConfigs{hostName: machineHostname,
+			want: &NFConfigs{HostName: machineHostname,
 				hostInterfaces: hostIfaces,
 				IngressXDPBpfs: ingressXDPBpfs,
 				IngressTCBpfs:  ingressTCBpfs,
 				EgressTCBpfs:   egressTCBpfs,
-				hostConfig:     nil,
+				HostConfig:     nil,
 				processMon:     pMon,
 				kfMetricsMon:   mMon,
 				mu:             new(sync.Mutex),
@@ -264,7 +265,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 			name: "ValidHostNameValidIfaceName",
 			fields: fields{
 				hostName:       machineHostname,
-				hostInterfaces: map[string]bool{"enp0s3": true},
+				hostInterfaces: map[string]bool{"fakeif0": true},
 				ingressXDPBpfs: make(map[string]*list.List),
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
@@ -273,7 +274,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    "enp0s3",
+				iface:    "fakeif0",
 				hostName: machineHostname,
 				bpfProgs: &models.BPFPrograms{},
 			},
@@ -283,7 +284,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 			name: "TestEBPFRepoDownload",
 			fields: fields{
 				hostName:       machineHostname,
-				hostInterfaces: map[string]bool{"enp0s3": true},
+				hostInterfaces: map[string]bool{"fakeif0": true},
 				ingressXDPBpfs: make(map[string]*list.List),
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
@@ -292,7 +293,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    "enp0s3",
+				iface:    "fakeif0",
 				hostName: machineHostname,
 				bpfProgs: bpfProgs,
 			},
@@ -302,7 +303,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 			name: "NewBPFWithVersionChange",
 			fields: fields{
 				hostName:       machineHostname,
-				hostInterfaces: map[string]bool{"enp0s3": true},
+				hostInterfaces: map[string]bool{"fakeif0": true},
 				ingressXDPBpfs: make(map[string]*list.List),
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
@@ -311,7 +312,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    "enp0s3",
+				iface:    "fakeif0",
 				hostName: machineHostname,
 				bpfProgs: valVerChange,
 			},
@@ -321,7 +322,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 			name: "NewBPFWithStatusChange",
 			fields: fields{
 				hostName:       machineHostname,
-				hostInterfaces: map[string]bool{"enp0s3": true},
+				hostInterfaces: map[string]bool{"fakeif0": true},
 				ingressXDPBpfs: make(map[string]*list.List),
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
@@ -330,7 +331,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    "enp0s3",
+				iface:    "fakeif0",
 				hostName: machineHostname,
 				bpfProgs: valStatusChange,
 			},
@@ -340,13 +341,13 @@ func TestNFConfigs_Deploy(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &NFConfigs{
-				hostName: tt.fields.hostName,
+				HostName: tt.fields.hostName,
 				//				configs:    tt.fields.configs,
 				hostInterfaces: tt.fields.hostInterfaces,
 				IngressXDPBpfs: tt.fields.ingressXDPBpfs,
 				IngressTCBpfs:  tt.fields.ingressTCBpfs,
 				EgressTCBpfs:   tt.fields.egressTCBpfs,
-				hostConfig:     tt.fields.hostConfig,
+				HostConfig:     tt.fields.hostConfig,
 				processMon:     tt.fields.processMon,
 				mu:             new(sync.Mutex),
 			}
@@ -389,11 +390,11 @@ func TestNFConfigs_Close(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &NFConfigs{
-				hostName:       tt.fields.hostName,
+				HostName:       tt.fields.hostName,
 				IngressXDPBpfs: tt.fields.ingressXDPBpfs,
 				IngressTCBpfs:  tt.fields.ingressTCBpfs,
 				EgressTCBpfs:   tt.fields.egressTCBpfs,
-				hostConfig:     tt.fields.hostConfig,
+				HostConfig:     tt.fields.hostConfig,
 				processMon:     tt.fields.processMon,
 			}
 			ctx, cancelfunc := context.WithTimeout(context.Background(), 900*time.Millisecond)
@@ -420,6 +421,657 @@ func Test_getHostInterfaces(t *testing.T) {
 			_, err := getHostInterfaces()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("getHostInterfaces() error : %v", err)
+			}
+		})
+	}
+}
+func Test_BinarySearch(t *testing.T) {
+	tests := []struct {
+		name   string
+		vals   []string
+		target string
+		result bool
+	}{
+		{
+			name:   "FoundTheTarget",
+			vals:   []string{"connection-limit", "ipfix-flow-exporter", "ratelimiting"},
+			target: "ratelimiting",
+			result: true,
+		},
+		{
+			name:   "DidNotFindTheTarget",
+			vals:   []string{"connection-limit", "ipfix-flow-exporter", "ratelimiting"},
+			target: "zsdf",
+			result: false,
+		},
+	}
+
+	for _, tt := range tests {
+		if BinarySearch(tt.vals, tt.target) != tt.result {
+			t.Errorf("BinarySearch is not producing expected output")
+		}
+	}
+}
+
+func Test_AddProgramsOnInterface(t *testing.T) {
+	type fields struct {
+		hostName       string
+		hostInterfaces map[string]bool
+		ingressXDPBpfs map[string]*list.List
+		ingressTCBpfs  map[string]*list.List
+		egressTCBpfs   map[string]*list.List
+		hostConfig     *config.Config
+		processMon     *pCheck
+		mu             *sync.Mutex
+	}
+	type args struct {
+		iface    string
+		hostName string
+		bpfProgs *models.BPFPrograms
+	}
+	tests := []struct {
+		name    string
+		field   fields
+		arg     args
+		wanterr bool
+	}{
+		{
+			name:    "UnknownHostName",
+			field:   fields{},
+			arg:     args{},
+			wanterr: true,
+		},
+		{
+			name: "NilInterface",
+			field: fields{
+				hostName: "l3af-local-test",
+			},
+			arg: args{
+				hostName: "fakeif0",
+			},
+			wanterr: true,
+		},
+		{
+			name: "UnknownInterface",
+			field: fields{
+				hostName: "l3af-local-test",
+			},
+			arg: args{
+				hostName: "l3af-local-test",
+				iface:    "dummyinterface",
+				bpfProgs: &models.BPFPrograms{
+					XDPIngress: []*models.BPFProgram{
+						&models.BPFProgram{
+							Name:              "dummy_name",
+							SeqID:             1,
+							Artifact:          "dummy_artifact.tar.gz",
+							MapName:           "xdp_rl_ingress_next_prog",
+							CmdStart:          "dummy_command",
+							Version:           "latest",
+							UserProgramDaemon: true,
+							AdminStatus:       "enabled",
+							ProgType:          "xdp",
+							CfgVersion:        1,
+						},
+					},
+				},
+			},
+			wanterr: true,
+		},
+		{
+			name: "GoodInput",
+			field: fields{
+				hostName:       "l3af-local-test",
+				hostInterfaces: map[string]bool{"fakeif0": true},
+				mu:             new(sync.Mutex),
+				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
+				ingressTCBpfs:  map[string]*list.List{"fakeif0": nil},
+				egressTCBpfs:   map[string]*list.List{"fakeif0": nil},
+				hostConfig: &config.Config{
+					BpfChainingEnabled: true,
+				},
+			},
+			arg: args{
+				hostName: "l3af-local-test",
+				iface:    "fakeif0",
+				bpfProgs: &models.BPFPrograms{
+					XDPIngress: []*models.BPFProgram{},
+					TCEgress:   []*models.BPFProgram{},
+					TCIngress:  []*models.BPFProgram{},
+				},
+			},
+			wanterr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &NFConfigs{
+				HostName:       tt.field.hostName,
+				IngressXDPBpfs: tt.field.ingressXDPBpfs,
+				IngressTCBpfs:  tt.field.ingressTCBpfs,
+				EgressTCBpfs:   tt.field.egressTCBpfs,
+				HostConfig:     tt.field.hostConfig,
+				processMon:     tt.field.processMon,
+				hostInterfaces: tt.field.hostInterfaces,
+				mu:             tt.field.mu,
+			}
+			err := cfg.AddProgramsOnInterface(tt.arg.iface, tt.arg.hostName, tt.arg.bpfProgs)
+			if (err != nil) != tt.wanterr {
+				t.Errorf("AddProgramsOnInterface: %v", err)
+			}
+		})
+	}
+}
+
+func TestAddeBPFPrograms(t *testing.T) {
+	type fields struct {
+		hostName       string
+		hostInterfaces map[string]bool
+		ingressXDPBpfs map[string]*list.List
+		ingressTCBpfs  map[string]*list.List
+		egressTCBpfs   map[string]*list.List
+		hostConfig     *config.Config
+		processMon     *pCheck
+		mu             *sync.Mutex
+		ifaces         map[string]string
+	}
+	tests := []struct {
+		name    string
+		field   fields
+		arg     []models.L3afBPFPrograms
+		wanterr bool
+	}{
+		{
+			name: "UnknownHostName",
+			field: fields{
+				hostName: "l3af-prod",
+				ifaces:   map[string]string{},
+				hostConfig: &config.Config{
+					L3afConfigStoreFileName: filepath.FromSlash("../testdata/Test_l3af-config.json"),
+				},
+			},
+			arg: []models.L3afBPFPrograms{
+				{
+					HostName: "l3af-test",
+					Iface:    "fakeif0",
+					BpfPrograms: &models.BPFPrograms{
+						XDPIngress: []*models.BPFProgram{},
+						TCIngress:  []*models.BPFProgram{},
+						TCEgress:   []*models.BPFProgram{},
+					},
+				},
+			},
+			wanterr: true,
+		},
+		{
+			name: "NilInterface",
+			field: fields{
+				hostName: "l3af-local-test",
+				ifaces:   map[string]string{},
+				hostConfig: &config.Config{
+					L3afConfigStoreFileName: filepath.FromSlash("../testdata/Test_l3af-config.json"),
+				},
+			},
+			arg: []models.L3afBPFPrograms{
+				{
+					HostName: "l3af-local-test",
+					BpfPrograms: &models.BPFPrograms{
+						XDPIngress: []*models.BPFProgram{},
+						TCIngress:  []*models.BPFProgram{},
+						TCEgress:   []*models.BPFProgram{},
+					},
+				},
+			},
+			wanterr: true,
+		},
+		{
+			name: "UnknownInterface",
+			field: fields{
+				hostName: "l3af-local-test",
+				ifaces:   map[string]string{},
+				hostConfig: &config.Config{
+					L3afConfigStoreFileName: filepath.FromSlash("../testdata/Test_l3af-config.json"),
+				},
+			},
+			arg: []models.L3afBPFPrograms{
+				{
+					HostName: "l3af-local-test",
+					Iface:    "dummyinterface",
+					BpfPrograms: &models.BPFPrograms{
+						XDPIngress: []*models.BPFProgram{
+							&models.BPFProgram{
+								Name:              "dummy_name",
+								SeqID:             1,
+								Artifact:          "dummy_artifact_name",
+								MapName:           "xdp_rl_ingress_next_prog",
+								CmdStart:          "dummy_command",
+								Version:           "latest",
+								UserProgramDaemon: true,
+								AdminStatus:       "enabled",
+								ProgType:          "xdp",
+								CfgVersion:        1,
+							},
+						},
+					},
+				},
+			},
+			wanterr: true,
+		},
+		{
+			name: "GoodInput",
+			field: fields{
+				hostName:       "l3af-local-test",
+				hostInterfaces: map[string]bool{"fakeif0": true},
+				// fakeif0 is a fake interface
+				mu:             new(sync.Mutex),
+				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
+				ingressTCBpfs:  map[string]*list.List{"fakeif0": nil},
+				egressTCBpfs:   map[string]*list.List{"fakeif0": nil},
+				ifaces:         map[string]string{},
+				hostConfig: &config.Config{
+					L3afConfigStoreFileName: filepath.FromSlash("../testdata/Test_l3af-config.json"),
+				},
+			},
+			arg: []models.L3afBPFPrograms{
+				{
+					HostName: "l3af-local-test",
+					Iface:    "fakeif0",
+					BpfPrograms: &models.BPFPrograms{
+						XDPIngress: []*models.BPFProgram{},
+						TCIngress:  []*models.BPFProgram{},
+						TCEgress:   []*models.BPFProgram{},
+					},
+				},
+			},
+			wanterr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &NFConfigs{
+				HostName:       tt.field.hostName,
+				IngressXDPBpfs: tt.field.ingressXDPBpfs,
+				IngressTCBpfs:  tt.field.ingressTCBpfs,
+				EgressTCBpfs:   tt.field.egressTCBpfs,
+				HostConfig:     tt.field.hostConfig,
+				processMon:     tt.field.processMon,
+				hostInterfaces: tt.field.hostInterfaces,
+				mu:             tt.field.mu,
+			}
+			err := cfg.AddeBPFPrograms(tt.arg)
+			if (err != nil) != tt.wanterr {
+				t.Errorf("AddeBPFPrograms failed: %v", err)
+			}
+		})
+	}
+}
+
+func TestDeleteProgramsOnInterface(t *testing.T) {
+	type fields struct {
+		hostName       string
+		hostInterfaces map[string]bool
+		ingressXDPBpfs map[string]*list.List
+		ingressTCBpfs  map[string]*list.List
+		egressTCBpfs   map[string]*list.List
+		hostConfig     *config.Config
+		processMon     *pCheck
+		mu             *sync.Mutex
+	}
+	type args struct {
+		iface    string
+		hostName string
+		bpfProgs *models.BPFProgramNames
+	}
+	tests := []struct {
+		name    string
+		field   fields
+		arg     args
+		wanterr bool
+	}{
+		{
+			name:    "UnknownHostName",
+			field:   fields{},
+			arg:     args{},
+			wanterr: true,
+		},
+		{
+			name: "NilInterface",
+			field: fields{
+				hostName: "l3af-local-test",
+			},
+			arg: args{
+				hostName: "fakeif0",
+			},
+			wanterr: true,
+		},
+		{
+			name: "UnknownInterface",
+			field: fields{
+				hostName: "l3af-local-test",
+			},
+			arg: args{
+				hostName: "l3af-local-test",
+				iface:    "dummyinterface",
+				bpfProgs: &models.BPFProgramNames{
+					XDPIngress: []string{},
+					TCIngress:  []string{},
+					TCEgress:   []string{},
+				},
+			},
+			wanterr: true,
+		},
+		{
+			name: "GoodInput",
+			field: fields{
+				hostName:       "l3af-local-test",
+				hostInterfaces: map[string]bool{"fakeif0": true},
+				mu:             new(sync.Mutex),
+				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
+				ingressTCBpfs:  map[string]*list.List{"fakeif0": nil},
+				egressTCBpfs:   map[string]*list.List{"fakeif0": nil},
+			},
+			arg: args{
+				hostName: "l3af-local-test",
+				iface:    "fakeif0",
+				bpfProgs: &models.BPFProgramNames{
+					XDPIngress: []string{},
+					TCIngress:  []string{},
+					TCEgress:   []string{},
+				},
+			},
+			wanterr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &NFConfigs{
+				HostName:       tt.field.hostName,
+				IngressXDPBpfs: tt.field.ingressXDPBpfs,
+				IngressTCBpfs:  tt.field.ingressTCBpfs,
+				EgressTCBpfs:   tt.field.egressTCBpfs,
+				HostConfig:     tt.field.hostConfig,
+				processMon:     tt.field.processMon,
+				hostInterfaces: tt.field.hostInterfaces,
+				mu:             tt.field.mu,
+			}
+			err := cfg.DeleteProgramsOnInterface(tt.arg.iface, tt.arg.hostName, tt.arg.bpfProgs)
+			if (err != nil) != tt.wanterr {
+				t.Errorf("DeleteProgramsOnInterface failed: %v", err)
+			}
+		})
+	}
+}
+
+func TestDeleteEbpfPrograms(t *testing.T) {
+	type fields struct {
+		hostName       string
+		hostInterfaces map[string]bool
+		ingressXDPBpfs map[string]*list.List
+		ingressTCBpfs  map[string]*list.List
+		egressTCBpfs   map[string]*list.List
+		hostConfig     *config.Config
+		processMon     *pCheck
+		mu             *sync.Mutex
+		ifaces         map[string]string
+	}
+	tests := []struct {
+		name    string
+		field   fields
+		arg     []models.L3afBPFProgramNames
+		wanterr bool
+	}{
+		{
+			name: "UnknowhostName",
+			field: fields{
+				hostName: "l3af-prod",
+				ifaces:   map[string]string{},
+				hostConfig: &config.Config{
+					L3afConfigStoreFileName: filepath.FromSlash("../testdata/Test_l3af-config.json"),
+				},
+			},
+			arg: []models.L3afBPFProgramNames{
+				{
+					HostName: "l3af-local-test",
+					Iface:    "fakeif0",
+					BpfProgramNames: &models.BPFProgramNames{
+						XDPIngress: []string{},
+						TCIngress:  []string{},
+						TCEgress:   []string{},
+					},
+				},
+			},
+			wanterr: true,
+		},
+		{
+			name: "NilInterface",
+			field: fields{
+				hostName: "l3af-local-test",
+				ifaces:   map[string]string{},
+				hostConfig: &config.Config{
+					L3afConfigStoreFileName: filepath.FromSlash("../testdata/Test_l3af-config.json"),
+				},
+			},
+			arg: []models.L3afBPFProgramNames{
+				{
+					HostName: "l3af-local-test",
+					Iface:    "fakeif0",
+					BpfProgramNames: &models.BPFProgramNames{
+						XDPIngress: []string{},
+						TCIngress:  []string{},
+						TCEgress:   []string{},
+					},
+				},
+			},
+			wanterr: true,
+		},
+		{
+			name: "UnknownInterface",
+			field: fields{
+				hostName: "l3af-local-test",
+				ifaces:   map[string]string{},
+				hostConfig: &config.Config{
+					L3afConfigStoreFileName: filepath.FromSlash("../testdata/Test_l3af-config.json"),
+				},
+			},
+			arg: []models.L3afBPFProgramNames{
+				{
+					HostName: "l3af-local-test",
+					Iface:    "fakeif0",
+					BpfProgramNames: &models.BPFProgramNames{
+						XDPIngress: []string{},
+						TCIngress:  []string{},
+						TCEgress:   []string{},
+					},
+				},
+			},
+			wanterr: true,
+		},
+		{
+			name: "GoodInput",
+			field: fields{
+				hostName:       "l3af-local-test",
+				hostInterfaces: map[string]bool{"fakeif0": true},
+				mu:             new(sync.Mutex),
+				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
+				ingressTCBpfs:  map[string]*list.List{"fakeif0": nil},
+				egressTCBpfs:   map[string]*list.List{"fakeif0": nil},
+				ifaces:         map[string]string{},
+				hostConfig: &config.Config{
+					L3afConfigStoreFileName: filepath.FromSlash("../testdata/Test_l3af-config.json"),
+				},
+			},
+			arg: []models.L3afBPFProgramNames{
+				{
+					HostName: "l3af-local-test",
+					Iface:    "fakeif0",
+					BpfProgramNames: &models.BPFProgramNames{
+						XDPIngress: []string{},
+						TCIngress:  []string{},
+						TCEgress:   []string{},
+					},
+				},
+			},
+			wanterr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &NFConfigs{
+				HostName:       tt.field.hostName,
+				IngressXDPBpfs: tt.field.ingressXDPBpfs,
+				IngressTCBpfs:  tt.field.ingressTCBpfs,
+				EgressTCBpfs:   tt.field.egressTCBpfs,
+				HostConfig:     tt.field.hostConfig,
+				processMon:     tt.field.processMon,
+				hostInterfaces: tt.field.hostInterfaces,
+				mu:             tt.field.mu,
+			}
+			err := cfg.DeleteEbpfPrograms(tt.arg)
+			if (err != nil) != tt.wanterr {
+				t.Errorf("DeleteEbpfPrograms failed: %v", err)
+			}
+		})
+	}
+}
+
+func TestAddAndStartBPF(t *testing.T) {
+	type field struct {
+		ctx        context.Context
+		hostConfig *config.Config
+	}
+	type arg struct {
+		bpfProg   *models.BPFProgram
+		direction string
+		iface     string
+	}
+	tests := []struct {
+		name    string
+		fields  field
+		args    arg
+		wanterr bool
+	}{
+		{
+			name:   "NilProgram",
+			fields: field{},
+			args: arg{
+				bpfProg:   nil,
+				direction: "fakedirection",
+				iface:     "fakeif0",
+			},
+			wanterr: true,
+		},
+		{
+			name:   "AdminStatusDisabled",
+			fields: field{},
+			args: arg{
+				bpfProg: &models.BPFProgram{
+					Name:        "dummy",
+					AdminStatus: "disabled",
+				},
+				direction: "fakedirection",
+				iface:     "fakeif0",
+			},
+			wanterr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &NFConfigs{
+				ctx:        tt.fields.ctx,
+				HostConfig: tt.fields.hostConfig,
+			}
+			e := cfg.AddAndStartBPF(tt.args.bpfProg, tt.args.iface, tt.args.direction)
+			if (e != nil) != tt.wanterr {
+				t.Errorf("AddAndStartBPF failed : %v", e)
+			}
+		})
+	}
+}
+
+func TestAddProgramWithoutChaining(t *testing.T) {
+	progList := list.New()
+	progList.PushBack(&BPF{
+		Program: models.BPFProgram{
+			Name: "dummyProgram",
+		},
+	})
+	type fields struct {
+		ingressXDPBpfs map[string]*list.List
+		ingressTCBpfs  map[string]*list.List
+		egressTCBpfs   map[string]*list.List
+		hostConfig     *config.Config
+	}
+	type args struct {
+		iface    string
+		hostName string
+		bpfProgs *models.BPFPrograms
+	}
+	tests := []struct {
+		name    string
+		field   fields
+		arg     args
+		wanterr bool
+	}{
+		{
+			name: "chainingEnabled",
+			field: fields{
+				hostConfig: &config.Config{
+					BpfChainingEnabled: true,
+				},
+			},
+			arg: args{
+				iface:    "fakeif0",
+				hostName: "fakehost",
+			},
+			wanterr: false,
+		},
+		{
+			name: "badInput",
+			field: fields{
+				hostConfig: &config.Config{
+					BpfChainingEnabled: false,
+				},
+				ingressXDPBpfs: map[string]*list.List{"fakeif0": progList},
+				egressTCBpfs:   map[string]*list.List{"fakeif0": progList},
+				ingressTCBpfs:  map[string]*list.List{"fakeif0": progList},
+			},
+			arg: args{
+				iface: "fakeif0",
+				bpfProgs: &models.BPFPrograms{
+					XDPIngress: []*models.BPFProgram{
+						{
+							Name:        "dummyProgram",
+							AdminStatus: models.Enabled,
+						},
+					},
+					TCIngress: []*models.BPFProgram{
+						{
+							Name:        "dummyProgram",
+							AdminStatus: models.Enabled,
+						},
+					},
+					TCEgress: []*models.BPFProgram{
+						{
+							Name:        "dummyProgram",
+							AdminStatus: models.Enabled,
+						},
+					},
+				},
+			},
+			wanterr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &NFConfigs{
+				HostConfig:     tt.field.hostConfig,
+				IngressXDPBpfs: tt.field.ingressXDPBpfs,
+				EgressTCBpfs:   tt.field.egressTCBpfs,
+				IngressTCBpfs:  tt.field.ingressTCBpfs,
+			}
+			e := cfg.AddProgramWithoutChaining(tt.arg.iface, tt.arg.bpfProgs)
+			if (e != nil) != tt.wanterr {
+				t.Errorf(" AddProgramWithoutChaining failed : %v", e)
 			}
 		})
 	}

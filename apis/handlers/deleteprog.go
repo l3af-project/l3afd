@@ -17,15 +17,15 @@ import (
 	"github.com/l3af-project/l3afd/models"
 )
 
-// UpdateConfig Update eBPF Programs configuration
-// @Summary Update eBPF Programs configuration
-// @Description Update eBPF Programs configuration
+// DeleteEbpfPrograms   remove eBPF programs on node
+// @Summary remove eBPF Programs on node
+// @Description remove eBPF Programs on node
 // @Accept  json
 // @Produce  json
-// @Param cfgs body []models.L3afBPFPrograms true "BPF programs"
+// @Param cfgs body []models.L3afBPFProgramNames true "BPF program names"
 // @Success 200
-// @Router /l3af/configs/v1/update [post]
-func UpdateConfig(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFunc {
+// @Router /l3af/configs/v1/delete [post]
+func DeleteEbpfPrograms(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		mesg := ""
@@ -53,7 +53,7 @@ func UpdateConfig(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFunc {
 			return
 		}
 
-		var t []models.L3afBPFPrograms
+		var t []models.L3afBPFProgramNames
 		if err := json.Unmarshal(bodyBuffer, &t); err != nil {
 			mesg = fmt.Sprintf("failed to unmarshal payload: %v", err)
 			log.Error().Msg(mesg)
@@ -61,8 +61,8 @@ func UpdateConfig(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFunc {
 			return
 		}
 
-		if err := kfcfg.DeployeBPFPrograms(t); err != nil {
-			mesg = fmt.Sprintf("failed to deploy ebpf programs: %v", err)
+		if err := kfcfg.DeleteEbpfPrograms(t); err != nil {
+			mesg = fmt.Sprintf("failed to DeleteEbpfPrograms : %v", err)
 			log.Error().Msg(mesg)
 
 			statusCode = http.StatusInternalServerError

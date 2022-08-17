@@ -72,3 +72,17 @@ type BPFPrograms struct {
 	TCIngress  []*BPFProgram `json:"tc_ingress"`  // list of tc ingress bpf programs
 	TCEgress   []*BPFProgram `json:"tc_egress"`   // list of tc egress bpf programs
 }
+
+// L3afBPFProgramNames defines names of Bpf programs on interface
+type L3afBPFProgramNames struct {
+	HostName        string           `json:"host_name"`    // Host name or pod name
+	Iface           string           `json:"iface"`        // Interface name
+	BpfProgramNames *BPFProgramNames `json:"bpf_programs"` // List of bpf program names to remove
+}
+
+// BPFProgramNames defines names of eBPF programs on node
+type BPFProgramNames struct {
+	XDPIngress []string `json:"xdp_ingress"` // names of the XDP ingress eBPF programs
+	TCIngress  []string `json:"tc_ingress"`  // names of the TC ingress eBPF programs
+	TCEgress   []string `json:"tc_egress"`   // names of the TC egress eBPF programs
+}

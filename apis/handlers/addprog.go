@@ -17,15 +17,15 @@ import (
 	"github.com/l3af-project/l3afd/models"
 )
 
-// UpdateConfig Update eBPF Programs configuration
-// @Summary Update eBPF Programs configuration
-// @Description Update eBPF Programs configuration
+// AddEbpfPrograms add new eBPF programs on node
+// @Summary Adding new eBPF Programs on node
+// @Description Adding new eBPF Programs on node
 // @Accept  json
 // @Produce  json
 // @Param cfgs body []models.L3afBPFPrograms true "BPF programs"
 // @Success 200
-// @Router /l3af/configs/v1/update [post]
-func UpdateConfig(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFunc {
+// @Router /l3af/configs/v1/add [post]
+func AddEbpfPrograms(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		mesg := ""
@@ -61,8 +61,8 @@ func UpdateConfig(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFunc {
 			return
 		}
 
-		if err := kfcfg.DeployeBPFPrograms(t); err != nil {
-			mesg = fmt.Sprintf("failed to deploy ebpf programs: %v", err)
+		if err := kfcfg.AddeBPFPrograms(t); err != nil {
+			mesg = fmt.Sprintf("failed to AddEbpfPrograms : %v", err)
 			log.Error().Msg(mesg)
 
 			statusCode = http.StatusInternalServerError
