@@ -87,7 +87,7 @@ LTS (Focal Fossa), then we would look for the artifact at:
 
 
 # Add API 
-You can Refer to above documentation.
+The JSON is the same as for the Update API. Refer to above documentation.
 
 
 

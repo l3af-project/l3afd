@@ -80,7 +80,7 @@ type L3afBPFProgramNames struct {
 	BpfProgramNames *BPFProgramNames `json:"bpf_programs"` // List of bpf program names to remove
 }
 
-// BPFProgramNames defines names eBPF of programs on node
+// BPFProgramNames defines names of eBPF programs on node
 type BPFProgramNames struct {
 	XDPIngress []string `json:"xdp_ingress"` // names of the XDP ingress eBPF programs
 	TCIngress  []string `json:"tc_ingress"`  // names of the TC ingress eBPF programs
