@@ -476,7 +476,7 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 		wanterr bool
 	}{
 		{
-			name:    "UnknowHostName",
+			name:    "UnknownHostName",
 			field:   fields{},
 			arg:     args{},
 			wanterr: true,
