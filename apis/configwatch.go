@@ -11,6 +11,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -37,6 +38,7 @@ type Server struct {
 	HostName    string
 	l3afdServer *http.Server
 	CaCertPool  *x509.CertPool
+	DNSName     string
 }
 
 // @title L3AFD APIs
@@ -90,7 +92,7 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 				s.CaCertPool = x509.NewCertPool()
 			}
 			if ok := s.CaCertPool.AppendCertsFromPEM(caCert); !ok {
-				log.Warn().Msgf("No certs appended, using system certs only")
+				log.Warn().Msgf("No client certs appended for mTLS")
 			}
 
 			serverCertFile := path.Join(conf.MTLSCertDir, conf.MTLSServerCertFilename)
@@ -211,14 +213,19 @@ func (s *Server) getClientValidator(helloInfo *tls.ClientHelloInfo) func([][]byt
 	log.Debug().Msgf("Inside get client validator - %v", helloInfo.Conn.RemoteAddr())
 	return func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 		//added DNSName
+		dnsname := "l3afd-san.walmart.com"
 		opts := x509.VerifyOptions{
 			Roots:         s.CaCertPool,
 			CurrentTime:   time.Now(),
 			Intermediates: x509.NewCertPool(),
 			KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
-			DNSName:       strings.Split(helloInfo.Conn.RemoteAddr().String(), ":")[0],
+			DNSName:       dnsname,
+			//DNSName:       strings.Split(helloInfo.Conn.RemoteAddr().String(), ":")[0],
 		}
 		_, err := verifiedChains[0][0].Verify(opts)
+		fmt.Println("verified chain err ", err)
+		err = verifiedChains[0][0].VerifyHostname(dnsname)
+		fmt.Println("verify hostname err ", err)
 		return err
 	}
 }
