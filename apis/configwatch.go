@@ -20,6 +20,7 @@ import (
 	"path"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	httpSwagger "github.com/swaggo/http-swagger"
 
@@ -219,13 +220,65 @@ func (s *Server) getClientValidator(helloInfo *tls.ClientHelloInfo) func([][]byt
 			CurrentTime:   time.Now(),
 			Intermediates: x509.NewCertPool(),
 			KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
-			DNSName:       dnsname,
+			//DNSName:       dnsname,
 			//DNSName:       strings.Split(helloInfo.Conn.RemoteAddr().String(), ":")[0],
 		}
 		_, err := verifiedChains[0][0].Verify(opts)
 		fmt.Println("verified chain err ", err)
-		err = verifiedChains[0][0].VerifyHostname(dnsname)
+		//err = verifiedChains[0][0].VerifyHostname(dnsname)
 		fmt.Println("verify hostname err ", err)
+
+		candidateName := toLowerCaseASCII(dnsname) // Save allocations inside the loop.
+		validCandidateName := validHostnameInput(candidateName)
+
+		for _, match := range verifiedChains[0][0].DNSNames {
+			// Ideally, we'd only match valid hostnames according to RFC 6125 like
+			// browsers (more or less) do, but in practice Go is used in a wider
+			// array of contexts and can't even assume DNS resolution. Instead,
+			// always allow perfect matches, and only apply wildcard and trailing
+			// dot processing to valid hostnames.
+			if validCandidateName && validHostnamePattern(match) {
+				if matchHostnames(match, candidateName) {
+					return nil
+				}
+			} else {
+				if matchExactly(match, candidateName) {
+					return nil
+				}
+			}
+		}
 		return err
 	}
+}
+
+/ toLowerCaseASCII returns a lower-case version of in. See RFC 6125 6.4.1. We use
+// an explicitly ASCII function to avoid any sharp corners resulting from
+// performing Unicode operations on DNS labels.
+func toLowerCaseASCII(in string) string {
+	// If the string is already lower-case then there's nothing to do.
+	isAlreadyLowerCase := true
+	for _, c := range in {
+		if c == utf8.RuneError {
+			// If we get a UTF-8 error then there might be
+			// upper-case ASCII bytes in the invalid sequence.
+			isAlreadyLowerCase = false
+			break
+		}
+		if 'A' <= c && c <= 'Z' {
+			isAlreadyLowerCase = false
+			break
+		}
+	}
+
+	if isAlreadyLowerCase {
+		return in
+	}
+
+	out := []byte(in)
+	for i, c := range out {
+		if 'A' <= c && c <= 'Z' {
+			out[i] += 'a' - 'A'
+		}
+	}
+	return string(out)
 }
