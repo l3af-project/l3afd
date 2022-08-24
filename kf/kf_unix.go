@@ -126,7 +126,7 @@ func VerifyNMountTraceFS() error {
 	fstype := "tracefs"
 	flags := syscall.MS_NODEV | syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_RELATIME
 
-	mnts, err := ioutil.ReadFile("/proc/mounts")
+	mnts, err := ioutil.ReadFile("/proc/self/mounts")
 	if err != nil {
 		return fmt.Errorf("failed to read procfs: %v", err)
 	}
@@ -140,7 +140,7 @@ func VerifyNMountTraceFS() error {
 
 	dstPath = "/sys/kernel/debug/tracing"
 
-	mnts, err = ioutil.ReadFile("/proc/mounts")
+	mnts, err = ioutil.ReadFile("/proc/self/mounts")
 	if err != nil {
 		return fmt.Errorf("failed to read procfs: %v", err)
 	}
