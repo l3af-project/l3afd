@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strings"
 	"syscall"
 	"unsafe"
@@ -121,7 +122,7 @@ func VerifyNMountBPFFS() error {
 
 // VerifyNMounTraceFS - Mounting trace filesystem
 func VerifyNMountTraceFS() error {
-	dstPath := "/sys/kernel/tracing"
+	dstPath := "/sys/kernel/debug/tracing"
 	srcPath := "tracefs"
 	fstype := "tracefs"
 	flags := syscall.MS_NODEV | syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_RELATIME
@@ -132,21 +133,13 @@ func VerifyNMountTraceFS() error {
 	}
 
 	if !strings.Contains(string(mnts), dstPath) {
-		log.Warn().Msgf("%s filesystem is not mounted going to mount", dstPath)
-		if err = syscall.Mount(srcPath, dstPath, fstype, uintptr(flags), ""); err != nil {
-			return fmt.Errorf("unable to mount %s at %s: %s", srcPath, dstPath, err)
-		}
-	}
-
-	dstPath = "/sys/kernel/debug/tracing"
-
-	mnts, err = ioutil.ReadFile("/proc/self/mounts")
-	if err != nil {
-		return fmt.Errorf("failed to read procfs: %v", err)
-	}
-
-	if !strings.Contains(string(mnts), dstPath) {
 		log.Warn().Msgf(" %s filesystem is not mounted going to mount", dstPath)
+		if _, err = os.Stat(dstPath); err != nil {
+			log.Warn().Msgf(" %s directory doesn't exists, creating", dstPath)
+			if err := os.Mkdir(dstPath, 0700); err != nil {
+				return fmt.Errorf("unable to create mount point %s : %s", dstPath, err)
+			}
+		}
 		if err = syscall.Mount(srcPath, dstPath, fstype, uintptr(flags), ""); err != nil {
 			return fmt.Errorf("unable to mount %s at %s: %s", srcPath, dstPath, err)
 		}
