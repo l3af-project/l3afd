@@ -11,13 +11,13 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
-	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"path"
+	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -56,6 +56,7 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 		l3afdServer: &http.Server{
 			Addr: conf.L3afConfigsRestAPIAddr,
 		},
+		DNSName: conf.MTLSDNSName,
 	}
 
 	term := make(chan os.Signal, 1)
@@ -214,23 +215,24 @@ func (s *Server) getClientValidator(helloInfo *tls.ClientHelloInfo) func([][]byt
 	log.Debug().Msgf("Inside get client validator - %v", helloInfo.Conn.RemoteAddr())
 	return func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 		//added DNSName
-		dnsname := "l3afd-san.walmart.com"
 		opts := x509.VerifyOptions{
 			Roots:         s.CaCertPool,
 			CurrentTime:   time.Now(),
 			Intermediates: x509.NewCertPool(),
 			KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
-			//DNSName:       dnsname,
-			//DNSName:       strings.Split(helloInfo.Conn.RemoteAddr().String(), ":")[0],
 		}
 		_, err := verifiedChains[0][0].Verify(opts)
-		fmt.Println("verified chain err ", err)
-		//err = verifiedChains[0][0].VerifyHostname(dnsname)
-		fmt.Println("verify hostname err ", err)
+		if err != nil {
+			log.Error().Err(err).Msgf("certs verification failed")
+			return err
+		}
 
-		candidateName := toLowerCaseASCII(dnsname) // Save allocations inside the loop.
+		if len(s.DNSName) == 0 {
+			log.Info().Msgf("dnsname is undefined")
+			return nil
+		}
+		candidateName := toLowerCaseASCII(s.DNSName) // Save allocations inside the loop.
 		validCandidateName := validHostnameInput(candidateName)
-
 		for _, match := range verifiedChains[0][0].DNSNames {
 			// Ideally, we'd only match valid hostnames according to RFC 6125 like
 			// browsers (more or less) do, but in practice Go is used in a wider
@@ -239,19 +241,25 @@ func (s *Server) getClientValidator(helloInfo *tls.ClientHelloInfo) func([][]byt
 			// dot processing to valid hostnames.
 			if validCandidateName && validHostnamePattern(match) {
 				if matchHostnames(match, candidateName) {
+					log.Debug().Msgf("Successfully matched matchHostnames")
 					return nil
 				}
 			} else {
 				if matchExactly(match, candidateName) {
+					log.Debug().Msgf("Successfully matched matchExactly")
+					return nil
+				} else if matchHostnamesWithRegexp(match, candidateName) {
+					log.Debug().Msgf("Successfully matched matchHostnamesWithRegexp")
 					return nil
 				}
 			}
 		}
+		log.Error().Err(err).Msgf("certs verification with dnsname failed")
 		return err
 	}
 }
 
-/ toLowerCaseASCII returns a lower-case version of in. See RFC 6125 6.4.1. We use
+// toLowerCaseASCII returns a lower-case version of in. See RFC 6125 6.4.1. We use
 // an explicitly ASCII function to avoid any sharp corners resulting from
 // performing Unicode operations on DNS labels.
 func toLowerCaseASCII(in string) string {
@@ -281,4 +289,129 @@ func toLowerCaseASCII(in string) string {
 		}
 	}
 	return string(out)
+}
+
+func validHostnameInput(host string) bool   { return validHostname(host, false) }
+func validHostnamePattern(host string) bool { return validHostname(host, true) }
+
+// validHostname reports whether host is a valid hostname that can be matched or
+// matched against according to RFC 6125 2.2, with some leniency to accommodate
+// legacy values.
+func validHostname(host string, isPattern bool) bool {
+	if !isPattern {
+		host = strings.TrimSuffix(host, ".")
+	}
+	if len(host) == 0 {
+		return false
+	}
+
+	for i, part := range strings.Split(host, ".") {
+		if part == "" {
+			// Empty label.
+			return false
+		}
+		if isPattern && i == 0 && part == "*" {
+			// Only allow full left-most wildcards, as those are the only ones
+			// we match, and matching literal '*' characters is probably never
+			// the expected behavior.
+			continue
+		}
+
+		for j, c := range part {
+			if 'a' <= c && c <= 'z' {
+				continue
+			}
+			if '0' <= c && c <= '9' {
+				continue
+			}
+			if 'A' <= c && c <= 'Z' {
+				continue
+			}
+			if c == '-' && j != 0 {
+				continue
+			}
+			if c == '_' {
+				// Not a valid character in hostnames, but commonly
+				// found in deployments outside the WebPKI.
+				continue
+			}
+			return false
+		}
+	}
+
+	return true
+}
+
+// matchExactly - match hostnames
+func matchExactly(hostA, hostB string) bool {
+	if hostA == "" || hostA == "." || hostB == "" || hostB == "." {
+		return false
+	}
+	return toLowerCaseASCII(hostA) == toLowerCaseASCII(hostB)
+}
+
+// matchHostnames - match the dnsname with hostname
+func matchHostnames(pattern, host string) bool {
+	pattern = toLowerCaseASCII(pattern)
+	host = toLowerCaseASCII(strings.TrimSuffix(host, "."))
+	if len(pattern) == 0 || len(host) == 0 {
+		return false
+	}
+
+	patternParts := strings.Split(pattern, ".")
+	hostParts := strings.Split(host, ".")
+
+	if len(patternParts) != len(hostParts) {
+		return false
+	}
+
+	for i, patternPart := range patternParts {
+		if i == 0 && patternPart == "*" {
+			continue
+		}
+		if patternPart != hostParts[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
+// matchHostnamesWithRegexp - To match the dnsname with regexp
+func matchHostnamesWithRegexp(pattern, host string) bool {
+	defer func() bool {
+		if err := recover(); err != nil {
+			log.Warn().Msgf("panic occurred: %v", err)
+		}
+		return false
+	}()
+
+	if len(pattern) == 0 || len(host) == 0 {
+		return false
+	}
+
+	patternParts := strings.Split(pattern, ".")
+	hostParts := strings.Split(host, ".")
+
+	if len(patternParts) != len(hostParts) {
+		return false
+	}
+
+	for i, patternPart := range patternParts {
+		if i == 0 && strings.ContainsAny(patternPart, "*") {
+			re := regexp.MustCompile(patternPart)
+			var loc []int
+			if loc = re.FindStringIndex(hostParts[i]); loc == nil {
+				return false
+			}
+			if loc[0] != 0 {
+				return false
+			}
+			continue
+		}
+		if patternPart != hostParts[i] {
+			return false
+		}
+	}
+	return true
 }
