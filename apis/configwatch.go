@@ -11,6 +11,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -35,11 +36,11 @@ import (
 )
 
 type Server struct {
-	KFRTConfigs *kf.NFConfigs
-	HostName    string
-	l3afdServer *http.Server
-	CaCertPool  *x509.CertPool
-	DNSName     string
+	KFRTConfigs   *kf.NFConfigs
+	HostName      string
+	l3afdServer   *http.Server
+	CaCertPool    *x509.CertPool
+	SANMatchRules string
 }
 
 // @title L3AFD APIs
@@ -56,7 +57,7 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 		l3afdServer: &http.Server{
 			Addr: conf.L3afConfigsRestAPIAddr,
 		},
-		DNSName: conf.MTLSDNSName,
+		SANMatchRules: conf.MTLSSANMatchRules,
 	}
 
 	term := make(chan os.Signal, 1)
@@ -103,14 +104,10 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 
 			//build server config
 			s.l3afdServer.TLSConfig = &tls.Config{
-				GetCertificate: func(hi *tls.ClientHelloInfo) (*tls.Certificate, error) {
-					return &serverCert, nil
-				},
+				Certificates: []tls.Certificate{serverCert},
 				GetConfigForClient: func(hi *tls.ClientHelloInfo) (*tls.Config, error) {
 					serverConf := &tls.Config{
-						GetCertificate: func(hi *tls.ClientHelloInfo) (*tls.Certificate, error) {
-							return &serverCert, nil
-						},
+						Certificates:          []tls.Certificate{serverCert},
 						MinVersion:            tls.VersionTLS12,
 						ClientAuth:            tls.RequireAndVerifyClientCert,
 						ClientCAs:             s.CaCertPool,
@@ -144,7 +141,6 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 			if err := s.l3afdServer.ListenAndServeTLS(serverCertFile, serverKeyFile); err != nil {
 				log.Fatal().Err(err).Msgf("failed to start L3AFD server with mTLS enabled")
 			}
-
 		} else {
 			log.Info().Msgf("l3afd server listening - %s ", conf.L3afConfigsRestAPIAddr)
 
@@ -214,7 +210,7 @@ func (s *Server) getClientValidator(helloInfo *tls.ClientHelloInfo) func([][]byt
 
 	log.Debug().Msgf("Inside get client validator - %v", helloInfo.Conn.RemoteAddr())
 	return func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-		//added DNSName
+		// Verifying client certs with root ca
 		opts := x509.VerifyOptions{
 			Roots:         s.CaCertPool,
 			CurrentTime:   time.Now(),
@@ -227,11 +223,12 @@ func (s *Server) getClientValidator(helloInfo *tls.ClientHelloInfo) func([][]byt
 			return err
 		}
 
-		if len(s.DNSName) == 0 {
-			log.Info().Msgf("dnsname is undefined")
+		log.Debug().Msgf("validating with SAN match rules - %s", s.SANMatchRules)
+		if len(s.SANMatchRules) == 0 {
+			log.Info().Msgf("mtls san match rules are undefined")
 			return nil
 		}
-		candidateName := toLowerCaseASCII(s.DNSName) // Save allocations inside the loop.
+		candidateName := toLowerCaseASCII(s.SANMatchRules) // Save allocations inside the loop.
 		validCandidateName := validHostnameInput(candidateName)
 		for _, match := range verifiedChains[0][0].DNSNames {
 			// Ideally, we'd only match valid hostnames according to RFC 6125 like
@@ -254,7 +251,8 @@ func (s *Server) getClientValidator(helloInfo *tls.ClientHelloInfo) func([][]byt
 				}
 			}
 		}
-		log.Error().Err(err).Msgf("certs verification with dnsname failed")
+		err = errors.New("certs verification with SAN match not found")
+		log.Error().Err(err).Msgf("SAN match rules %s", s.SANMatchRules)
 		return err
 	}
 }
@@ -377,7 +375,7 @@ func matchHostnames(pattern, host string) bool {
 	return true
 }
 
-// matchHostnamesWithRegexp - To match the dnsname with regexp
+// matchHostnamesWithRegexp - To match the san rules with regexp
 func matchHostnamesWithRegexp(pattern, host string) bool {
 	defer func() bool {
 		if err := recover(); err != nil {

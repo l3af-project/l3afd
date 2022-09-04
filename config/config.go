@@ -85,7 +85,7 @@ type Config struct {
 	MTLSServerCertFilename    string
 	MTLSServerKeyFilename     string
 	MTLSCertExpiryWarningDays int
-	MTLSDNSName               string
+	MTLSSANMatchRules         string
 }
 
 // ReadConfig - Initializes configuration from file
@@ -148,7 +148,7 @@ func ReadConfig(configPath string) (*Config, error) {
 		MTLSServerCertFilename:          LoadOptionalConfigString(confReader, "mtls", "server-cert-filename", "server.crt"),
 		MTLSServerKeyFilename:           LoadOptionalConfigString(confReader, "mtls", "server-key-filename", "server.key"),
 		MTLSCertExpiryWarningDays:       LoadOptionalConfigInt(confReader, "mtls", "cert-expiry-warning-days", 30),
-		MTLSDNSName:                     LoadOptionalConfigString(confReader, "mtls", "dnsname", "l3af.io"),
+		MTLSSANMatchRules:               LoadOptionalConfigString(confReader, "mtls", "san-match-rules", "l3af.io"),
 	}, nil
 }
 
