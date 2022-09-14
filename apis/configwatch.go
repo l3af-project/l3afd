@@ -40,7 +40,7 @@ type Server struct {
 	HostName      string
 	l3afdServer   *http.Server
 	CaCertPool    *x509.CertPool
-	SANMatchRules string
+	SANMatchRules []string
 }
 
 // @title L3AFD APIs
@@ -102,7 +102,7 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 			serverKeyFile := path.Join(conf.MTLSCertDir, conf.MTLSServerKeyFilename)
 			serverCert, _ := tls.LoadX509KeyPair(serverCertFile, serverKeyFile)
 
-			//build server config
+			// build server config
 			s.l3afdServer.TLSConfig = &tls.Config{
 				Certificates: []tls.Certificate{serverCert},
 				GetConfigForClient: func(hi *tls.ClientHelloInfo) (*tls.Config, error) {
@@ -228,29 +228,18 @@ func (s *Server) getClientValidator(helloInfo *tls.ClientHelloInfo) func([][]byt
 			log.Info().Msgf("mtls san match rules are undefined")
 			return nil
 		}
-		candidateName := toLowerCaseASCII(s.SANMatchRules) // Save allocations inside the loop.
-		validCandidateName := validHostnameInput(candidateName)
 		for _, match := range verifiedChains[0][0].DNSNames {
-			// Ideally, we'd only match valid hostnames according to RFC 6125 like
-			// browsers (more or less) do, but in practice Go is used in a wider
-			// array of contexts and can't even assume DNS resolution. Instead,
-			// always allow perfect matches, and only apply wildcard and trailing
-			// dot processing to valid hostnames.
-			if validCandidateName && validHostnamePattern(match) {
-				if matchHostnames(match, candidateName) {
-					log.Debug().Msgf("Successfully matched matchHostnames")
-					return nil
-				}
-			} else {
+			for _, candidateName := range s.SANMatchRules {
 				if matchExactly(match, candidateName) {
-					log.Debug().Msgf("Successfully matched matchExactly")
+					log.Debug().Msgf("Successfully matched matchExactly cert dns %s SANMatchRule %s", match, candidateName)
 					return nil
 				} else if matchHostnamesWithRegexp(match, candidateName) {
-					log.Debug().Msgf("Successfully matched matchHostnamesWithRegexp")
+					log.Debug().Msgf("Successfully matched matchHostnamesWithRegexp cert dns %s SANMatchRule %s", match, candidateName)
 					return nil
 				}
 			}
 		}
+
 		err = errors.New("certs verification with SAN match not found")
 		log.Error().Err(err).Msgf("SAN match rules %s", s.SANMatchRules)
 		return err
@@ -289,90 +278,12 @@ func toLowerCaseASCII(in string) string {
 	return string(out)
 }
 
-func validHostnameInput(host string) bool   { return validHostname(host, false) }
-func validHostnamePattern(host string) bool { return validHostname(host, true) }
-
-// validHostname reports whether host is a valid hostname that can be matched or
-// matched against according to RFC 6125 2.2, with some leniency to accommodate
-// legacy values.
-func validHostname(host string, isPattern bool) bool {
-	if !isPattern {
-		host = strings.TrimSuffix(host, ".")
-	}
-	if len(host) == 0 {
-		return false
-	}
-
-	for i, part := range strings.Split(host, ".") {
-		if part == "" {
-			// Empty label.
-			return false
-		}
-		if isPattern && i == 0 && part == "*" {
-			// Only allow full left-most wildcards, as those are the only ones
-			// we match, and matching literal '*' characters is probably never
-			// the expected behavior.
-			continue
-		}
-
-		for j, c := range part {
-			if 'a' <= c && c <= 'z' {
-				continue
-			}
-			if '0' <= c && c <= '9' {
-				continue
-			}
-			if 'A' <= c && c <= 'Z' {
-				continue
-			}
-			if c == '-' && j != 0 {
-				continue
-			}
-			if c == '_' {
-				// Not a valid character in hostnames, but commonly
-				// found in deployments outside the WebPKI.
-				continue
-			}
-			return false
-		}
-	}
-
-	return true
-}
-
 // matchExactly - match hostnames
 func matchExactly(hostA, hostB string) bool {
 	if hostA == "" || hostA == "." || hostB == "" || hostB == "." {
 		return false
 	}
 	return toLowerCaseASCII(hostA) == toLowerCaseASCII(hostB)
-}
-
-// matchHostnames - match the dnsname with hostname
-func matchHostnames(pattern, host string) bool {
-	pattern = toLowerCaseASCII(pattern)
-	host = toLowerCaseASCII(strings.TrimSuffix(host, "."))
-	if len(pattern) == 0 || len(host) == 0 {
-		return false
-	}
-
-	patternParts := strings.Split(pattern, ".")
-	hostParts := strings.Split(host, ".")
-
-	if len(patternParts) != len(hostParts) {
-		return false
-	}
-
-	for i, patternPart := range patternParts {
-		if i == 0 && patternPart == "*" {
-			continue
-		}
-		if patternPart != hostParts[i] {
-			return false
-		}
-	}
-
-	return true
 }
 
 // matchHostnamesWithRegexp - To match the san rules with regexp
@@ -388,28 +299,7 @@ func matchHostnamesWithRegexp(pattern, host string) bool {
 		return false
 	}
 
-	patternParts := strings.Split(pattern, ".")
-	hostParts := strings.Split(host, ".")
+	re := regexp.MustCompile(host)
 
-	if len(patternParts) != len(hostParts) {
-		return false
-	}
-
-	for i, patternPart := range patternParts {
-		if i == 0 && strings.ContainsAny(patternPart, "*") {
-			re := regexp.MustCompile(patternPart)
-			var loc []int
-			if loc = re.FindStringIndex(hostParts[i]); loc == nil {
-				return false
-			}
-			if loc[0] != 0 {
-				return false
-			}
-			continue
-		}
-		if patternPart != hostParts[i] {
-			return false
-		}
-	}
-	return true
+	return re.MatchString(pattern)
 }
