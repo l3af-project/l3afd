@@ -100,7 +100,10 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 
 			serverCertFile := path.Join(conf.MTLSCertDir, conf.MTLSServerCertFilename)
 			serverKeyFile := path.Join(conf.MTLSCertDir, conf.MTLSServerKeyFilename)
-			serverCert, _ := tls.LoadX509KeyPair(serverCertFile, serverKeyFile)
+			serverCert, err := tls.LoadX509KeyPair(serverCertFile, serverKeyFile)
+			if err != nil {
+				log.Fatal().Err(err).Msgf("failure loading certs")
+			}
 
 			// build server config
 			s.l3afdServer.TLSConfig = &tls.Config{
@@ -228,13 +231,15 @@ func (s *Server) getClientValidator(helloInfo *tls.ClientHelloInfo) func([][]byt
 			log.Info().Msgf("mtls san match rules are undefined")
 			return nil
 		}
-		for _, match := range verifiedChains[0][0].DNSNames {
-			for _, candidateName := range s.SANMatchRules {
-				if matchExactly(match, candidateName) {
-					log.Debug().Msgf("Successfully matched matchExactly cert dns %s SANMatchRule %s", match, candidateName)
+		for _, dnsName := range verifiedChains[0][0].DNSNames {
+			dnsName := toLowerCaseASCII(dnsName)
+			for _, sanMatchRule := range s.SANMatchRules {
+				sanMatchRule = toLowerCaseASCII(sanMatchRule)
+				if matchExactly(dnsName, sanMatchRule) {
+					log.Debug().Msgf("Successfully matched matchExactly cert dns %s SANMatchRule %s", dnsName, sanMatchRule)
 					return nil
-				} else if matchHostnamesWithRegexp(match, candidateName) {
-					log.Debug().Msgf("Successfully matched matchHostnamesWithRegexp cert dns %s SANMatchRule %s", match, candidateName)
+				} else if matchHostnamesWithRegexp(dnsName, sanMatchRule) {
+					log.Debug().Msgf("Successfully matched matchHostnamesWithRegexp cert dns %s SANMatchRule %s", dnsName, sanMatchRule)
 					return nil
 				}
 			}
@@ -283,11 +288,11 @@ func matchExactly(hostA, hostB string) bool {
 	if hostA == "" || hostA == "." || hostB == "" || hostB == "." {
 		return false
 	}
-	return toLowerCaseASCII(hostA) == toLowerCaseASCII(hostB)
+	return hostA == hostB
 }
 
 // matchHostnamesWithRegexp - To match the san rules with regexp
-func matchHostnamesWithRegexp(pattern, host string) bool {
+func matchHostnamesWithRegexp(dnsName, sanMatchRule string) bool {
 	defer func() bool {
 		if err := recover(); err != nil {
 			log.Warn().Msgf("panic occurred: %v", err)
@@ -295,11 +300,11 @@ func matchHostnamesWithRegexp(pattern, host string) bool {
 		return false
 	}()
 
-	if len(pattern) == 0 || len(host) == 0 {
+	if len(dnsName) == 0 || len(sanMatchRule) == 0 {
 		return false
 	}
 
-	re := regexp.MustCompile(host)
+	re := regexp.MustCompile(sanMatchRule)
 
-	return re.MatchString(pattern)
+	return re.MatchString(dnsName)
 }

@@ -102,12 +102,6 @@ func TestMatchExactly(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "CaseMissMatchCheck",
-			args:    args{hostA: "l3afd-LFN.l3af.io", hostB: "l3afd-lfn.l3af.io"},
-			want:    true,
-			wantErr: false,
-		},
-		{
 			name:    "ExactMatchCheck",
 			args:    args{hostA: "l3afd-lfn.l3af.io", hostB: "l3afd-lfn.l3af.io"},
 			want:    true,
