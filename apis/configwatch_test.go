@@ -10,8 +10,8 @@ import (
 
 func TestMatchHostnamesWithRegexp(t *testing.T) {
 	type args struct {
-		pattern string
-		host    string
+		dnsName      string
+		sanMatchRule string
 	}
 	tests := []struct {
 		name    string
@@ -20,63 +20,87 @@ func TestMatchHostnamesWithRegexp(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "EmptypCheck",
-			args:    args{pattern: "", host: ""},
+			name:    "EmptyCheck",
+			args:    args{dnsName: "", sanMatchRule: ""},
 			want:    false,
 			wantErr: false,
 		},
 		{
 			name:    "LengthMissMatchCheck",
-			args:    args{pattern: "l3afd-lfn.us.l3af.io", host: "l3afd-lfn.l3af.io"},
+			args:    args{dnsName: "l3afd-lfn.us.l3af.io", sanMatchRule: "l3afd-lfn.l3af.io"},
 			want:    false,
 			wantErr: false,
 		},
 		{
 			name:    "LengthMatchCheck",
-			args:    args{pattern: "l3afd-lfn.l3af.io", host: "l3afd-lfn.l3af.io"},
+			args:    args{dnsName: "l3afd-lfn.l3af.io", sanMatchRule: "l3afd-lfn.l3af.io"},
 			want:    true,
 			wantErr: false,
 		},
 		{
 			name:    "LengthMatchPatternMissCheck",
-			args:    args{pattern: "l3afd-us.l3af.io", host: "l3afd-lf.l3af.io"},
+			args:    args{dnsName: "l3afd-us.l3af.io", sanMatchRule: "l3afd-lf.l3af.io"},
 			want:    false,
 			wantErr: false,
 		},
 		{
 			name:    "PatternMatchCheck",
-			args:    args{pattern: "l3afd-*.l3af.io", host: "l3afd-lfn.l3af.io"},
+			args:    args{dnsName: "l3afd-*.l3af.io", sanMatchRule: "l3afd-lfn.l3af.io"},
 			want:    false,
 			wantErr: false,
 		},
 		{
 			name:    "PatternMissMatchCheck",
-			args:    args{pattern: "*l3afd-.l3af.io", host: "l3afd-lfn.l3af.io"},
+			args:    args{dnsName: "*l3afd-.l3af.io", sanMatchRule: "l3afd-lfn.l3af.io"},
 			want:    false,
 			wantErr: true,
 		},
 		{
 			name:    "PatternRegExMatchCheck",
-			args:    args{pattern: "asnl3afd-lfn.l3af.io", host: ".*l3afd-lfn.l3af.io"},
+			args:    args{dnsName: "asnl3afd-lfn.l3af.io", sanMatchRule: ".*l3afd-lfn.l3af.io"},
 			want:    true,
 			wantErr: false,
 		},
 		{
 			name:    "PatternRegExExactMatchCheck",
-			args:    args{pattern: "l3afd-dev.l3af.io", host: "^dev.l3af.io$"},
+			args:    args{dnsName: "l3afd-dev.l3af.io", sanMatchRule: "^dev.l3af.io$"},
 			want:    false,
 			wantErr: false,
 		},
 		{
 			name:    "PatternRegExFindMatch",
-			args:    args{pattern: "l3afd-dev.l3af.io", host: "dev.l3af.io"},
+			args:    args{dnsName: "l3afd-dev.l3af.io", sanMatchRule: "dev.l3af.io"},
 			want:    true,
 			wantErr: false,
+		},
+		{
+			name:    "PatternRegExFindMatchPattern",
+			args:    args{dnsName: "l3afd-dev-10.l3af.io", sanMatchRule: "^l3afd-dev-[0-9][0-9]\\.l3af\\.io$"},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name:    "PatternRegExLowerCaseMatch",
+			args:    args{dnsName: "l3afd-dev-a0.l3af.io", sanMatchRule: "^l3afd-dev-[a-z][0-9]\\.l3af\\.io$"},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name:    "PatternRegExUpperCaseMatch",
+			args:    args{dnsName: "l3afd-dev-A0.l3af.io", sanMatchRule: "^l3afd-dev-[A-Z][0-9]\\.l3af\\.io$"},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name:    "PatternRegExPanicCheck",
+			args:    args{dnsName: "l3afd-dev-A0.l3af.io", sanMatchRule: "*l3afd-dev.l3af.io"},
+			want:    false,
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := matchHostnamesWithRegexp(tt.args.pattern, tt.args.host)
+			got := matchHostnamesWithRegexp(tt.args.dnsName, tt.args.sanMatchRule)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("matchHostnamesWithRegexp() = %v, want %v", got, tt.want)
 			}
@@ -96,7 +120,7 @@ func TestMatchExactly(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "EmptypCheck",
+			name:    "EmptyCheck",
 			args:    args{hostA: "", hostB: ""},
 			want:    false,
 			wantErr: false,
@@ -111,6 +135,51 @@ func TestMatchExactly(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := matchExactly(tt.args.hostA, tt.args.hostB)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("matchHostnames() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestToLowerCaseASCII(t *testing.T) {
+	type args struct {
+		in string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			name:    "EmptyCheck",
+			args:    args{in: ""},
+			want:    "",
+			wantErr: false,
+		},
+		{
+			name:    "RegexLowerCheck",
+			args:    args{in: "^l3afd-dev-[0-9][0-9]\\.l3af\\.io$"},
+			want:    "^l3afd-dev-[0-9][0-9]\\.l3af\\.io$",
+			wantErr: false,
+		},
+		{
+			name:    "RegexUpperValueCheck",
+			args:    args{in: "^L3AFd-dev-[0-9][0-9]\\.l3af\\.io$"},
+			want:    "^l3afd-dev-[0-9][0-9]\\.l3af\\.io$",
+			wantErr: false,
+		},
+		{
+			name:    "RegexLowerCheckRuneError",
+			args:    args{in: "^�l3afd-dev-[0-9][0-9]\\.l3af\\.io$"},
+			want:    "^�l3afd-dev-[0-9][0-9]\\.l3af\\.io$",
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := toLowerCaseASCII(tt.args.in)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("matchHostnames() = %v, want %v", got, tt.want)
 			}

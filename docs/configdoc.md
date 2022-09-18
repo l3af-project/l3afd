@@ -88,11 +88,12 @@ environment: PROD
 |filename|`"/etc/l3afd/l3af-config.json"`|Absolute path of persistent config file where we are storing L3afBPFPrograms objects. For more info see [models](https://github.com/l3af-project/l3afd/blob/main/models/l3afd.go)| Yes |
 
 # [mtls]
-| FieldName     | Example       | Description     | Required        |
-| ------------- | ------------- | --------------- | --------------- |
-|enabled| `"true"` | Boolean to check mtls enabled or not on REST API exposed by l3afd| Yes |
-|min-tls-version|`"1.3"`| Minimum tls version allowed| No |
-|cert-dir|`"/etc/l3af/certs"`|Absolute path of ca certificates. On Linux this points to a filesystem directory, but on Windows it can point to [certificate store](https://docs.microsoft.com/en-us/windows-hardware/drivers/install/certificate-stores) | Yes |
-|server-crt-filename|`"server.crt"`|Server's ca certificate filename| Yes |
-|server-key-filename|`"server.key"`|Server's mtls key filename| Yes |
-|cert-expiry-warning-days|`"30"`|How many days before expiry you want warning| No |
+| FieldName     | Example       | Description                                                                                                                                                                                                               | Required |
+| ------------- | ------------- |---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------|
+|enabled| `"true"` | Boolean to check mtls enabled or not on REST API exposed by l3afd                                                                                                                                                         | Yes     |
+|min-tls-version|`"1.3"`| Minimum tls version allowed                                                                                                                                                                                               | No      |
+|cert-dir|`"/etc/l3af/certs"`| Absolute path of ca certificates. On Linux this points to a filesystem directory, but on Windows it can point to [certificate store](https://docs.microsoft.com/en-us/windows-hardware/drivers/install/certificate-stores) | Yes     |
+|server-crt-filename|`"server.crt"`| Server's ca certificate filename                                                                                                                                                                                          | Yes     |
+|server-key-filename|`"server.key"`| Server's mtls key filename                                                                                                                                                                                                | Yes     |
+|cert-expiry-warning-days|`"30"`| How many days before expiry you want warning                                                                                                                                                                              | No      |
+|san-match-rules|`".*l3af.l3af.io,^l3afd.l3af.io$"`| List of domain names (exact match) or regular expressions to validate client SAN DNS Names against                                                                                                                                                                  | No      |

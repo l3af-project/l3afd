@@ -97,14 +97,12 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 			if ok := s.CaCertPool.AppendCertsFromPEM(caCert); !ok {
 				log.Warn().Msgf("No client certs appended for mTLS")
 			}
-
 			serverCertFile := path.Join(conf.MTLSCertDir, conf.MTLSServerCertFilename)
 			serverKeyFile := path.Join(conf.MTLSCertDir, conf.MTLSServerKeyFilename)
 			serverCert, err := tls.LoadX509KeyPair(serverCertFile, serverKeyFile)
 			if err != nil {
 				log.Fatal().Err(err).Msgf("failure loading certs")
 			}
-
 			// build server config
 			s.l3afdServer.TLSConfig = &tls.Config{
 				Certificates: []tls.Certificate{serverCert},
@@ -228,11 +226,13 @@ func (s *Server) getClientValidator(helloInfo *tls.ClientHelloInfo) func([][]byt
 
 		log.Debug().Msgf("validating with SAN match rules - %s", s.SANMatchRules)
 		if len(s.SANMatchRules) == 0 {
-			log.Info().Msgf("mtls san match rules are undefined")
 			return nil
 		}
 		for _, dnsName := range verifiedChains[0][0].DNSNames {
-			dnsName := toLowerCaseASCII(dnsName)
+			if !validHostname(dnsName, true) {
+				continue
+			}
+			dnsName = toLowerCaseASCII(dnsName)
 			for _, sanMatchRule := range s.SANMatchRules {
 				sanMatchRule = toLowerCaseASCII(sanMatchRule)
 				if matchExactly(dnsName, sanMatchRule) {
@@ -283,9 +283,57 @@ func toLowerCaseASCII(in string) string {
 	return string(out)
 }
 
+// validHostname reports whether host is a valid hostname that can be matched or
+// matched against according to RFC 6125 2.2, with some leniency to accommodate
+// legacy values.
+func validHostname(host string, isPattern bool) bool {
+	if !isPattern {
+		host = strings.TrimSuffix(host, ".")
+	}
+	if len(host) == 0 {
+		return false
+	}
+
+	for i, part := range strings.Split(host, ".") {
+		if part == "" {
+			// Empty label.
+			return false
+		}
+		if isPattern && i == 0 && part == "*" {
+			// Only allow full left-most wildcards, as those are the only ones
+			// we match, and matching literal '*' characters is probably never
+			// the expected behavior.
+			continue
+		}
+		for j, c := range part {
+			if 'a' <= c && c <= 'z' {
+				continue
+			}
+			if '0' <= c && c <= '9' {
+				continue
+			}
+			if 'A' <= c && c <= 'Z' {
+				continue
+			}
+			if c == '-' && j != 0 {
+				continue
+			}
+			if c == '_' {
+				// Not a valid character in hostnames, but commonly
+				// found in deployments outside the WebPKI.
+				continue
+			}
+			return false
+		}
+	}
+
+	return true
+}
+
 // matchExactly - match hostnames
 func matchExactly(hostA, hostB string) bool {
-	if hostA == "" || hostA == "." || hostB == "" || hostB == "." {
+	// Here checking hostB (i.e. sanMatchRule) is valid hostname and not regex/pattern
+	if !validHostname(hostB, false) {
 		return false
 	}
 	return hostA == hostB
@@ -299,11 +347,9 @@ func matchHostnamesWithRegexp(dnsName, sanMatchRule string) bool {
 		}
 		return false
 	}()
-
 	if len(dnsName) == 0 || len(sanMatchRule) == 0 {
 		return false
 	}
-
 	re := regexp.MustCompile(sanMatchRule)
 
 	return re.MatchString(dnsName)
