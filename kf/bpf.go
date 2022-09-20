@@ -14,7 +14,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -707,7 +706,7 @@ func (b *BPF) createUpdateRulesFile(direction string) (string, error) {
 
 	fileName := path.Join(b.FilePath, direction, b.Program.RulesFile)
 
-	if err := ioutil.WriteFile(fileName, []byte(b.Program.Rules), 0644); err != nil {
+	if err := os.WriteFile(fileName, []byte(b.Program.Rules), 0644); err != nil {
 		return "", fmt.Errorf("create or Update Rules File failed with error %v", err)
 	}
 

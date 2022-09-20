@@ -11,7 +11,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"syscall"
@@ -105,7 +104,7 @@ func VerifyNMountBPFFS() error {
 	fstype := "bpf"
 	flags := 0
 
-	mnts, err := ioutil.ReadFile("/proc/mounts")
+	mnts, err := os.ReadFile("/proc/mounts")
 	if err != nil {
 		return fmt.Errorf("failed to read procfs: %v", err)
 	}
@@ -127,7 +126,7 @@ func VerifyNMountTraceFS() error {
 	fstype := "tracefs"
 	flags := syscall.MS_NODEV | syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_RELATIME
 
-	mnts, err := ioutil.ReadFile("/proc/self/mounts")
+	mnts, err := os.ReadFile("/proc/self/mounts")
 	if err != nil {
 		return fmt.Errorf("failed to read procfs: %v", err)
 	}
@@ -165,7 +164,7 @@ func GetPlatform() (string, error) {
 }
 
 func IsProcessRunning(pid int, name string) (bool, error) {
-	procState, err := ioutil.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
+	procState, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
 	if err != nil {
 		return false, fmt.Errorf("BPF Program not running %s because of error: %v", name, err)
 	}

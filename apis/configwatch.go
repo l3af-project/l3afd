@@ -11,7 +11,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -79,7 +78,7 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 		if conf.MTLSEnabled {
 			log.Info().Msgf("l3afd server listening with mTLS - %s ", conf.L3afConfigsRestAPIAddr)
 			// Create a CA certificate pool and add client ca's to it
-			caCert, err := ioutil.ReadFile(path.Join(conf.MTLSCertDir, conf.MTLSCACertFilename))
+			caCert, err := os.ReadFile(path.Join(conf.MTLSCertDir, conf.MTLSCACertFilename))
 			if err != nil {
 				log.Fatal().Err(err).Msgf("client CA %s file not found", conf.MTLSCACertFilename)
 			}

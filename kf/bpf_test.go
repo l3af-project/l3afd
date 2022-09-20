@@ -10,7 +10,6 @@ import (
 	"compress/gzip"
 	"context"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
@@ -423,7 +422,7 @@ func TestBPF_GetArtifacts(t *testing.T) {
 					tarWriter.Write([]byte("random things"))
 					return &http.Response{
 						StatusCode: 200,
-						Body:       ioutil.NopCloser(buf),
+						Body:       io.NopCloser(buf),
 						Header:     make(http.Header),
 					}
 				}),
@@ -506,7 +505,7 @@ func TestBPF_GetArtifacts(t *testing.T) {
 					writer.Close()
 					return &http.Response{
 						StatusCode: 200,
-						Body:       ioutil.NopCloser(buf),
+						Body:       io.NopCloser(buf),
 						Header:     make(http.Header),
 					}
 				}),

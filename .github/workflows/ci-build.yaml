@@ -12,7 +12,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: golang:1.17-alpine3.16
+      image: golang:1.18.6-alpine3.16
     
     steps:
       - name: Harden Runner
@@ -30,14 +30,13 @@ jobs:
 
       - name: Format
         run: |
-          go install golang.org/x/tools/cmd/goimports@latest      
+          go install golang.org/x/tools/cmd/goimports@latest
           res="$(goimports -l .)"
           if [[ "$(printf '%s' "$res")" != '' ]]; then
             echo "Unformatted source code:"
             echo "$res"
             exit 1
           fi
- 
       - name: Vet
         run: |
           go vet ./...
@@ -46,9 +45,9 @@ jobs:
         run: |
           go test ./...
 
-      - uses: dominikh/staticcheck-action@4ec9a0dff54be2642bc76581598ba433fd8d4967
+      - uses: dominikh/staticcheck-action@v1.2.0
         with:
-          version: "2021.1.2"
+          version: "2022.1.1"
           install-go: false
 
       - name: Build
