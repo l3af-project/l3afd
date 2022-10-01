@@ -33,7 +33,7 @@ jobs:
           echo "GOPATH=$gopath" >> $env:GITHUB_ENV
 
       - name: Checkout repository
-        uses: actions/checkout@d0651293c4a5a52e711f25b41b05b2212f385d28
+        uses: actions/checkout@e6d535c99c374d0c3f6d8cd8086a57b43c6c700a
       
       - name: Format
         run: |
