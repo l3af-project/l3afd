@@ -44,19 +44,22 @@ environment: PROD
 |BpfMapDefaultPath|`"/sys/fs/bpf"`|The base pin path for eBPF maps| Yes |
 
 ## [kf-repo]
-| FieldName     | Example       | Description     | Required        |
-| ------------- | ------------- | --------------- | --------------- |
-|url| `"http://localhost:8000/"`|Default repository from which to download eBPF packages| No |
+| FieldName     | Example       | Description     | Required |
+| ------------- | ------------- | --------------- |----------|
+|url| `"http://localhost:8000/"`|Default repository from which to download eBPF packages| Yes      |
 
 ## [web]
-| FieldName     | Example       | Description     |  Required        |
-| ------------- | ------------- | --------------- |  --------------- |
-|metrics-addr|`"0.0.0.0:8898"`|Prometheus endpoint for pulling/scraping the metrics.  For more info about Prometheus see [prometheus.io](https://prometheus.io/) | Yes |
-|kf-poll-interval|`"30s"`|Periodic interval at which to scrape metrics using Prometheus| Yes |
-|n-metric-samples|`"20"`|Number of Metric Samples| Yes |
+
+| FieldName     | Example       | Description     | Required |
+| ------------- | ------------- | --------------- |----------|
+|metrics-addr|`"0.0.0.0:8898"`|Prometheus endpoint for pulling/scraping the metrics.  For more info about Prometheus see [prometheus.io](https://prometheus.io/) | Yes      |
+|kf-poll-interval|`"30s"`|Periodic interval at which to scrape metrics using Prometheus| No       |
+|n-metric-samples|`"20"`|Number of Metric Samples| No       |
 
 
 ## [xdp-root-program]
+This section is needed when bpf-chaining-enabled is set to true.
+
 | FieldName     | Example       | Description     | Required        |
 | ------------- | ------------- | --------------- | --------------- |
 |name|`"xdp-root"`|Name of subdirectory in which to extract artifact| Yes |
@@ -64,9 +67,10 @@ environment: PROD
 |ingress-map-name|`"root_array"`|Ingress map name of xdp-root program| Yes |
 |command|`"xdp_root"`|Command to run xdp-root program| Yes |
 |version|`"1.01"`|Version of xdp-root program| Yes |
-|user-program-daemon|`"false"`|Set to true it requires l3afd to stop the application (via SIGTERM on Linux or SIGKILL on Windows)| Yes |
 
 ## [tc-root-program]
+This section is needed when bpf-chaining-enabled is set to true.
+
 | FieldName     | Example       | Description     | Required        |
 | ------------- | ------------- | --------------- | --------------- |
 |name|`"tc_root"`|Name of subdirectory in which to extract artifact| Yes |
@@ -75,12 +79,17 @@ environment: PROD
 |egress-map-name|`"tc_egress_root_array"`|Egress map name of tc_root program,for more info about ingress/egress check [cilium](https://docs.cilium.io/en/v1.9/concepts/ebpf/intro/)| Yes |
 |command|`"tc_root"`|Command to run tc_root program| Yes |
 |version|`"1.0"`|Version of tc_root program| Yes |
-|user-program-daemon|`"false"`|Set to true it requires l3afd to stop the application (via SIGTERM on Linux or SIGKILL on Windows)| Yes |
+
+## [ebpf-chain-debug]
+| FieldName | Example            | Description                                                    | Required |
+|-----------|--------------------|----------------------------------------------------------------|----------|
+| addr      | `"localhost:8899"` | Hostname and Port of chaining debug REST API                   | No       |
+| enabled   | `"true"`           | Boolean to check ebpf chaining debug details is enabled or not | No       |
 
 ## [l3af-configs]
-| FieldName     | Example       | Description     | Required        |
-| ------------- | ------------- | --------------- | --------------- |
-|restapi-addr|`"localhost:53000"`| Hostname and Port of l3af-configs REST API | Yes |
+| FieldName     | Example       | Description     | Required |
+| ------------- | ------------- | --------------- |----------|
+|restapi-addr|`"localhost:53000"`| Hostname and Port of l3af-configs REST API | No       |
 
 # [l3af-config-store]
 | FieldName     | Example       | Description     | Required        |
@@ -88,11 +97,11 @@ environment: PROD
 |filename|`"/etc/l3afd/l3af-config.json"`|Absolute path of persistent config file where we are storing L3afBPFPrograms objects. For more info see [models](https://github.com/l3af-project/l3afd/blob/main/models/l3afd.go)| Yes |
 
 # [mtls]
-| FieldName     | Example       | Description     | Required        |
-| ------------- | ------------- | --------------- | --------------- |
-|enabled| `"true"` | Boolean to check mtls enabled or not on REST API exposed by l3afd| Yes |
-|min-tls-version|`"1.3"`| Minimum tls version allowed| No |
-|cert-dir|`"/etc/l3af/certs"`|Absolute path of ca certificates. On Linux this points to a filesystem directory, but on Windows it can point to [certificate store](https://docs.microsoft.com/en-us/windows-hardware/drivers/install/certificate-stores) | Yes |
-|server-crt-filename|`"server.crt"`|Server's ca certificate filename| Yes |
-|server-key-filename|`"server.key"`|Server's mtls key filename| Yes |
-|cert-expiry-warning-days|`"30"`|How many days before expiry you want warning| No |
+| FieldName     | Example       | Description     | Required |
+| ------------- | ------------- | --------------- |----------|
+|enabled| `"true"` | Boolean to check mtls enabled or not on REST API exposed by l3afd| No       |
+|min-tls-version|`"1.3"`| Minimum tls version allowed| No       |
+|cert-dir|`"/etc/l3af/certs"`|Absolute path of ca certificates. On Linux this points to a filesystem directory, but on Windows it can point to [certificate store](https://docs.microsoft.com/en-us/windows-hardware/drivers/install/certificate-stores) | No       |
+|server-crt-filename|`"server.crt"`|Server's ca certificate filename| No       |
+|server-key-filename|`"server.key"`|Server's mtls key filename| No       |
+|cert-expiry-warning-days|`"30"`|How many days before expiry you want warning| No       |
