@@ -19,7 +19,7 @@ func CheckPIDConflict(pidFilename string) error {
 	pidFileContent, err := os.ReadFile(pidFilename)
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.Error().Msgf("OK, no PID file already exists at %s.", pidFilename)
+			log.Info().Msgf("OK, no PID file already exists at %s.", pidFilename)
 			return nil
 		}
 		return fmt.Errorf("could not open PID file: %s, please manually remove; error: %v", pidFilename, err)
