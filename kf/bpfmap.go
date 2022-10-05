@@ -33,7 +33,7 @@ type MetricsBPFMap struct {
 	lastValue  float64
 }
 
-// Update function is used to update eBPF maps, which are used by network functions.
+// The update function is used to update eBPF maps, which are used by network functions.
 // Supported types are Array and Hash
 // Multiple values are comma separated
 // Hashmap can be multiple values or single values.
