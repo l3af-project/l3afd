@@ -71,37 +71,37 @@ This section is needed when bpf-chaining-enabled is set to true.
 ## [tc-root-program]
 This section is needed when bpf-chaining-enabled is set to true.
 
-| FieldName     | Example       | Description     | Required        |
-| ------------- | ------------- | --------------- | --------------- |
-|name|`"tc_root"`|Name of subdirectory in which to extract artifact| Yes |
-|artifact|`"l3af_tc_root.tar.gz"`|Filename of tc_root package| Yes |
-|ingress-map-name|`"tc_ingress_root_array"`|Ingress map name of tc_root program| Yes |
-|egress-map-name|`"tc_egress_root_array"`|Egress map name of tc_root program,for more info about ingress/egress check [cilium](https://docs.cilium.io/en/v1.9/concepts/ebpf/intro/)| Yes |
-|command|`"tc_root"`|Command to run tc_root program| Yes |
-|version|`"1.0"`|Version of tc_root program| Yes |
+| FieldName     | Default                   | Description     | Required        |
+| ------------- |---------------------------| --------------- | --------------- |
+|name| `"tc_root"`               |Name of subdirectory in which to extract artifact| Yes |
+|artifact| `"l3af_tc_root.tar.gz"`   |Filename of tc_root package| Yes |
+|ingress-map-name| `"tc_ingress_root_array"` |Ingress map name of tc_root program| Yes |
+|egress-map-name| `"tc_egress_root_array"`  |Egress map name of tc_root program,for more info about ingress/egress check [cilium](https://docs.cilium.io/en/v1.9/concepts/ebpf/intro/)| Yes |
+|command| `"tc_root"`               |Command to run tc_root program| Yes |
+|version| `"1.0"`                   |Version of tc_root program| Yes |
 
 ## [ebpf-chain-debug]
-| FieldName | Example            | Description                                                    | Required |
+| FieldName | Default            | Description                                                    | Required |
 |-----------|--------------------|----------------------------------------------------------------|----------|
 | addr      | `"localhost:8899"` | Hostname and Port of chaining debug REST API                   | No       |
 | enabled   | `"true"`           | Boolean to check ebpf chaining debug details is enabled or not | No       |
 
 ## [l3af-configs]
-| FieldName     | Example       | Description     | Required |
+| FieldName     | Default       | Description     | Required |
 | ------------- | ------------- | --------------- |----------|
 |restapi-addr|`"localhost:53000"`| Hostname and Port of l3af-configs REST API | No       |
 
 # [l3af-config-store]
-| FieldName     | Example       | Description     | Required        |
+| FieldName     | Default       | Description     | Required        |
 | ------------- | ------------- | --------------- | --------------- |
 |filename|`"/etc/l3afd/l3af-config.json"`|Absolute path of persistent config file where we are storing L3afBPFPrograms objects. For more info see [models](https://github.com/l3af-project/l3afd/blob/main/models/l3afd.go)| Yes |
 
 # [mtls]
-| FieldName     | Example       | Description     | Required |
-| ------------- | ------------- | --------------- |----------|
-|enabled| `"true"` | Boolean to check mtls enabled or not on REST API exposed by l3afd| No       |
-|min-tls-version|`"1.3"`| Minimum tls version allowed| No       |
-|cert-dir|`"/etc/l3af/certs"`|Absolute path of ca certificates. On Linux this points to a filesystem directory, but on Windows it can point to [certificate store](https://docs.microsoft.com/en-us/windows-hardware/drivers/install/certificate-stores) | No       |
-|server-crt-filename|`"server.crt"`|Server's ca certificate filename| No       |
-|server-key-filename|`"server.key"`|Server's mtls key filename| No       |
-|cert-expiry-warning-days|`"30"`|How many days before expiry you want warning| No       |
+| FieldName     | Default       | Description                                                                                                                                                                                                                  | Required |
+| ------------- | ------------- |------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|
+|enabled| `"true"` | Boolean controlling whether mTLS is enabled or not on the REST API exposed by l3afd                                                                                                                                          | No       |
+|min-tls-version|`"1.3"`| Minimum tls version allowed                                                                                                                                                                                                  | No       |
+|cert-dir|`"/etc/l3af/certs"`| Absolute path of CA certificates. On Linux this points to a filesystem directory, but on Windows it can point to a [certificate store](https://docs.microsoft.com/en-us/windows-hardware/drivers/install/certificate-stores) | No       |
+|server-crt-filename|`"server.crt"`| Server's ca certificate filename                                                                                                                                                                                             | No       |
+|server-key-filename|`"server.key"`| Server's mtls key filename                                                                                                                                                                                                   | No       |
+|cert-expiry-warning-days|`"30"`| How many days before expiry you want warning                                                                                                                                                                                 | No       |
