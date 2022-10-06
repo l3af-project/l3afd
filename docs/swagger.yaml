@@ -126,7 +126,7 @@ definitions:
     properties:
       bpf_programs:
         $ref: '#/definitions/models.BPFProgramNames'
-        description: List of bpf program names to remove
+        description: List of eBPF program names to remove
       host_name:
         description: Host name or pod name
         type: string
@@ -203,7 +203,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Adding new eBPF Programs on node
+      description: Adds new eBPF Programs on node
       parameters:
       - description: BPF programs
         in: body
@@ -218,12 +218,12 @@ paths:
       responses:
         "200":
           description: OK
-      summary: Adding new eBPF Programs on node
+      summary: Adds new eBPF Programs on node
   /l3af/configs/v1/delete:
     post:
       consumes:
       - application/json
-      description: remove eBPF Programs on node
+      description: Removes eBPF Programs on node
       parameters:
       - description: BPF program names
         in: body
@@ -238,7 +238,7 @@ paths:
       responses:
         "200":
           description: OK
-      summary: remove eBPF Programs on node
+      summary: Removes eBPF Programs on node
   /l3af/configs/v1/update:
     post:
       consumes:

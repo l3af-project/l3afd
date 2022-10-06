@@ -27,14 +27,14 @@
         },
         "/l3af/configs/v1/add": {
             "post": {
-                "description": "Adding new eBPF Programs on node",
+                "description": "Adds new eBPF Programs on node",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-                "summary": "Adding new eBPF Programs on node",
+                "summary": "Adds new eBPF Programs on node",
                 "parameters": [
                     {
                         "description": "BPF programs",
@@ -58,14 +58,14 @@
         },
         "/l3af/configs/v1/delete": {
             "post": {
-                "description": "remove eBPF Programs on node",
+                "description": "Removes eBPF Programs on node",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-                "summary": "remove eBPF Programs on node",
+                "summary": "Removes eBPF Programs on node",
                 "parameters": [
                     {
                         "description": "BPF program names",
@@ -318,7 +318,7 @@
             "type": "object",
             "properties": {
                 "bpf_programs": {
-                    "description": "List of bpf program names to remove",
+                    "description": "List of eBPF program names to remove",
                     "$ref": "#/definitions/models.BPFProgramNames"
                 },
                 "host_name": {

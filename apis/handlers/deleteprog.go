@@ -18,8 +18,8 @@ import (
 )
 
 // DeleteEbpfPrograms   remove eBPF programs on node
-// @Summary remove eBPF Programs on node
-// @Description remove eBPF Programs on node
+// @Summary Removes eBPF Programs on node
+// @Description Removes eBPF Programs on node
 // @Accept  json
 // @Produce  json
 // @Param cfgs body []models.L3afBPFProgramNames true "BPF program names"
