@@ -54,3 +54,8 @@ jobs:
       - name: Build
         run: |
           make
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: artifact
+          path: l3afd
