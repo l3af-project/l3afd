@@ -28,7 +28,69 @@ const docTemplate = `{
                 "summary": "Returns details of the configuration of eBPF Programs for all interfaces on a node",
                 "responses": {
                     "200": {
-                        "description": ""
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/l3af/configs/v1/add": {
+            "post": {
+                "description": "Adds new eBPF Programs on node",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Adds new eBPF Programs on node",
+                "parameters": [
+                    {
+                        "description": "BPF programs",
+                        "name": "cfgs",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.L3afBPFPrograms"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/l3af/configs/v1/delete": {
+            "post": {
+                "description": "Removes eBPF Programs on node",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Removes eBPF Programs on node",
+                "parameters": [
+                    {
+                        "description": "BPF program names",
+                        "name": "cfgs",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.L3afBPFProgramNames"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
                     }
                 }
             }
@@ -59,7 +121,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": ""
+                        "description": "OK"
                     }
                 }
             }
@@ -85,7 +147,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": ""
+                        "description": "OK"
                     }
                 }
             }
@@ -134,6 +196,10 @@ const docTemplate = `{
                 "cpu": {
                     "description": "User program cpu limits",
                     "type": "integer"
+                },
+                "ebpf_package_repo_url": {
+                    "description": "Download url for Program",
+                    "type": "string"
                 },
                 "id": {
                     "description": "Program id",
@@ -204,6 +270,32 @@ const docTemplate = `{
                 }
             }
         },
+        "models.BPFProgramNames": {
+            "type": "object",
+            "properties": {
+                "tc_egress": {
+                    "description": "names of the TC egress eBPF programs",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "tc_ingress": {
+                    "description": "names of the TC ingress eBPF programs",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "xdp_ingress": {
+                    "description": "names of the XDP ingress eBPF programs",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "models.BPFPrograms": {
             "type": "object",
             "properties": {
@@ -227,6 +319,23 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/models.BPFProgram"
                     }
+                }
+            }
+        },
+        "models.L3afBPFProgramNames": {
+            "type": "object",
+            "properties": {
+                "bpf_programs": {
+                    "description": "List of eBPF program names to remove",
+                    "$ref": "#/definitions/models.BPFProgramNames"
+                },
+                "host_name": {
+                    "description": "Host name or pod name",
+                    "type": "string"
+                },
+                "iface": {
+                    "description": "Interface name",
+                    "type": "string"
                 }
             }
         },

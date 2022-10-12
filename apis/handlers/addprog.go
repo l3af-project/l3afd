@@ -18,8 +18,8 @@ import (
 )
 
 // AddEbpfPrograms add new eBPF programs on node
-// @Summary Adding new eBPF Programs on node
-// @Description Adding new eBPF Programs on node
+// @Summary Adds new eBPF Programs on node
+// @Description Adds new eBPF Programs on node
 // @Accept  json
 // @Produce  json
 // @Param cfgs body []models.L3afBPFPrograms true "BPF programs"

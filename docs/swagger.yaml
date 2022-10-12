@@ -32,6 +32,9 @@ definitions:
       cpu:
         description: User program cpu limits
         type: integer
+      ebpf_package_repo_url:
+        description: Download url for Program
+        type: string
       id:
         description: Program id
         type: integer
@@ -83,6 +86,24 @@ definitions:
         description: Program version
         type: string
     type: object
+  models.BPFProgramNames:
+    properties:
+      tc_egress:
+        description: names of the TC egress eBPF programs
+        items:
+          type: string
+        type: array
+      tc_ingress:
+        description: names of the TC ingress eBPF programs
+        items:
+          type: string
+        type: array
+      xdp_ingress:
+        description: names of the XDP ingress eBPF programs
+        items:
+          type: string
+        type: array
+    type: object
   models.BPFPrograms:
     properties:
       tc_egress:
@@ -100,6 +121,18 @@ definitions:
         items:
           $ref: '#/definitions/models.BPFProgram'
         type: array
+    type: object
+  models.L3afBPFProgramNames:
+    properties:
+      bpf_programs:
+        $ref: '#/definitions/models.BPFProgramNames'
+        description: List of eBPF program names to remove
+      host_name:
+        description: Host name or pod name
+        type: string
+      iface:
+        description: Interface name
+        type: string
     type: object
   models.L3afBPFPrograms:
     properties:
@@ -145,7 +178,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: ""
+          description: OK
       summary: Returns details of the configuration of eBPF Programs for all interfaces
         on a node
   /l3af/configs/v1/{iface}:
@@ -164,8 +197,48 @@ paths:
       - application/json
       responses:
         "200":
-          description: ""
+          description: OK
       summary: Returns details of the configuration of eBPF Programs for a given interface
+  /l3af/configs/v1/add:
+    post:
+      consumes:
+      - application/json
+      description: Adds new eBPF Programs on node
+      parameters:
+      - description: BPF programs
+        in: body
+        name: cfgs
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/models.L3afBPFPrograms'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Adds new eBPF Programs on node
+  /l3af/configs/v1/delete:
+    post:
+      consumes:
+      - application/json
+      description: Removes eBPF Programs on node
+      parameters:
+      - description: BPF program names
+        in: body
+        name: cfgs
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/models.L3afBPFProgramNames'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Removes eBPF Programs on node
   /l3af/configs/v1/update:
     post:
       consumes:
@@ -184,6 +257,6 @@ paths:
       - application/json
       responses:
         "200":
-          description: ""
+          description: OK
       summary: Update eBPF Programs configuration
 swagger: "2.0"
