@@ -77,7 +77,7 @@ type BPFPrograms struct {
 type L3afBPFProgramNames struct {
 	HostName        string           `json:"host_name"`    // Host name or pod name
 	Iface           string           `json:"iface"`        // Interface name
-	BpfProgramNames *BPFProgramNames `json:"bpf_programs"` // List of bpf program names to remove
+	BpfProgramNames *BPFProgramNames `json:"bpf_programs"` // List of eBPF program names to remove
 }
 
 // BPFProgramNames defines names of eBPF programs on node

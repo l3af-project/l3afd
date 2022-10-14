@@ -37,6 +37,7 @@ jobs:
             echo "$res"
             exit 1
           fi
+
       - name: Vet
         run: |
           go vet ./...
