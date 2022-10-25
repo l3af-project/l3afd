@@ -9,7 +9,7 @@ swagger:
 	@$(GOPATH)/bin/swag init -d "./" -g "apis/configwatch.go"
 
 build:
-	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-extldflags=-static"
+	@CGO_ENABLED=0 go build
 
 install: swagger
-	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go install -ldflags="-extldflags=-static"
+	@CGO_ENABLED=0 go install
