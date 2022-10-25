@@ -27,14 +27,14 @@ environment: PROD
 
 
 ## [l3afd]
-| FieldName     | Example       | Description     | Required        |
+| FieldName     | Default       | Description     | Required        |
 | ------------- | ------------- | --------------- | --------------- |
 |pid-file| `"./l3afd.pid"`  | The path to the l3afd.pid file which contains process id of L3afd | Yes |
 |datacenter| `"dummy"` | Name of Datacenter| Yes |
 |bpf-dir| `"/dev/shm"` | Absolute Path where eBPF packages are to be extracted | Yes |
 |bpf-log-dir|`""`      | Absolute Path for log files, which is passed to applications on the command line. L3afd does not store any logs itself.| No |
-|kernel-major-version|`"4"`|Major version of the kernel| Only on linux |
-|kernel-minor-version|`"15"`|Minor version of the kernel (Ex 4.15)| Only on linux |
+|kernel-major-version|`"4"`|Major version of the kernel required to run eBPF programs (Linux Only) | No |
+|kernel-minor-version|`"15"`|Minor version of the kernel required to run eBPF programs (Linux Only)| No |
 |shutdown-timeout|`"1s"`|Maximum amount of time allowed for l3afd to gracefully stop. After shutdown-timeout, l3afd will exit even if it could not stop applications.| No |
 |http-client-timeout|`"10s"`|Maximum amount of time allowed to get HTTP response headers when fetching a package from a repository| No |
 |max-nf-restart-count|`"3"`|Maximum number of tries to restart eBPF applications if they are not running| No |
@@ -44,13 +44,13 @@ environment: PROD
 |BpfMapDefaultPath|`"/sys/fs/bpf"`|The base pin path for eBPF maps| Yes |
 
 ## [kf-repo]
-| FieldName     | Example       | Description     | Required |
+| FieldName     | Default       | Description     | Required |
 | ------------- | ------------- | --------------- |----------|
 |url| `"http://localhost:8000/"`|Default repository from which to download eBPF packages| Yes      |
 
 ## [web]
 
-| FieldName     | Example       | Description     | Required |
+| FieldName     | Default       | Description     | Required |
 | ------------- | ------------- | --------------- |----------|
 |metrics-addr|`"0.0.0.0:8898"`|Prometheus endpoint for pulling/scraping the metrics.  For more info about Prometheus see [prometheus.io](https://prometheus.io/) | Yes      |
 |kf-poll-interval|`"30s"`|Periodic interval at which to scrape metrics using Prometheus| No       |
@@ -60,7 +60,7 @@ environment: PROD
 ## [xdp-root-program]
 This section is needed when bpf-chaining-enabled is set to true.
 
-| FieldName     | Example       | Description     | Required        |
+| FieldName     | Default       | Description     | Required        |
 | ------------- | ------------- | --------------- | --------------- |
 |name|`"xdp-root"`|Name of subdirectory in which to extract artifact| Yes |
 |artifact|`"xdp-root.tar.gz"`|Filename of xdp-root package. Only tar.gz and .zip formats are supported| Yes |
@@ -91,12 +91,12 @@ This section is needed when bpf-chaining-enabled is set to true.
 | ------------- | ------------- | --------------- |----------|
 |restapi-addr|`"localhost:53000"`| Hostname and Port of l3af-configs REST API | No       |
 
-# [l3af-config-store]
+## [l3af-config-store]
 | FieldName     | Default       | Description     | Required        |
 | ------------- | ------------- | --------------- | --------------- |
 |filename|`"/etc/l3afd/l3af-config.json"`|Absolute path of persistent config file where we are storing L3afBPFPrograms objects. For more info see [models](https://github.com/l3af-project/l3afd/blob/main/models/l3afd.go)| Yes |
 
-# [mtls]
+## [mtls]
 | FieldName     | Default       | Description                                                                                                                                                                                                                  | Required |
 | ------------- | ------------- |------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|
 |enabled| `"true"` | Boolean controlling whether mTLS is enabled or not on the REST API exposed by l3afd                                                                                                                                          | No       |
