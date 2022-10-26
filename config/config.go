@@ -43,29 +43,20 @@ type Config struct {
 
 	SwaggerApiEnabled bool
 
-	// Admin API endpoint config for registering l3afd.
-	AdmindHost       string
-	AdmindUsername   string
-	AdmindApiKey     string
-	AdmindGroupID    int
-	AdmindApiEnabled bool
-
 	// XDP Root program details.
-	XDPRootProgramName              string
-	XDPRootProgramArtifact          string
-	XDPRootProgramMapName           string
-	XDPRootProgramCommand           string
-	XDPRootProgramVersion           string
-	XDPRootProgramUserProgramDaemon bool
+	XDPRootProgramName     string
+	XDPRootProgramArtifact string
+	XDPRootProgramMapName  string
+	XDPRootProgramCommand  string
+	XDPRootProgramVersion  string
 
 	// TC Root program details.
-	TCRootProgramName              string
-	TCRootProgramArtifact          string
-	TCRootProgramIngressMapName    string
-	TCRootProgramEgressMapName     string
-	TCRootProgramCommand           string
-	TCRootProgramVersion           string
-	TCRootProgramUserProgramDaemon bool
+	TCRootProgramName           string
+	TCRootProgramArtifact       string
+	TCRootProgramIngressMapName string
+	TCRootProgramEgressMapName  string
+	TCRootProgramCommand        string
+	TCRootProgramVersion        string
 
 	// ebpf chain details
 	EBPFChainDebugAddr    string
@@ -102,53 +93,46 @@ func ReadConfig(configPath string) (*Config, error) {
 	}
 
 	return &Config{
-		PIDFilename:                     LoadConfigString(confReader, "l3afd", "pid-file"),
-		DataCenter:                      LoadConfigString(confReader, "l3afd", "datacenter"),
-		BPFDir:                          LoadConfigString(confReader, "l3afd", "bpf-dir"),
-		BPFLogDir:                       LoadConfigString(confReader, "l3afd", "bpf-log-dir"),
-		MinKernelMajorVer:               LoadConfigInt(confReader, "l3afd", "kernel-major-version"),
-		MinKernelMinorVer:               LoadConfigInt(confReader, "l3afd", "kernel-minor-version"),
-		KFRepoURL:                       LoadConfigString(confReader, "kf-repo", "url"),
-		HttpClientTimeout:               LoadConfigDuration(confReader, "l3afd", "http-client-timeout"),
-		MaxNFReStartCount:               LoadConfigInt(confReader, "l3afd", "max-nf-restart-count"),
-		BpfChainingEnabled:              LoadOptionalConfigBool(confReader, "l3afd", "bpf-chaining-enabled", true),
-		MetricsAddr:                     LoadConfigString(confReader, "web", "metrics-addr"),
-		KFPollInterval:                  LoadOptionalConfigDuration(confReader, "web", "kf-poll-interval", 30*time.Second),
-		NMetricSamples:                  LoadOptionalConfigInt(confReader, "web", "n-metric-samples", 20),
-		ShutdownTimeout:                 LoadConfigDuration(confReader, "l3afd", "shutdown-timeout"),
-		SwaggerApiEnabled:               LoadOptionalConfigBool(confReader, "l3afd", "swagger-api-enabled", false),
-		Environment:                     LoadOptionalConfigString(confReader, "l3afd", "environment", ENV_PROD),
-		BpfMapDefaultPath:               LoadOptionalConfigString(confReader, "l3afd", "BpfMapDefaultPath", "/sys/fs/bpf"),
-		AdmindHost:                      LoadConfigString(confReader, "admind", "host"),
-		AdmindUsername:                  LoadConfigString(confReader, "admind", "username"),
-		AdmindApiKey:                    LoadConfigString(confReader, "admind", "api-key"),
-		AdmindGroupID:                   LoadConfigInt(confReader, "admind", "group-id"),
-		AdmindApiEnabled:                LoadOptionalConfigBool(confReader, "admind", "api-enabled", true),
-		XDPRootProgramName:              LoadOptionalConfigString(confReader, "xdp-root-program", "name", "xdp_root"),
-		XDPRootProgramArtifact:          LoadOptionalConfigString(confReader, "xdp-root-program", "artifact", "l3af_xdp_root.tar.gz"),
-		XDPRootProgramMapName:           LoadOptionalConfigString(confReader, "xdp-root-program", "ingress-map-name", "xdp_root_array"),
-		XDPRootProgramCommand:           LoadOptionalConfigString(confReader, "xdp-root-program", "command", "xdp_root"),
-		XDPRootProgramVersion:           LoadOptionalConfigString(confReader, "xdp-root-program", "version", "1.01"),
-		XDPRootProgramUserProgramDaemon: LoadOptionalConfigBool(confReader, "xdp-root-program", "user-program-daemon", false),
-		TCRootProgramName:               LoadOptionalConfigString(confReader, "tc-root-program", "name", "tc_root"),
-		TCRootProgramArtifact:           LoadOptionalConfigString(confReader, "tc-root-program", "artifact", "l3af_tc_root.tar.gz"),
-		TCRootProgramIngressMapName:     LoadOptionalConfigString(confReader, "tc-root-program", "ingress-map-name", "tc/globals/tc_ingress_root_array"),
-		TCRootProgramEgressMapName:      LoadOptionalConfigString(confReader, "tc-root-program", "egress-map-name", "tc/globals/tc_egress_root_array"),
-		TCRootProgramCommand:            LoadOptionalConfigString(confReader, "tc-root-program", "command", "tc_root"),
-		TCRootProgramVersion:            LoadOptionalConfigString(confReader, "tc-root-program", "version", "1.0"),
-		TCRootProgramUserProgramDaemon:  LoadOptionalConfigBool(confReader, "tc-root-program", "user-program-daemon", false),
-		EBPFChainDebugAddr:              LoadOptionalConfigString(confReader, "ebpf-chain-debug", "addr", "0.0.0.0:8899"),
-		EBPFChainDebugEnabled:           LoadOptionalConfigBool(confReader, "ebpf-chain-debug", "enabled", false),
-		L3afConfigsRestAPIAddr:          LoadOptionalConfigString(confReader, "l3af-configs", "restapi-addr", "localhost:53000"),
-		L3afConfigStoreFileName:         LoadOptionalConfigString(confReader, "l3af-config-store", "filename", "/etc/l3afd/l3af-config.json"),
-		MTLSEnabled:                     LoadOptionalConfigBool(confReader, "mtls", "enabled", true),
-		MTLSMinVersion:                  minTLSVersion,
-		MTLSCertDir:                     LoadOptionalConfigString(confReader, "mtls", "cert-dir", "/etc/l3afd/certs"),
-		MTLSCACertFilename:              LoadOptionalConfigString(confReader, "mtls", "cacert-filename", "ca.pem"),
-		MTLSServerCertFilename:          LoadOptionalConfigString(confReader, "mtls", "server-cert-filename", "server.crt"),
-		MTLSServerKeyFilename:           LoadOptionalConfigString(confReader, "mtls", "server-key-filename", "server.key"),
-		MTLSCertExpiryWarningDays:       LoadOptionalConfigInt(confReader, "mtls", "cert-expiry-warning-days", 30),
-		MTLSSANMatchRules:               strings.Split(LoadOptionalConfigString(confReader, "mtls", "san-match-rules", ""), ","),
+		PIDFilename:                 LoadConfigString(confReader, "l3afd", "pid-file"),
+		DataCenter:                  LoadConfigString(confReader, "l3afd", "datacenter"),
+		BPFDir:                      LoadConfigString(confReader, "l3afd", "bpf-dir"),
+		BPFLogDir:                   LoadOptionalConfigString(confReader, "l3afd", "bpf-log-dir", ""),
+		MinKernelMajorVer:           LoadOptionalConfigInt(confReader, "l3afd", "kernel-major-version", 5),
+		MinKernelMinorVer:           LoadOptionalConfigInt(confReader, "l3afd", "kernel-minor-version", 1),
+		KFRepoURL:                   LoadConfigString(confReader, "kf-repo", "url"),
+		HttpClientTimeout:           LoadOptionalConfigDuration(confReader, "l3afd", "http-client-timeout", 10*time.Second),
+		MaxNFReStartCount:           LoadOptionalConfigInt(confReader, "l3afd", "max-nf-restart-count", 3),
+		BpfChainingEnabled:          LoadConfigBool(confReader, "l3afd", "bpf-chaining-enabled"),
+		MetricsAddr:                 LoadConfigString(confReader, "web", "metrics-addr"),
+		KFPollInterval:              LoadOptionalConfigDuration(confReader, "web", "kf-poll-interval", 30*time.Second),
+		NMetricSamples:              LoadOptionalConfigInt(confReader, "web", "n-metric-samples", 20),
+		ShutdownTimeout:             LoadOptionalConfigDuration(confReader, "l3afd", "shutdown-timeout", 5*time.Second),
+		SwaggerApiEnabled:           LoadOptionalConfigBool(confReader, "l3afd", "swagger-api-enabled", false),
+		Environment:                 LoadOptionalConfigString(confReader, "l3afd", "environment", ENV_PROD),
+		BpfMapDefaultPath:           LoadConfigString(confReader, "l3afd", "BpfMapDefaultPath"),
+		XDPRootProgramName:          LoadOptionalConfigString(confReader, "xdp-root-program", "name", "xdp_root"),
+		XDPRootProgramArtifact:      LoadOptionalConfigString(confReader, "xdp-root-program", "artifact", "l3af_xdp_root.tar.gz"),
+		XDPRootProgramMapName:       LoadOptionalConfigString(confReader, "xdp-root-program", "ingress-map-name", "xdp_root_array"),
+		XDPRootProgramCommand:       LoadOptionalConfigString(confReader, "xdp-root-program", "command", "xdp_root"),
+		XDPRootProgramVersion:       LoadOptionalConfigString(confReader, "xdp-root-program", "version", "1.01"),
+		TCRootProgramName:           LoadOptionalConfigString(confReader, "tc-root-program", "name", "tc_root"),
+		TCRootProgramArtifact:       LoadOptionalConfigString(confReader, "tc-root-program", "artifact", "l3af_tc_root.tar.gz"),
+		TCRootProgramIngressMapName: LoadOptionalConfigString(confReader, "tc-root-program", "ingress-map-name", "tc/globals/tc_ingress_root_array"),
+		TCRootProgramEgressMapName:  LoadOptionalConfigString(confReader, "tc-root-program", "egress-map-name", "tc/globals/tc_egress_root_array"),
+		TCRootProgramCommand:        LoadOptionalConfigString(confReader, "tc-root-program", "command", "tc_root"),
+		TCRootProgramVersion:        LoadOptionalConfigString(confReader, "tc-root-program", "version", "1.0"),
+		EBPFChainDebugAddr:          LoadOptionalConfigString(confReader, "ebpf-chain-debug", "addr", "localhost:8899"),
+		EBPFChainDebugEnabled:       LoadOptionalConfigBool(confReader, "ebpf-chain-debug", "enabled", false),
+		L3afConfigsRestAPIAddr:      LoadOptionalConfigString(confReader, "l3af-configs", "restapi-addr", "localhost:53000"),
+		L3afConfigStoreFileName:     LoadConfigString(confReader, "l3af-config-store", "filename"),
+		MTLSEnabled:                 LoadOptionalConfigBool(confReader, "mtls", "enabled", true),
+		MTLSMinVersion:              minTLSVersion,
+		MTLSCertDir:                 LoadOptionalConfigString(confReader, "mtls", "cert-dir", ""),
+		MTLSCACertFilename:          LoadOptionalConfigString(confReader, "mtls", "cacert-filename", "ca.pem"),
+		MTLSServerCertFilename:      LoadOptionalConfigString(confReader, "mtls", "server-cert-filename", "server.crt"),
+		MTLSServerKeyFilename:       LoadOptionalConfigString(confReader, "mtls", "server-key-filename", "server.key"),
+		MTLSCertExpiryWarningDays:   LoadOptionalConfigInt(confReader, "mtls", "cert-expiry-warning-days", 30),
+		MTLSSANMatchRules:           strings.Split(LoadOptionalConfigString(confReader, "mtls", "san-match-rules", ""), ","),
 	}, nil
 }
 
