@@ -56,3 +56,8 @@ jobs:
       - name: Build
         run: |
           make
+
+      - uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
+        with:
+          name: artifact
+          path: l3afd
