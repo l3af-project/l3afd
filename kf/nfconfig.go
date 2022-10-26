@@ -9,8 +9,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
+	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -739,7 +739,7 @@ func (c *NFConfigs) SaveConfigsToConfigStore() error {
 		return fmt.Errorf("failed to marshal configs %v", err)
 	}
 
-	if err = ioutil.WriteFile(c.HostConfig.L3afConfigStoreFileName, file, 0644); err != nil {
+	if err = os.WriteFile(c.HostConfig.L3afConfigStoreFileName, file, 0644); err != nil {
 		log.Error().Err(err).Msgf("failed write to file operation")
 		return fmt.Errorf("failed to save configs %v", err)
 	}

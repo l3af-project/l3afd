@@ -10,11 +10,13 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    container:
-      image: golang:1.17-alpine3.16
-    
+    runs-on: ubuntu-20.04
     steps:
+      - name: Setup Go 1.18.6
+        uses: actions/setup-go@268d8c0ca0432bb2cf416faae41297df9d262d7f
+        with:
+          go-version: '1.18.6'
+
       - name: Harden Runner
         uses: step-security/harden-runner@248ae51c2e8cc9622ecf50685c8bf7150c6e8813
         with:
@@ -22,15 +24,15 @@ jobs:
 
       - name: Set up environment
         run : |
-          apk update
-          apk add gcc libc-dev bash perl curl make
-
+          sudo apt-get update
+          sudo apt-get install gcc libc-dev bash perl curl make
+          
       - name: Checkout repository
         uses: actions/checkout@d0651293c4a5a52e711f25b41b05b2212f385d28
 
       - name: Format
         run: |
-          go install golang.org/x/tools/cmd/goimports@latest      
+          go install golang.org/x/tools/cmd/goimports@latest
           res="$(goimports -l .)"
           if [[ "$(printf '%s' "$res")" != '' ]]; then
             echo "Unformatted source code:"
@@ -48,7 +50,7 @@ jobs:
 
       - uses: dominikh/staticcheck-action@4ec9a0dff54be2642bc76581598ba433fd8d4967
         with:
-          version: "2021.1.2"
+          version: "2022.1.1"
           install-go: false
 
       - name: Build

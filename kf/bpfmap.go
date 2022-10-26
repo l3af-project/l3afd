@@ -33,23 +33,24 @@ type MetricsBPFMap struct {
 	lastValue  float64
 }
 
-// This function is used to update eBPF maps, which are used by network functions.
+// The update function is used to update eBPF maps, which are used by network functions.
 // Supported types are Array and Hash
 // Multiple values are comma separated
 // Hashmap can be multiple values or single values.
 // If hash map entries then key will be values and value will be set to 1
 // In case of Array then key will be index starting from 0 and values are stored.
 // for e.g.
-// 	HashMap scenario 1. --ports="80,443" values are stored in rl_ports_map BPF map
-// 		key => 80 value => 1
-// 		key => 443 value => 1
-// 	HashMap scenario 2. --ports="443" value is stored in rl_ports_map BPF map
-// 		key => 443 value => 1
-// 	Array scenario 1. --ports="80,443" values are stored in rl_ports_map BPF map
-// 		key => 0 value => 80
-// 		key => 1 value => 443
-// 	Array scenario 2. --rate="10000" value is stored in rl_config_map BPF map
-// 		key => 0 value => 10000
+//
+//	HashMap scenario 1. --ports="80,443" values are stored in rl_ports_map BPF map
+//		key => 80 value => 1
+//		key => 443 value => 1
+//	HashMap scenario 2. --ports="443" value is stored in rl_ports_map BPF map
+//		key => 443 value => 1
+//	Array scenario 1. --ports="80,443" values are stored in rl_ports_map BPF map
+//		key => 0 value => 80
+//		key => 1 value => 443
+//	Array scenario 2. --rate="10000" value is stored in rl_config_map BPF map
+//		key => 0 value => 10000
 func (b *BPFMap) Update(value string) error {
 
 	log.Debug().Msgf("update map name %s ID %d", b.Name, b.MapID)

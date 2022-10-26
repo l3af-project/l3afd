@@ -1,6 +1,6 @@
 module github.com/l3af-project/l3afd
 
-go 1.17
+go 1.18
 
 require (
 	github.com/cilium/ebpf v0.9.0
@@ -45,6 +45,5 @@ require (
 	golang.org/x/net v0.0.0-20221004154528-8021a29435af // indirect
 	golang.org/x/tools v0.1.12 // indirect
 	google.golang.org/protobuf v1.26.0-rc.1 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

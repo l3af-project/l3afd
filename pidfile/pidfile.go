@@ -5,7 +5,6 @@ package pidfile
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/signal"
 	"strconv"
@@ -17,7 +16,7 @@ import (
 
 func CheckPIDConflict(pidFilename string) error {
 	log.Info().Msgf("Checking for another already running instance (using PID file \"%s\")...", pidFilename)
-	pidFileContent, err := ioutil.ReadFile(pidFilename)
+	pidFileContent, err := os.ReadFile(pidFilename)
 	if err != nil {
 		if os.IsNotExist(err) {
 			log.Info().Msgf("OK, no PID file already exists at %s.", pidFilename)
@@ -58,11 +57,11 @@ func CheckPIDConflict(pidFilename string) error {
 	}
 
 	log.Info().Msgf("Process with PID: %s; is running. Comparing process names to ensure it is a true conflict.", oldPIDString)
-	selfProcName, err := ioutil.ReadFile("/proc/self/comm")
+	selfProcName, err := os.ReadFile("/proc/self/comm")
 	if err != nil {
 		return fmt.Errorf("could not read this processes command name from the proc filesystem; err: %v", err)
 	}
-	conflictProcName, err := ioutil.ReadFile(fmt.Sprintf("/proc/%d/comm", oldPID))
+	conflictProcName, err := os.ReadFile(fmt.Sprintf("/proc/%d/comm", oldPID))
 	if err != nil {
 		return fmt.Errorf("could not read old processes (PID: %s) command name from the proc filesystem; error: %v", oldPIDString, err)
 	}
@@ -80,14 +79,14 @@ func CheckPIDConflict(pidFilename string) error {
 func CreatePID(pidFilename string) error {
 	PID := os.Getpid()
 	log.Info().Msgf("Writing process ID %d to %s...", PID, pidFilename)
-	if err := ioutil.WriteFile(pidFilename, []byte(strconv.Itoa(PID)), 0640); err != nil {
+	if err := os.WriteFile(pidFilename, []byte(strconv.Itoa(PID)), 0640); err != nil {
 		return fmt.Errorf("could not write process ID to file: \"%s\"; error: %v", pidFilename, err)
 	}
 	return nil
 }
 
 func RemovePID(pidFilename string) error {
-	err := os.Remove(pidFilename)
+	err := os.RemoveAll(pidFilename)
 	if err != nil {
 		err = fmt.Errorf("could not remove PID file: %s; error: %v", pidFilename, err)
 	}

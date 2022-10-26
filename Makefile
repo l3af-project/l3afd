@@ -9,7 +9,7 @@ swagger:
 	@$(GOPATH)/bin/swag init -d "./" -g "apis/configwatch.go"
 
 build:
-	@go build
+	@CGO_ENABLED=0 go build
 
 install: swagger
-	@go install .
+	@CGO_ENABLED=0 go install

@@ -7,8 +7,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 
-	"io/ioutil"
 	"net/http"
 
 	"github.com/rs/zerolog/log"
@@ -45,7 +45,7 @@ func AddEbpfPrograms(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFunc 
 			log.Warn().Msgf("Empty request body")
 			return
 		}
-		bodyBuffer, err := ioutil.ReadAll(r.Body)
+		bodyBuffer, err := io.ReadAll(r.Body)
 		if err != nil {
 			mesg = fmt.Sprintf("failed to read request body: %v", err)
 			log.Error().Msg(mesg)

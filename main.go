@@ -9,7 +9,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -172,7 +172,7 @@ func checkKernelVersion(conf *config.Config) error {
 }
 
 func getKernelVersion() (string, error) {
-	osVersion, err := ioutil.ReadFile("/proc/version")
+	osVersion, err := os.ReadFile("/proc/version")
 	if err != nil {
 		return "", fmt.Errorf("failed to read procfs: %v", err)
 	}
@@ -202,7 +202,7 @@ func ReadConfigsFromConfigStore(conf *config.Config) ([]models.L3afBPFPrograms, 
 		return nil, fmt.Errorf("failed to open persistent file (%s): %v", conf.L3afConfigStoreFileName, err)
 	}
 
-	byteValue, err := ioutil.ReadAll(file)
+	byteValue, err := io.ReadAll(file)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read persistent file (%s): %v", conf.L3afConfigStoreFileName, err)
 	}
