@@ -24,7 +24,7 @@ jobs:
         run : |
           apk update
           apk add gcc libc-dev bash perl curl make
-          
+
       - name: Checkout repository
         uses: actions/checkout@d0651293c4a5a52e711f25b41b05b2212f385d28
 
@@ -37,7 +37,7 @@ jobs:
             echo "$res"
             exit 1
           fi
- 
+
       - name: Vet
         run: |
           go vet ./...
@@ -54,3 +54,8 @@ jobs:
       - name: Build
         run: |
           make
+
+      - uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
+        with:
+          name: artifact
+          path: l3afd
