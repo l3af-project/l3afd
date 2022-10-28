@@ -43,18 +43,18 @@ environment: PROD
 |environment|`"PROD"`|If set to anything other than "PROD", mTLS security will not be checked| Yes |
 |BpfMapDefaultPath|`"/sys/fs/bpf"`|The base pin path for eBPF maps| Yes |
 
-## [kf-repo]
+## [ebpf-repo]
 | FieldName     | Default       | Description     | Required |
 | ------------- | ------------- | --------------- |----------|
 |url| `"http://localhost:8000/"`|Default repository from which to download eBPF packages| Yes      |
 
 ## [web]
 
-| FieldName     | Default       | Description     | Required |
-| ------------- | ------------- | --------------- |----------|
-|metrics-addr|`"0.0.0.0:8898"`|Prometheus endpoint for pulling/scraping the metrics.  For more info about Prometheus see [prometheus.io](https://prometheus.io/) | Yes      |
-|kf-poll-interval|`"30s"`|Periodic interval at which to scrape metrics using Prometheus| No       |
-|n-metric-samples|`"20"`|Number of Metric Samples| No       |
+| FieldName          | Default       | Description     | Required |
+|--------------------| ------------- | --------------- |----------|
+| metrics-addr       |`"0.0.0.0:8898"`|Prometheus endpoint for pulling/scraping the metrics.  For more info about Prometheus see [prometheus.io](https://prometheus.io/) | Yes      |
+| ebpf-poll-interval |`"30s"`|Periodic interval at which to scrape metrics using Prometheus| No       |
+| n-metric-samples   |`"20"`|Number of Metric Samples| No       |
 
 
 ## [xdp-root-program]
