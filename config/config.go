@@ -25,7 +25,7 @@ type Config struct {
 	BPFLogDir         string
 	MinKernelMajorVer int
 	MinKernelMinorVer int
-	KFRepoURL         string
+	EBPFRepoURL       string
 	HttpClientTimeout time.Duration
 	MaxNFReStartCount int
 	Environment       string
@@ -35,9 +35,9 @@ type Config struct {
 
 	// stats
 	// Prometheus endpoint for pull/scrape the metrics.
-	MetricsAddr    string
-	KFPollInterval time.Duration
-	NMetricSamples int
+	MetricsAddr      string
+	EBPFPollInterval time.Duration
+	NMetricSamples   int
 
 	ShutdownTimeout time.Duration
 
@@ -99,12 +99,12 @@ func ReadConfig(configPath string) (*Config, error) {
 		BPFLogDir:                   LoadOptionalConfigString(confReader, "l3afd", "bpf-log-dir", ""),
 		MinKernelMajorVer:           LoadOptionalConfigInt(confReader, "l3afd", "kernel-major-version", 5),
 		MinKernelMinorVer:           LoadOptionalConfigInt(confReader, "l3afd", "kernel-minor-version", 1),
-		KFRepoURL:                   LoadConfigString(confReader, "kf-repo", "url"),
+		EBPFRepoURL:                 LoadConfigString(confReader, "ebpf-repo", "url"),
 		HttpClientTimeout:           LoadOptionalConfigDuration(confReader, "l3afd", "http-client-timeout", 10*time.Second),
 		MaxNFReStartCount:           LoadOptionalConfigInt(confReader, "l3afd", "max-nf-restart-count", 3),
 		BpfChainingEnabled:          LoadConfigBool(confReader, "l3afd", "bpf-chaining-enabled"),
 		MetricsAddr:                 LoadConfigString(confReader, "web", "metrics-addr"),
-		KFPollInterval:              LoadOptionalConfigDuration(confReader, "web", "kf-poll-interval", 30*time.Second),
+		EBPFPollInterval:            LoadOptionalConfigDuration(confReader, "web", "ebpf-poll-interval", 30*time.Second),
 		NMetricSamples:              LoadOptionalConfigInt(confReader, "web", "n-metric-samples", 20),
 		ShutdownTimeout:             LoadOptionalConfigDuration(confReader, "l3afd", "shutdown-timeout", 5*time.Second),
 		SwaggerApiEnabled:           LoadOptionalConfigBool(confReader, "l3afd", "swagger-api-enabled", false),

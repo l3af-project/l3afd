@@ -428,7 +428,7 @@ func TestBPF_GetArtifacts(t *testing.T) {
 				}),
 			},
 			args: args{conf: &config.Config{BPFDir: "/tmp",
-				KFRepoURL: "https://l3af.io/"}},
+				EBPFRepoURL: "https://l3af.io/"}},
 			wantErr: true,
 		},
 		{
@@ -443,8 +443,8 @@ func TestBPF_GetArtifacts(t *testing.T) {
 			},
 			args: args{
 				conf: &config.Config{
-					BPFDir:    "/tmp",
-					KFRepoURL: "https://l3af.io/",
+					BPFDir:      "/tmp",
+					EBPFRepoURL: "https://l3af.io/",
 				},
 			},
 			wantErr: true,
@@ -461,8 +461,8 @@ func TestBPF_GetArtifacts(t *testing.T) {
 			},
 			args: args{
 				conf: &config.Config{
-					BPFDir:    "/tmp",
-					KFRepoURL: "https://l3af.io/",
+					BPFDir:      "/tmp",
+					EBPFRepoURL: "https://l3af.io/",
 				},
 			},
 			wantErr: true,
@@ -479,8 +479,8 @@ func TestBPF_GetArtifacts(t *testing.T) {
 			},
 			args: args{
 				conf: &config.Config{
-					BPFDir:    "/tmp",
-					KFRepoURL: "https://l3af.io/",
+					BPFDir:      "/tmp",
+					EBPFRepoURL: "https://l3af.io/",
 				},
 			},
 			wantErr: true,

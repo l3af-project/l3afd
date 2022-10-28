@@ -88,7 +88,7 @@ func main() {
 		log.Error().Err(err).Msg("L3afd registration failed")
 	}
 
-	kfConfigs, err := SetupNFConfigs(ctx, conf)
+	ebpfConfigs, err := SetupNFConfigs(ctx, conf)
 	if err != nil {
 		log.Fatal().Err(err).Msg("L3afd failed to start")
 	}
@@ -99,17 +99,17 @@ func main() {
 	}
 
 	if t != nil {
-		if err := kfConfigs.DeployeBPFPrograms(t); err != nil {
+		if err := ebpfConfigs.DeployeBPFPrograms(t); err != nil {
 			log.Error().Err(err).Msg("L3afd filed to deploy persistent configs from store")
 		}
 	}
 
-	if err := handlers.InitConfigs(kfConfigs); err != nil {
+	if err := handlers.InitConfigs(ebpfConfigs); err != nil {
 		log.Fatal().Err(err).Msg("L3afd failed to initialise configs")
 	}
 
 	if conf.EBPFChainDebugEnabled {
-		kf.SetupKFDebug(conf.EBPFChainDebugAddr, kfConfigs)
+		kf.SetupKFDebug(conf.EBPFChainDebugAddr, ebpfConfigs)
 	}
 	select {}
 }
@@ -124,7 +124,7 @@ func SetupNFConfigs(ctx context.Context, conf *config.Config) (*kf.NFConfigs, er
 	// setup Metrics endpoint
 	stats.SetupMetrics(machineHostname, daemonName, conf.MetricsAddr)
 
-	pMon := kf.NewpCheck(conf.MaxNFReStartCount, conf.BpfChainingEnabled, conf.KFPollInterval)
+	pMon := kf.NewpCheck(conf.MaxNFReStartCount, conf.BpfChainingEnabled, conf.EBPFPollInterval)
 	kfM := kf.NewpKFMetrics(conf.BpfChainingEnabled, conf.NMetricSamples)
 
 	nfConfigs, err := kf.NewNFConfigs(ctx, machineHostname, conf, pMon, kfM)

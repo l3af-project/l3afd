@@ -535,7 +535,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 	isDefaultURLUsed := false
 	RepoURL := b.Program.EPRURL
 	if len(b.Program.EPRURL) == 0 {
-		RepoURL = conf.KFRepoURL
+		RepoURL = conf.EBPFRepoURL
 		isDefaultURLUsed = true
 	}
 
