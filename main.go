@@ -124,7 +124,7 @@ func SetupNFConfigs(ctx context.Context, conf *config.Config) (*kf.NFConfigs, er
 	// setup Metrics endpoint
 	stats.SetupMetrics(machineHostname, daemonName, conf.MetricsAddr)
 
-	pMon := kf.NewpCheck(conf.MaxNFReStartCount, conf.BpfChainingEnabled, conf.EBPFPollInterval)
+	pMon := kf.NewpCheck(conf.MaxEBPFReStartCount, conf.BpfChainingEnabled, conf.EBPFPollInterval)
 	kfM := kf.NewpKFMetrics(conf.BpfChainingEnabled, conf.NMetricSamples)
 
 	nfConfigs, err := kf.NewNFConfigs(ctx, machineHostname, conf, pMon, kfM)
