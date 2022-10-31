@@ -8,11 +8,9 @@ See [l3afd.cfg](https://github.com/l3af-project/l3afd/blob/main/config/l3afd.cfg
 
 [l3afd]
 pid-file: ./l3afd.pid
-datacenter: dummy
+datacenter: dc
 bpf-dir: /dev/shm
 bpf-log-dir:
-kernel-major-version: 4
-kernel-minor-version: 15
 shutdown-timeout: 1s
 http-client-timeout: 10s
 max-nf-restart-count: 3
@@ -27,21 +25,21 @@ environment: PROD
 
 
 ## [l3afd]
-| FieldName     | Default       | Description     | Required        |
-| ------------- | ------------- | --------------- | --------------- |
-|pid-file| `"./l3afd.pid"`  | The path to the l3afd.pid file which contains process id of L3afd | Yes |
-|datacenter| `"dummy"` | Name of Datacenter| Yes |
-|bpf-dir| `"/dev/shm"` | Absolute Path where eBPF packages are to be extracted | Yes |
-|bpf-log-dir|`""`      | Absolute Path for log files, which is passed to applications on the command line. L3afd does not store any logs itself.| No |
-|kernel-major-version|`"4"`|Major version of the kernel required to run eBPF programs (Linux Only) | No |
-|kernel-minor-version|`"15"`|Minor version of the kernel required to run eBPF programs (Linux Only)| No |
-|shutdown-timeout|`"1s"`|Maximum amount of time allowed for l3afd to gracefully stop. After shutdown-timeout, l3afd will exit even if it could not stop applications.| No |
-|http-client-timeout|`"10s"`|Maximum amount of time allowed to get HTTP response headers when fetching a package from a repository| No |
-|max-nf-restart-count|`"3"`|Maximum number of tries to restart eBPF applications if they are not running| No |
-|bpf-chaining-enabled|`"true"`|Boolean to set bpf-chaining. For more info about bpf chaining check [L3AF_KFaaS.pdf](https://github.com/l3af-project/l3af-arch/blob/main/L3AF_KFaaS.pdf)| Yes |
-|swagger-api-enabled|`"false"`|Whether the swagger API is enabled or not.  For more info see [swagger.md](https://github.com/l3af-project/l3afd/blob/main/docs/swagger.md)| No |
-|environment|`"PROD"`|If set to anything other than "PROD", mTLS security will not be checked| Yes |
-|BpfMapDefaultPath|`"/sys/fs/bpf"`|The base pin path for eBPF maps| Yes |
+| FieldName     | Default         | Description     | Required        |
+| ------------- |-----------------| --------------- | --------------- |
+|pid-file| `"./l3afd.pid"` | The path to the l3afd.pid file which contains process id of L3afd | Yes |
+|datacenter| `"dc"`          | Name of Datacenter| Yes |
+|bpf-dir| `"/dev/shm"`    | Absolute Path where eBPF packages are to be extracted | Yes |
+|bpf-log-dir| `""`            | Absolute Path for log files, which is passed to applications on the command line. L3afd does not store any logs itself.| No |
+|kernel-major-version| `"5"`           |Major version of the kernel required to run eBPF programs (Linux Only) | No |
+|kernel-minor-version| `"1"`           |Minor version of the kernel required to run eBPF programs (Linux Only)| No |
+|shutdown-timeout| `"1s"`          |Maximum amount of time allowed for l3afd to gracefully stop. After shutdown-timeout, l3afd will exit even if it could not stop applications.| No |
+|http-client-timeout| `"10s"`         |Maximum amount of time allowed to get HTTP response headers when fetching a package from a repository| No |
+|max-nf-restart-count| `"3"`           |Maximum number of tries to restart eBPF applications if they are not running| No |
+|bpf-chaining-enabled| `"true"`        |Boolean to set bpf-chaining. For more info about bpf chaining check [L3AF_KFaaS.pdf](https://github.com/l3af-project/l3af-arch/blob/main/L3AF_KFaaS.pdf)| Yes |
+|swagger-api-enabled| `"false"`       |Whether the swagger API is enabled or not.  For more info see [swagger.md](https://github.com/l3af-project/l3afd/blob/main/docs/swagger.md)| No |
+|environment| `"PROD"`        |If set to anything other than "PROD", mTLS security will not be checked| Yes |
+|BpfMapDefaultPath| `"/sys/fs/bpf"` |The base pin path for eBPF maps| Yes |
 
 ## [ebpf-repo]
 | FieldName     | Default       | Description     | Required |
@@ -60,13 +58,13 @@ environment: PROD
 ## [xdp-root-program]
 This section is needed when bpf-chaining-enabled is set to true.
 
-| FieldName     | Default       | Description     | Required        |
-| ------------- | ------------- | --------------- | --------------- |
-|name|`"xdp-root"`|Name of subdirectory in which to extract artifact| Yes |
-|artifact|`"xdp-root.tar.gz"`|Filename of xdp-root package. Only tar.gz and .zip formats are supported| Yes |
-|ingress-map-name|`"root_array"`|Ingress map name of xdp-root program| Yes |
-|command|`"xdp_root"`|Command to run xdp-root program| Yes |
-|version|`"1.01"`|Version of xdp-root program| Yes |
+| FieldName     | Default             | Description     | Required        |
+| ------------- |---------------------| --------------- | --------------- |
+|name| `"xdp-root"`        |Name of subdirectory in which to extract artifact| Yes |
+|artifact| `"xdp-root.tar.gz"` |Filename of xdp-root package. Only tar.gz and .zip formats are supported| Yes |
+|ingress-map-name| `"root_array"`      |Ingress map name of xdp-root program| Yes |
+|command| `"xdp_root"`        |Command to run xdp-root program| Yes |
+|version| `"latest"`          |Version of xdp-root program| Yes |
 
 ## [tc-root-program]
 This section is needed when bpf-chaining-enabled is set to true.
@@ -78,13 +76,13 @@ This section is needed when bpf-chaining-enabled is set to true.
 |ingress-map-name| `"tc_ingress_root_array"` |Ingress map name of tc_root program| Yes |
 |egress-map-name| `"tc_egress_root_array"`  |Egress map name of tc_root program,for more info about ingress/egress check [cilium](https://docs.cilium.io/en/v1.9/concepts/ebpf/intro/)| Yes |
 |command| `"tc_root"`               |Command to run tc_root program| Yes |
-|version| `"1.0"`                   |Version of tc_root program| Yes |
+|version| `"latest"`                |Version of tc_root program| Yes |
 
 ## [ebpf-chain-debug]
 | FieldName | Default            | Description                                                    | Required |
 |-----------|--------------------|----------------------------------------------------------------|----------|
 | addr      | `"localhost:8899"` | Hostname and Port of chaining debug REST API                   | No       |
-| enabled   | `"true"`           | Boolean to check ebpf chaining debug details is enabled or not | No       |
+| enabled   | `"false"`          | Boolean to check ebpf chaining debug details is enabled or not | No       |
 
 ## [l3af-configs]
 | FieldName     | Default       | Description     | Required |

@@ -19,17 +19,17 @@ const (
 )
 
 type Config struct {
-	PIDFilename       string
-	DataCenter        string
-	BPFDir            string
-	BPFLogDir         string
-	MinKernelMajorVer int
-	MinKernelMinorVer int
-	EBPFRepoURL       string
-	HttpClientTimeout time.Duration
-	MaxNFReStartCount int
-	Environment       string
-	BpfMapDefaultPath string
+	PIDFilename         string
+	DataCenter          string
+	BPFDir              string
+	BPFLogDir           string
+	MinKernelMajorVer   int
+	MinKernelMinorVer   int
+	EBPFRepoURL         string
+	HttpClientTimeout   time.Duration
+	MaxEBPFReStartCount int
+	Environment         string
+	BpfMapDefaultPath   string
 	// Flag to enable chaining with root program
 	BpfChainingEnabled bool
 
@@ -101,7 +101,7 @@ func ReadConfig(configPath string) (*Config, error) {
 		MinKernelMinorVer:           LoadOptionalConfigInt(confReader, "l3afd", "kernel-minor-version", 1),
 		EBPFRepoURL:                 LoadConfigString(confReader, "ebpf-repo", "url"),
 		HttpClientTimeout:           LoadOptionalConfigDuration(confReader, "l3afd", "http-client-timeout", 10*time.Second),
-		MaxNFReStartCount:           LoadOptionalConfigInt(confReader, "l3afd", "max-nf-restart-count", 3),
+		MaxEBPFReStartCount:         LoadOptionalConfigInt(confReader, "l3afd", "max-ebpf-restart-count", 3),
 		BpfChainingEnabled:          LoadConfigBool(confReader, "l3afd", "bpf-chaining-enabled"),
 		MetricsAddr:                 LoadConfigString(confReader, "web", "metrics-addr"),
 		EBPFPollInterval:            LoadOptionalConfigDuration(confReader, "web", "ebpf-poll-interval", 30*time.Second),
