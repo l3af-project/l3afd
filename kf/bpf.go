@@ -533,6 +533,11 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 
 	buf := &bytes.Buffer{}
 	isDefaultURLUsed := false
+	platform, err := GetPlatform()
+	if err != nil {
+		return fmt.Errorf("failed to identify platform type: %v", err)
+	}
+
 	RepoURL := b.Program.EPRURL
 	if len(b.Program.EPRURL) == 0 {
 		RepoURL = conf.EBPFRepoURL
@@ -548,17 +553,11 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 		}
 	}
 
+	URL.Path = path.Join(URL.Path, b.Program.Name, b.Program.Version, platform, b.Program.Artifact)
+	log.Info().Msgf("Retrieving artifact - %s", URL)
 	switch URL.Scheme {
 	case httpsScheme, httpScheme:
 		{
-			platform, err := GetPlatform()
-			if err != nil {
-				return fmt.Errorf("failed to identify platform type: %v", err)
-			}
-
-			URL.Path = path.Join(URL.Path, b.Program.Name, b.Program.Version, platform, b.Program.Artifact)
-			log.Info().Msgf("Downloading - %s", URL)
-
 			timeOut := time.Duration(conf.HttpClientTimeout) * time.Second
 			var netTransport = &http.Transport{
 				ResponseHeaderTimeout: timeOut,
@@ -575,9 +574,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 			if resp.StatusCode != http.StatusOK {
 				return fmt.Errorf("get request returned unexpected status code: %d (%s), %d was expected\n\tResponse Body: %s", resp.StatusCode, http.StatusText(resp.StatusCode), http.StatusOK, buf.Bytes())
 			}
-
 			buf.ReadFrom(resp.Body)
-
 		}
 	case fileScheme:
 		{
@@ -586,7 +583,6 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 				if err != nil {
 					return fmt.Errorf("opening err : %v", err)
 				}
-
 				buf.ReadFrom(f)
 				f.Close()
 			} else {
