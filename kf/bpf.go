@@ -542,7 +542,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 	URL, err := url.Parse(RepoURL)
 	if err != nil {
 		if isDefaultURLUsed {
-			return fmt.Errorf("unknown kf-repo format : %v", err)
+			return fmt.Errorf("unknown ebpf-repo format : %v", err)
 		} else {
 			return fmt.Errorf("unknown ebpf_package_repo_url format : %v", err)
 		}
