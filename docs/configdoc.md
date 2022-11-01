@@ -58,20 +58,20 @@ environment: PROD
 ## [xdp-root-program]
 This section is needed when bpf-chaining-enabled is set to true.
 
-| FieldName     | Default             | Description     | Required        |
-| ------------- |---------------------| --------------- | --------------- |
-|name| `"xdp-root"`        |Name of subdirectory in which to extract artifact| Yes |
-|artifact| `"xdp-root.tar.gz"` |Filename of xdp-root package. Only tar.gz and .zip formats are supported| Yes |
-|ingress-map-name| `"root_array"`      |Ingress map name of xdp-root program| Yes |
-|command| `"xdp_root"`        |Command to run xdp-root program| Yes |
-|version| `"latest"`          |Version of xdp-root program| Yes |
+| FieldName     | Default                  | Description     | Required        |
+| ------------- |--------------------------| --------------- | --------------- |
+|name| `"xdp-root"`             |Name of subdirectory in which to extract artifact| Yes |
+|artifact| `"l3af_xdp_root.tar.gz"` |Filename of xdp-root package. Only tar.gz and .zip formats are supported| Yes |
+|ingress-map-name| `"xdp_root_array"`       |Ingress map name of xdp-root program| Yes |
+|command| `"xdp_root"`             |Command to run xdp-root program| Yes |
+|version| `"latest"`               |Version of xdp-root program| Yes |
 
 ## [tc-root-program]
 This section is needed when bpf-chaining-enabled is set to true.
 
 | FieldName     | Default                   | Description     | Required        |
 | ------------- |---------------------------| --------------- | --------------- |
-|name| `"tc_root"`               |Name of subdirectory in which to extract artifact| Yes |
+|name| `"tc-root"`               |Name of subdirectory in which to extract artifact| Yes |
 |artifact| `"l3af_tc_root.tar.gz"`   |Filename of tc_root package| Yes |
 |ingress-map-name| `"tc_ingress_root_array"` |Ingress map name of tc_root program| Yes |
 |egress-map-name| `"tc_egress_root_array"`  |Egress map name of tc_root program,for more info about ingress/egress check [cilium](https://docs.cilium.io/en/v1.9/concepts/ebpf/intro/)| Yes |
