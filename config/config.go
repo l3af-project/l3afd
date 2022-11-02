@@ -19,17 +19,17 @@ const (
 )
 
 type Config struct {
-	PIDFilename       string
-	DataCenter        string
-	BPFDir            string
-	BPFLogDir         string
-	MinKernelMajorVer int
-	MinKernelMinorVer int
-	EBPFRepoURL       string
-	HttpClientTimeout time.Duration
-	MaxNFReStartCount int
-	Environment       string
-	BpfMapDefaultPath string
+	PIDFilename         string
+	DataCenter          string
+	BPFDir              string
+	BPFLogDir           string
+	MinKernelMajorVer   int
+	MinKernelMinorVer   int
+	EBPFRepoURL         string
+	HttpClientTimeout   time.Duration
+	MaxEBPFReStartCount int
+	Environment         string
+	BpfMapDefaultPath   string
 	// Flag to enable chaining with root program
 	BpfChainingEnabled bool
 
@@ -101,7 +101,7 @@ func ReadConfig(configPath string) (*Config, error) {
 		MinKernelMinorVer:           LoadOptionalConfigInt(confReader, "l3afd", "kernel-minor-version", 1),
 		EBPFRepoURL:                 LoadConfigString(confReader, "ebpf-repo", "url"),
 		HttpClientTimeout:           LoadOptionalConfigDuration(confReader, "l3afd", "http-client-timeout", 10*time.Second),
-		MaxNFReStartCount:           LoadOptionalConfigInt(confReader, "l3afd", "max-nf-restart-count", 3),
+		MaxEBPFReStartCount:         LoadOptionalConfigInt(confReader, "l3afd", "max-ebpf-restart-count", 3),
 		BpfChainingEnabled:          LoadConfigBool(confReader, "l3afd", "bpf-chaining-enabled"),
 		MetricsAddr:                 LoadConfigString(confReader, "web", "metrics-addr"),
 		EBPFPollInterval:            LoadOptionalConfigDuration(confReader, "web", "ebpf-poll-interval", 30*time.Second),
@@ -110,17 +110,17 @@ func ReadConfig(configPath string) (*Config, error) {
 		SwaggerApiEnabled:           LoadOptionalConfigBool(confReader, "l3afd", "swagger-api-enabled", false),
 		Environment:                 LoadOptionalConfigString(confReader, "l3afd", "environment", ENV_PROD),
 		BpfMapDefaultPath:           LoadConfigString(confReader, "l3afd", "BpfMapDefaultPath"),
-		XDPRootProgramName:          LoadOptionalConfigString(confReader, "xdp-root-program", "name", "xdp_root"),
+		XDPRootProgramName:          LoadOptionalConfigString(confReader, "xdp-root-program", "name", "xdp-root"),
 		XDPRootProgramArtifact:      LoadOptionalConfigString(confReader, "xdp-root-program", "artifact", "l3af_xdp_root.tar.gz"),
 		XDPRootProgramMapName:       LoadOptionalConfigString(confReader, "xdp-root-program", "ingress-map-name", "xdp_root_array"),
 		XDPRootProgramCommand:       LoadOptionalConfigString(confReader, "xdp-root-program", "command", "xdp_root"),
-		XDPRootProgramVersion:       LoadOptionalConfigString(confReader, "xdp-root-program", "version", "1.01"),
-		TCRootProgramName:           LoadOptionalConfigString(confReader, "tc-root-program", "name", "tc_root"),
+		XDPRootProgramVersion:       LoadOptionalConfigString(confReader, "xdp-root-program", "version", "latest"),
+		TCRootProgramName:           LoadOptionalConfigString(confReader, "tc-root-program", "name", "tc-root"),
 		TCRootProgramArtifact:       LoadOptionalConfigString(confReader, "tc-root-program", "artifact", "l3af_tc_root.tar.gz"),
 		TCRootProgramIngressMapName: LoadOptionalConfigString(confReader, "tc-root-program", "ingress-map-name", "tc/globals/tc_ingress_root_array"),
 		TCRootProgramEgressMapName:  LoadOptionalConfigString(confReader, "tc-root-program", "egress-map-name", "tc/globals/tc_egress_root_array"),
 		TCRootProgramCommand:        LoadOptionalConfigString(confReader, "tc-root-program", "command", "tc_root"),
-		TCRootProgramVersion:        LoadOptionalConfigString(confReader, "tc-root-program", "version", "1.0"),
+		TCRootProgramVersion:        LoadOptionalConfigString(confReader, "tc-root-program", "version", "latest"),
 		EBPFChainDebugAddr:          LoadOptionalConfigString(confReader, "ebpf-chain-debug", "addr", "localhost:8899"),
 		EBPFChainDebugEnabled:       LoadOptionalConfigBool(confReader, "ebpf-chain-debug", "enabled", false),
 		L3afConfigsRestAPIAddr:      LoadOptionalConfigString(confReader, "l3af-configs", "restapi-addr", "localhost:53000"),
