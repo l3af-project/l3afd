@@ -2,7 +2,7 @@
 
 ## Installing L3AFd
 
-Download the latest build artifacts for the last stable release on the L3AFd [repo page](../../tree/main)
+Download the latest build artifacts for the last stable release on the L3AFd [repo page](../../../)
 
 ## Configuring L3AFd
 
