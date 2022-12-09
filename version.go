@@ -11,8 +11,8 @@ import (
 var (
 	// Version binary version number
 	Version string = "0.0.0"
-	// VersionTag binary tag (e.g. beta, dev, devel, production).
-	VersionTag string
+	// SuffixTag binary tag (e.g. beta, dev, devel, production).
+	SuffixTag string
 	// VersionDate build timestamp (e.g. ).
 	VersionDate string
 	// VersionSHA git commit SHA.
@@ -39,7 +39,7 @@ func VersionInfo() string {
 		if err == nil {
 			info, err := os.Stat(currentFilePath)
 			if err == nil {
-				buildDate = "last modified " + info.ModTime().Format(time.RFC3339)
+				buildDate = info.ModTime().Format(time.RFC3339)
 			}
 		}
 	}
@@ -53,8 +53,11 @@ func VersionInfo() string {
 
 // ShortVersion returns a formatted string containing only the Version and VersionTag
 func ShortVersion() string {
-	if VersionTag == "" {
-		VersionTag = "dev"
+	if Version == "0.0.0" {
+		SuffixTag = "dev"
 	}
-	return fmt.Sprintf("%s-%s", Version, VersionTag)
+	if SuffixTag != "" {
+		return fmt.Sprintf("%s-%s", Version, SuffixTag)
+	}
+	return Version
 }
