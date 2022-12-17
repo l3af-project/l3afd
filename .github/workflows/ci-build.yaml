@@ -28,7 +28,7 @@ jobs:
           sudo apt-get install gcc libc-dev bash perl curl make
           
       - name: Checkout repository
-        uses: actions/checkout@1f9a0c22da41e6ebfa534300ef656657ea2c6707
+        uses: actions/checkout@3ba5ee6fac7e0e30e2ea884e236f282d3a775891
 
       - name: Format
         run: |
