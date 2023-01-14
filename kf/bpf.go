@@ -13,7 +13,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"golang.org/x/sys/unix"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -31,6 +33,10 @@ import (
 	"github.com/l3af-project/l3afd/stats"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
+	"github.com/cilium/ebpf/rlimit"
+	tc "github.com/florianl/go-tc"
+	"github.com/florianl/go-tc/core"
 	ps "github.com/mitchellh/go-ps"
 	"github.com/rs/zerolog/log"
 )
@@ -104,6 +110,7 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 				StartArgs:         map[string]interface{}{},
 				StopArgs:          map[string]interface{}{},
 				StatusArgs:        map[string]interface{}{},
+				ObjectFile:        filepath.Join(conf.BPFDir, conf.XDPRootProgramName, conf.XDPRootProgramVersion, strings.Split(conf.XDPRootProgramArtifact, ".")[0], conf.XDPRootProgramObjectFile),
 			},
 			RestartCount:    0,
 			Cmd:             nil,
@@ -137,17 +144,19 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 		if direction == models.IngressType {
 			rootProgBPF.Program.MapName = conf.TCRootProgramIngressMapName
 			rootProgBPF.MapNamePath = filepath.Join(conf.BpfMapDefaultPath, conf.TCRootProgramIngressMapName)
+			rootProgBPF.Program.ObjectFile = filepath.Join(conf.BPFDir, conf.TCRootProgramName, conf.TCRootProgramVersion, strings.Split(conf.TCRootProgramArtifact, ".")[0], conf.TCRootProgramIngressObjectFile)
 		} else if direction == models.EgressType {
 			rootProgBPF.Program.MapName = conf.TCRootProgramEgressMapName
 			rootProgBPF.MapNamePath = filepath.Join(conf.BpfMapDefaultPath, conf.TCRootProgramEgressMapName)
+			rootProgBPF.Program.ObjectFile = filepath.Join(conf.BPFDir, conf.TCRootProgramName, conf.TCRootProgramVersion, strings.Split(conf.TCRootProgramArtifact, ".")[0], conf.TCRootProgramEgressObjectFile)
 		}
 	default:
 		return nil, fmt.Errorf("unknown direction %s for root program in iface %s", direction, ifaceName)
 	}
 
 	// Loading default arguments
-	rootProgBPF.Program.StartArgs["cmd"] = models.StartType
-	rootProgBPF.Program.StopArgs["cmd"] = models.StopType
+	//rootProgBPF.Program.StartArgs["cmd"] = models.StartType
+	//rootProgBPF.Program.StopArgs["cmd"] = models.StopType
 
 	if err := rootProgBPF.VerifyAndGetArtifacts(conf); err != nil {
 		log.Error().Err(err).Msg("failed to get root artifacts")
@@ -163,8 +172,20 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 		}
 	}
 
-	if err := rootProgBPF.Start(ifaceName, direction, conf.BpfChainingEnabled); err != nil {
-		return nil, fmt.Errorf("failed to start root program on interface %s, err: %v", ifaceName, err)
+	//if err := rootProgBPF.Start(ifaceName, direction, conf.BpfChainingEnabled); err != nil {
+	//	return nil, fmt.Errorf("failed to start root program on interface %s, err: %v", ifaceName, err)
+	//}
+	// objectFile := filepath.Join(conf.BPFDir, rootProgBPF.Program.Name, rootProgBPF.Program.Version, strings.Split(rootProgBPF.Program.Artifact, ".")[0], rootProgBPF.Program.ObjectFile)
+	fmt.Println("object file - ", rootProgBPF.Program.ObjectFile)
+	if progType == models.XDPType {
+		rlimit.RemoveMemlock()
+		if err := LoadXDPRootProgram(ifaceName, rootProgBPF); err != nil {
+			return nil, fmt.Errorf("failed to load root program on iface %s name %s direction %s", ifaceName, rootProgBPF.Program.Name, direction)
+		}
+	} else if progType == models.TCType {
+		if err := LoadTCRootProgram(ifaceName, direction, rootProgBPF); err != nil {
+			return nil, fmt.Errorf("failed to load root program on iface %s name %s direction %s", ifaceName, rootProgBPF.Program.Name, direction)
+		}
 	}
 
 	return rootProgBPF, nil
@@ -1050,4 +1071,235 @@ func ValidatePath(filePath string, destination string) (string, error) {
 		return "", fmt.Errorf("%s: illegal file path", filePath)
 	}
 	return destpath, nil
+}
+
+func LoadXDPRootProgram(ifaceName string, eBPFProgram *BPF) error {
+	iface, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		log.Fatal().Msgf("lookup network iface %q: %s", ifaceName, err)
+	}
+
+	prg, err := ebpf.LoadCollection(eBPFProgram.Program.ObjectFile)
+	if err != nil {
+		fmt.Println("LoadCollection xdp root error : ", err)
+		return fmt.Errorf("%s: loading of xdp root filed", eBPFProgram.Program.ObjectFile)
+	}
+	defer prg.Close()
+
+	var bpfRootProg, bpfPassProg ebpf.Program
+	for key, value := range prg.Programs {
+		fmt.Println("Key : ", key, "Value : ", *value, "Program Type : ", (*value).Type())
+		if key == eBPFProgram.hostConfig.XDPRootProgramName {
+			bpfRootProg = *value
+			fmt.Println("bpfRootProg assigned ", bpfRootProg)
+			fmt.Println("bpfRootProg assigned value ", *value)
+		} else if key == eBPFProgram.hostConfig.XDPRootProgramPassProgName {
+			bpfPassProg = *value
+		}
+	}
+	fmt.Println("bpfRootProg assigned after ", bpfRootProg)
+	var bpfRootMap, bpfPassMap ebpf.Map
+	for key, value := range prg.Maps {
+		fmt.Println("Key : ", key, "Value : ", *value, "Program Type : ", (*value).Type())
+		if key == eBPFProgram.hostConfig.XDPRootProgramMapName {
+			bpfRootMap = *value
+		} else if key == eBPFProgram.hostConfig.XDPRootProgramPassMapName {
+			bpfPassMap = *value
+		}
+	}
+
+	rootArrayMapFileName := filepath.Join("/sys/fs/bpf/", eBPFProgram.Program.MapName)
+	if err := bpfRootMap.Pin(rootArrayMapFileName); err != nil {
+		fmt.Println("map pinning failed", err)
+		return fmt.Errorf("%s:failed to pin the map", rootArrayMapFileName)
+	}
+
+	//root_prog_map_file := "/sys/fs/bpf/xdp_root_array"
+	passProgMapFileName := filepath.Join("/sys/fs/bpf/", eBPFProgram.hostConfig.XDPRootProgramPassMapName)
+	if err := bpfPassMap.Pin(passProgMapFileName); err != nil {
+		fmt.Println("map pinning failed", err)
+		return fmt.Errorf("%s:failed to pin the map", passProgMapFileName)
+	}
+
+	fmt.Println("iface ", iface)
+	fmt.Println("bpfRootProg ", bpfRootProg)
+	// fmt.Println("program Type : ", bpfRootProg.Type())
+	// Attach the program.
+	_, err = link.AttachXDP(link.XDPOptions{
+		Program:   &bpfRootProg,
+		Interface: iface.Index,
+	})
+	if err != nil {
+		log.Error().Msgf("could not attach XDP program: %s", err)
+		return fmt.Errorf("could not attach XDP program: %s", err)
+	}
+
+	var passProgMap ebpf.Map
+	for key, value := range prg.Maps {
+		if key == eBPFProgram.hostConfig.XDPRootProgramPassMapName {
+			passProgMap = *value
+			break
+		}
+	}
+
+	key := 0
+	if err := passProgMap.Update(unsafe.Pointer(&key), uint32(bpfPassProg.FD()), 0); err != nil {
+		fmt.Println("ebpfMap.Update error ", err)
+		return fmt.Errorf("%s:failed to update the pass program id in the map", eBPFProgram.hostConfig.XDPRootProgramPassMapName)
+	}
+
+	return nil
+}
+
+func LoadTCRootProgram(ifaceName string, direction string, eBPFProgram *BPF) error {
+	iface, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		log.Fatal().Msgf("lookup network iface %q: %s", ifaceName, err)
+	}
+
+	// verify and add attribute clsact
+	tcnl, err := tc.Open(&tc.Config{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "could not open rtnetlink socket: %v\n", err)
+		return fmt.Errorf("could not open rtnetlink socket: %v\n", err)
+	}
+
+	clsactFound := false
+	// get all the qdiscs from all interfaces
+	qdiscs, err := tcnl.Qdisc().Get()
+	if err != nil {
+		return fmt.Errorf("could not get qdiscs: %v\n", err)
+	}
+	for _, qdisc := range qdiscs {
+		iface, err := net.InterfaceByIndex(int(qdisc.Ifindex))
+		if err != nil {
+			return fmt.Errorf("could not get interface from id %d: %v", qdisc.Ifindex, err)
+		}
+		if iface.Name == ifaceName && qdisc.Kind == "clsact" {
+			clsactFound = true
+		}
+		fmt.Printf("%20s\t%s\n", iface.Name, qdisc.Kind)
+	}
+
+	if clsactFound == false {
+		qdisc := tc.Object{
+			Msg: tc.Msg{
+				Family:  unix.AF_UNSPEC,
+				Ifindex: uint32(iface.Index),
+				Handle:  core.BuildHandle(tc.HandleRoot, 0x0000),
+				Parent:  tc.HandleIngress,
+				Info:    0,
+			},
+			Attribute: tc.Attribute{
+				Kind: "clsact",
+			},
+		}
+
+		if err := tcnl.Qdisc().Add(&qdisc); err != nil {
+			log.Info().Msgf("could not assign clsact to %s: %v\n its already exists", ifaceName, err)
+		}
+	}
+
+	prg, err := ebpf.LoadCollection(eBPFProgram.Program.ObjectFile)
+	if err != nil {
+		fmt.Println("LoadCollection tc root error : ", err)
+		return fmt.Errorf("%s: loading of tc root filed", eBPFProgram.Program.ObjectFile)
+	}
+	//defer prg.Close()
+
+	var bpfRootProg, bpfPassProg ebpf.Program
+	var rootArrayMapFileName, passProgMapFileName string
+	if direction == models.IngressType {
+		for key, value := range prg.Programs {
+			fmt.Println("Key : ", key, "Value : ", value)
+			fmt.Println("eBPFProgram.hostConfig.TCRootProgramIngressProgName: ", eBPFProgram.hostConfig.TCRootProgramIngressProgName)
+			fmt.Println("eBPFProgram.hostConfig.TCRootProgramIngressPassProgName: ", eBPFProgram.hostConfig.TCRootProgramIngressPassProgName)
+			if key == eBPFProgram.hostConfig.TCRootProgramIngressProgName {
+				fmt.Println("Key : ", key, "tc_ingress_root found")
+				bpfRootProg = *value
+			} else if key == eBPFProgram.hostConfig.TCRootProgramIngressPassProgName {
+				fmt.Println("Key : ", key, "tc_ingress_pass_through found")
+				bpfPassProg = *value
+			}
+		}
+		rootArrayMapFileName = filepath.Join("/sys/fs/bpf/", eBPFProgram.Program.MapName)
+		passProgMapFileName = filepath.Join("/sys/fs/bpf/", eBPFProgram.hostConfig.TCRootProgramIngressPassMapName)
+	} else if direction == models.EgressType {
+		for key, value := range prg.Programs {
+			fmt.Println("Key : ", key, "Value : ", value)
+			if key == eBPFProgram.hostConfig.TCRootProgramEgressProgName {
+				fmt.Println("Key : ", key, "tc_ingress_root found")
+				bpfRootProg = *value
+			} else if key == eBPFProgram.hostConfig.TCRootProgramEgressPassProgName {
+				fmt.Println("Key : ", key, "tc_ingress_pass_through found")
+				bpfPassProg = *value
+			}
+		}
+		rootArrayMapFileName = filepath.Join("/sys/fs/bpf/", eBPFProgram.Program.MapName)
+		passProgMapFileName = filepath.Join("/sys/fs/bpf/", eBPFProgram.hostConfig.TCRootProgramEgressPassMapName)
+	}
+
+	fmt.Println("passProgMapFileName - ", passProgMapFileName)
+	fmt.Println("rootArrayMapFileName - ", rootArrayMapFileName)
+	if err := bpfRootProg.Pin(passProgMapFileName); err != nil {
+		fmt.Println("map pinning failed - tc_root_pass_array", err)
+		return fmt.Errorf("%s:failed to pin the map", passProgMapFileName)
+	}
+
+	if err := bpfPassProg.Pin(rootArrayMapFileName); err != nil {
+		fmt.Println("map pinning failed - tc_root_array name ", rootArrayMapFileName, "error ", err)
+		return fmt.Errorf("%s:failed to pin the map", rootArrayMapFileName)
+	}
+
+	var parent uint32
+	var passProgMapName string
+	if direction == models.IngressType {
+		parent = tc.HandleMinIngress
+		passProgMapName = strings.Split(eBPFProgram.hostConfig.TCRootProgramIngressPassMapName, "/")[2]
+	} else if direction == models.IngressType {
+		parent = tc.HandleMinEgress
+		passProgMapName = strings.Split(eBPFProgram.hostConfig.TCRootProgramEgressPassMapName, "/")[2]
+	}
+
+	progFD := uint32(bpfRootProg.FD())
+	filter := tc.Object{
+		Msg: tc.Msg{
+			Family:  unix.AF_UNSPEC,
+			Ifindex: uint32(iface.Index),
+			Handle:  0,
+			Parent:  core.BuildHandle(tc.HandleRoot, parent),
+			Info:    0x300,
+		},
+		Attribute: tc.Attribute{
+			Kind: "bpf",
+			BPF: &tc.Bpf{
+				FD: &progFD,
+			},
+		},
+	}
+	
+	fmt.Println("before TC filter Add - ")
+	if err := tcnl.Filter().Add(&filter); err != nil {
+		fmt.Println("could not attach filter for eBPF program:", err)
+		return fmt.Errorf("could not attach filter for eBPF program: %v\n", err)
+	}
+	fmt.Println("After  TC filter Add - ")
+	fmt.Println("passProgMapName - ", passProgMapName)
+	var passProgMap ebpf.Map
+	for key, value := range prg.Maps {
+		fmt.Println("Map Key - ", key, " value - ", value)
+		if key == passProgMapName {
+			fmt.Println("Map Found - ", key)
+			passProgMap = *value
+			break
+		}
+	}
+
+	key := 0
+	if err := passProgMap.Update(unsafe.Pointer(&key), uint32(bpfPassProg.FD()), 0); err != nil {
+		fmt.Println("ebpfMap.Update error ", err)
+		return fmt.Errorf("%s:failed to update the map", passProgMapName)
+	}
+
+	return nil
 }
