@@ -50,10 +50,8 @@ type Config struct {
 	XDPRootProgramCommand  string
 	XDPRootProgramVersion  string
 
-	XDPRootProgramObjectFile   string
-	XDPRootProgramPassMapName  string
-	XDPRootProgramProgName     string
-	XDPRootProgramPassProgName string
+	XDPRootProgramObjectFile string
+	XDPRootProgramProgName   string
 
 	// TC Root program details.
 	TCRootProgramName           string
@@ -63,14 +61,10 @@ type Config struct {
 	TCRootProgramCommand        string
 	TCRootProgramVersion        string
 
-	TCRootProgramIngressObjectFile   string
-	TCRootProgramEgressObjectFile    string
-	TCRootProgramIngressPassMapName  string
-	TCRootProgramEgressPassMapName   string
-	TCRootProgramIngressProgName     string
-	TCRootProgramEgressProgName      string
-	TCRootProgramIngressPassProgName string
-	TCRootProgramEgressPassProgName  string
+	TCRootProgramIngressObjectFile string
+	TCRootProgramEgressObjectFile  string
+	TCRootProgramIngressProgName   string
+	TCRootProgramEgressProgName    string
 
 	// ebpf chain details
 	EBPFChainDebugAddr    string
@@ -130,10 +124,8 @@ func ReadConfig(configPath string) (*Config, error) {
 		XDPRootProgramCommand:  LoadOptionalConfigString(confReader, "xdp-root-program", "command", "xdp_root"),
 		XDPRootProgramVersion:  LoadOptionalConfigString(confReader, "xdp-root-program", "version", "latest"),
 
-		XDPRootProgramObjectFile:   LoadOptionalConfigString(confReader, "xdp-root-program", "object-file", "xdp_root_kern.o"),
-		XDPRootProgramPassMapName:  LoadOptionalConfigString(confReader, "xdp-root-program", "ingress-pass-map-name", "xdp_root_pass_array"),
-		XDPRootProgramProgName:     LoadOptionalConfigString(confReader, "xdp-root-program", "program_name", "xdp_root"),
-		XDPRootProgramPassProgName: LoadOptionalConfigString(confReader, "xdp-root-program", "pass_program_name", "xdp_pass_through"),
+		XDPRootProgramObjectFile: LoadOptionalConfigString(confReader, "xdp-root-program", "object-file", "xdp_root_kern.o"),
+		XDPRootProgramProgName:   LoadOptionalConfigString(confReader, "xdp-root-program", "program_name", "xdp_root"),
 
 		TCRootProgramName:           LoadOptionalConfigString(confReader, "tc-root-program", "name", "tc-root"),
 		TCRootProgramArtifact:       LoadOptionalConfigString(confReader, "tc-root-program", "artifact", "l3af_tc_root.tar.gz"),
@@ -142,14 +134,10 @@ func ReadConfig(configPath string) (*Config, error) {
 		TCRootProgramCommand:        LoadOptionalConfigString(confReader, "tc-root-program", "command", "tc_root"),
 		TCRootProgramVersion:        LoadOptionalConfigString(confReader, "tc-root-program", "version", "latest"),
 
-		TCRootProgramIngressObjectFile:   LoadOptionalConfigString(confReader, "tc-root-program", "ingress-object-file", "tc_root_ingress_kern.o"),
-		TCRootProgramEgressObjectFile:    LoadOptionalConfigString(confReader, "tc-root-program", "egress-object-file", "tc_root_egress_kern.o"),
-		TCRootProgramIngressPassMapName:  LoadOptionalConfigString(confReader, "tc-root-program", "ingress-pass-map-name", "tc/globals/tc_ingress_root_pass_array"),
-		TCRootProgramEgressPassMapName:   LoadOptionalConfigString(confReader, "tc-root-program", "egress-pass-map-name", "tc/globals/tc_egress_root_pass_array"),
-		TCRootProgramIngressProgName:     LoadOptionalConfigString(confReader, "tc-root-program", "ingress_program_name", "tc_ingress_root"),
-		TCRootProgramEgressProgName:      LoadOptionalConfigString(confReader, "tc-root-program", "egress_program_name", "tc_egress_root"),
-		TCRootProgramIngressPassProgName: LoadOptionalConfigString(confReader, "tc-root-program", "ingress_pass_program_name", "tc_ingress_pass_through"),
-		TCRootProgramEgressPassProgName:  LoadOptionalConfigString(confReader, "tc-root-program", "egress_pass_program_name", "tc_egress_pass_through"),
+		TCRootProgramIngressObjectFile: LoadOptionalConfigString(confReader, "tc-root-program", "ingress-object-file", "tc_root_ingress_kern.o"),
+		TCRootProgramEgressObjectFile:  LoadOptionalConfigString(confReader, "tc-root-program", "egress-object-file", "tc_root_egress_kern.o"),
+		TCRootProgramIngressProgName:   LoadOptionalConfigString(confReader, "tc-root-program", "ingress_program_name", "tc_ingress_root"),
+		TCRootProgramEgressProgName:    LoadOptionalConfigString(confReader, "tc-root-program", "egress_program_name", "tc_egress_root"),
 
 		EBPFChainDebugAddr:        LoadOptionalConfigString(confReader, "ebpf-chain-debug", "addr", "localhost:8899"),
 		EBPFChainDebugEnabled:     LoadOptionalConfigBool(confReader, "ebpf-chain-debug", "enabled", false),

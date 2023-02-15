@@ -51,6 +51,7 @@ type BPFProgram struct {
 	MonitorMaps       []L3afDNFMetricsMap `json:"monitor_maps"`          // Metrics BPF maps
 	EPRURL            string              `json:"ebpf_package_repo_url"` // Download url for Program
 	ObjectFile        string              `json:"object_file"`           // Object file contains kernel code
+	ProgramName       string              `json:"program_name"`          // BPF program name to load
 }
 
 // L3afDNFMetricsMap defines BPF map
