@@ -1,0 +1,11 @@
+[
+ {
+  "host_name": "l3af-local-test",
+  "iface": "fakeif0",
+  "bpf_programs": {
+   "xdp_ingress": null,
+   "tc_ingress": null,
+   "tc_egress": null
+  }
+ }
+]

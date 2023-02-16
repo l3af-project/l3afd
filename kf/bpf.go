@@ -13,7 +13,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"golang.org/x/sys/unix"
 	"io"
 	"net"
 	"net/http"
@@ -27,6 +26,8 @@ import (
 	"sync"
 	"time"
 	"unsafe"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/l3af-project/l3afd/config"
 	"github.com/l3af-project/l3afd/models"
@@ -986,7 +987,6 @@ func (b *BPF) LoadXDPRootProgram(ifaceName string, eBPFProgram *BPF) error {
 
 	prg, err := ebpf.LoadCollection(eBPFProgram.Program.ObjectFile)
 	if err != nil {
-		fmt.Println("LoadCollection xdp root error : ", err)
 		return fmt.Errorf("%s: loading of xdp root failed", eBPFProgram.Program.ObjectFile)
 	}
 	//defer prg.Close()
@@ -997,7 +997,6 @@ func (b *BPF) LoadXDPRootProgram(ifaceName string, eBPFProgram *BPF) error {
 	// Pinning root map
 	rootArrayMapFileName := filepath.Join("/sys/fs/bpf/", eBPFProgram.Program.MapName)
 	if err := bpfRootMap.Pin(rootArrayMapFileName); err != nil {
-		fmt.Println("XDP map pinning failed", err)
 		return fmt.Errorf("%s:failed to pin the map", rootArrayMapFileName)
 	}
 
@@ -1014,15 +1013,13 @@ func (b *BPF) LoadXDPRootProgram(ifaceName string, eBPFProgram *BPF) error {
 
 	progInfo, err := bpfRootProg.Info()
 	if err != nil {
-		fmt.Println("failed to get prog info")
-		return err
+		return fmt.Errorf("could not get program info of xdp root program: %s", err)
 	}
 
 	ok := false
 	b.ProgID, ok = progInfo.ID()
 	if !ok {
-		fmt.Printf("failed to fetch the xdp root Program ID\n")
-		return fmt.Errorf("failed to fetch the xdp root Program ID\n")
+		return fmt.Errorf("failed to fetch the xdp root Program ID")
 	}
 
 	ebpfInfo, err := bpfRootMap.Info()
@@ -1037,7 +1034,7 @@ func (b *BPF) LoadXDPRootProgram(ifaceName string, eBPFProgram *BPF) error {
 	return nil
 }
 
-func LoadTCRootProgram(ifaceName string, direction string, eBPFProgram *BPF) error {
+func (b *BPF) LoadTCRootProgram(ifaceName string, direction string, eBPFProgram *BPF) error {
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
 		log.Fatal().Msgf("lookup network iface %q: %s", ifaceName, err)
@@ -1046,14 +1043,14 @@ func LoadTCRootProgram(ifaceName string, direction string, eBPFProgram *BPF) err
 	// verify and add attribute clsact
 	tcnl, err := tc.Open(&tc.Config{})
 	if err != nil {
-		return fmt.Errorf("could not open rtnetlink socket: %v\n", err)
+		return fmt.Errorf("could not open rtnetlink socket: %v", err)
 	}
 
 	clsactFound := false
 	// get all the qdiscs from all interfaces
 	qdiscs, err := tcnl.Qdisc().Get()
 	if err != nil {
-		return fmt.Errorf("could not get qdiscs: %v\n", err)
+		return fmt.Errorf("could not get qdiscs: %v", err)
 	}
 	for _, qdisc := range qdiscs {
 		iface, err := net.InterfaceByIndex(int(qdisc.Ifindex))
@@ -1065,7 +1062,7 @@ func LoadTCRootProgram(ifaceName string, direction string, eBPFProgram *BPF) err
 		}
 	}
 
-	if clsactFound == false {
+	if !clsactFound {
 		qdisc := tc.Object{
 			Msg: tc.Msg{
 				Family:  unix.AF_UNSPEC,
@@ -1080,7 +1077,7 @@ func LoadTCRootProgram(ifaceName string, direction string, eBPFProgram *BPF) err
 		}
 
 		if err := tcnl.Qdisc().Add(&qdisc); err != nil {
-			log.Info().Msgf("could not assign clsact to %s: %v\n its already exists", ifaceName, err)
+			log.Info().Msgf("could not assign clsact to %s: %v, its already exists", ifaceName, err)
 		}
 	}
 
@@ -1088,6 +1085,9 @@ func LoadTCRootProgram(ifaceName string, direction string, eBPFProgram *BPF) err
 	if err != nil {
 		return fmt.Errorf("%s: loading of tc root failed", eBPFProgram.Program.ObjectFile)
 	}
+
+	// storing prog reference pointer
+	b.ProgRefs = prg
 
 	var bpfRootProg *ebpf.Program
 	var bpfRootMap *ebpf.Map
@@ -1104,14 +1104,13 @@ func LoadTCRootProgram(ifaceName string, direction string, eBPFProgram *BPF) err
 
 	// Pinning root program
 	if err := bpfRootMap.Pin(rootArrayMapFileName); err != nil {
-		fmt.Println("TC map pinning failed - ", rootArrayMapFileName, err)
 		return fmt.Errorf("%s:failed to pin the map", rootArrayMapFileName)
 	}
 
 	var parent uint32
 	if direction == models.IngressType {
 		parent = tc.HandleMinIngress
-	} else if direction == models.IngressType {
+	} else if direction == models.EgressType {
 		parent = tc.HandleMinEgress
 	}
 
@@ -1134,7 +1133,7 @@ func LoadTCRootProgram(ifaceName string, direction string, eBPFProgram *BPF) err
 
 	// Attaching / Adding as filter
 	if err := tcnl.Filter().Add(&filter); err != nil {
-		return fmt.Errorf("could not attach filter for eBPF program: %v\n", err)
+		return fmt.Errorf("could not attach filter for eBPF program: %v", err)
 	}
 
 	return nil
@@ -1149,7 +1148,6 @@ func (b *BPF) LoadXDPProgram(ifaceName string) error {
 	ObjectFile := filepath.Join(b.FilePath, b.Program.ObjectFile)
 	prg, err := ebpf.LoadCollection(ObjectFile)
 	if err != nil {
-		fmt.Printf("LoadCollection xdp program %s error : %v\n", b.Program.Name, err)
 		return fmt.Errorf("%s: loading of xdp program failed", ObjectFile)
 	}
 
@@ -1170,8 +1168,6 @@ func (b *BPF) LoadXDPProgram(ifaceName string) error {
 	}
 
 	b.ProgRefs = prg
-
-	fmt.Println("LoadXDPProgram Loaded successfully")
 
 	return nil
 }

@@ -18,6 +18,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cilium/ebpf"
 	"github.com/golang/mock/gomock"
 	"github.com/l3af-project/l3afd/config"
 	"github.com/l3af-project/l3afd/mocks"
@@ -739,7 +740,7 @@ func Test_PutNextProgFDFromID(t *testing.T) {
 		name       string
 		fields     fields
 		wantErr    bool
-		progId     int
+		progId     ebpf.ProgramID
 		hostConfig *config.Config
 	}{
 		{
@@ -787,7 +788,7 @@ func Test_PutNextProgFDFromID(t *testing.T) {
 					BpfMapDefaultPath: "/sys/fs/bpf",
 				},
 			},
-			progId:  -1,
+			progId:  0,
 			wantErr: true,
 		},
 	}

@@ -17,13 +17,11 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unsafe"
 
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/rlimit"
 	"github.com/l3af-project/l3afd/config"
 	"github.com/l3af-project/l3afd/models"
 
+	"github.com/cilium/ebpf/rlimit"
 	"github.com/rs/zerolog/log"
 )
 
@@ -419,7 +417,7 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 		return nil
 	}
 
-	log.Info().Msgf("Program is not found in the list name %s", bpfProg.Name)
+	log.Debug().Msgf("Program is not found in the list name %s", bpfProg.Name)
 	// if not found in the list.
 	if err := c.InsertAndStartBPFProgram(bpfProg, ifaceName, direction); err != nil {
 		return fmt.Errorf("failed to insert and start BPFProgram to new location BPF %s version %s iface %s direction %s", bpfProg.Name, bpfProg.Version, ifaceName, direction)
@@ -655,10 +653,6 @@ func (c *NFConfigs) Deploy(ifaceName, HostName string, bpfProgs *models.BPFProgr
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if err := VerifyNMountBPFFS(); err != nil {
-		return fmt.Errorf("failed to mount bpf file system")
-	}
-
 	for _, bpfProg := range bpfProgs.XDPIngress {
 		if c.IngressXDPBpfs[ifaceName] == nil {
 			if bpfProg.AdminStatus == models.Enabled {
@@ -820,15 +814,16 @@ func (c *NFConfigs) RemoveMissingNetIfacesNBPFProgsInConfig(bpfProgCfgs []models
 	tempIfaces := map[string]bool{}
 	wg := sync.WaitGroup{}
 	for _, bpfProg := range bpfProgCfgs {
-		tempIfaces[bpfProg.Iface] = true
-		if ifaceName, ok := c.ifaces[bpfProg.Iface]; ok {
+		bpfProgTmp := bpfProg
+		tempIfaces[bpfProgTmp.Iface] = true
+		if ifaceName, ok := c.ifaces[bpfProgTmp.Iface]; ok {
 			_, ok := c.IngressXDPBpfs[ifaceName]
 			if ok {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					if err := c.RemoveMissingBPFProgramsInConfig(bpfProg, ifaceName, models.XDPIngressType); err != nil {
-						log.Error().Err(err).Msgf("Failed to stop missing program for network interface %s direction Ingress", ifaceName)
+					if err := c.RemoveMissingBPFProgramsInConfig(bpfProgTmp, ifaceName, models.XDPIngressType); err != nil {
+						log.Error().Err(err).Msgf("Failed to stop missing program for network interface %s direction xdp", ifaceName)
 					}
 				}()
 			}
@@ -837,8 +832,8 @@ func (c *NFConfigs) RemoveMissingNetIfacesNBPFProgsInConfig(bpfProgCfgs []models
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					if err := c.RemoveMissingBPFProgramsInConfig(bpfProg, ifaceName, models.IngressType); err != nil {
-						log.Error().Err(err).Msgf("Failed to stop missing program for network interface %s direction Ingress", ifaceName)
+					if err := c.RemoveMissingBPFProgramsInConfig(bpfProgTmp, ifaceName, models.IngressType); err != nil {
+						log.Error().Err(err).Msgf("Failed to stop missing program for network interface %s direction tc Ingress", ifaceName)
 					}
 				}()
 			}
@@ -847,8 +842,8 @@ func (c *NFConfigs) RemoveMissingNetIfacesNBPFProgsInConfig(bpfProgCfgs []models
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					if err := c.RemoveMissingBPFProgramsInConfig(bpfProg, ifaceName, models.EgressType); err != nil {
-						log.Error().Err(err).Msgf("Failed to stop missing program for network interface %s direction Ingress", ifaceName)
+					if err := c.RemoveMissingBPFProgramsInConfig(bpfProgTmp, ifaceName, models.EgressType); err != nil {
+						log.Error().Err(err).Msgf("Failed to stop missing program for network interface %s direction tc Egress", ifaceName)
 					}
 				}()
 			}
@@ -1211,6 +1206,11 @@ func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfPro
 	sort.Strings(bpfProgs.XDPIngress)
 	bpfList := c.IngressXDPBpfs[ifaceName]
 
+	if bpfList == nil {
+		log.Warn().Msgf("No programs to delete")
+		return nil
+	}
+
 	for e := bpfList.Front(); e != nil; {
 		next := e.Next()
 		data := e.Value.(*BPF)
@@ -1349,14 +1349,6 @@ func BinarySearch(names []string, target string) bool {
 	return false
 }
 
-func (c *NFConfigs) UnloadProgramsOnInterfaceHelper(direction string, bpfProg *BPF) {
-
-	fmt.Printf("UnloadProgramsOnInterfaceHelper - begin %s\n", bpfProg.Program.Name)
-	if direction == models.XDPIngressType {
-		bpfProg.ProgRefs.Close()
-	}
-}
-
 // LoadRootProgram - Loading the Root Program for a given interface.
 func (c *NFConfigs) LoadRootProgram(ifaceName string, direction string, progType string, conf *config.Config) (*BPF, error) {
 
@@ -1447,35 +1439,10 @@ func (c *NFConfigs) LoadRootProgram(ifaceName string, direction string, progType
 			return nil, fmt.Errorf("failed to load root program on iface %s name %s direction %s", ifaceName, rootProgBPF.Program.Name, direction)
 		}
 	} else if progType == models.TCType {
-		if err := LoadTCRootProgram(ifaceName, direction, rootProgBPF); err != nil {
+		if err := rootProgBPF.LoadTCRootProgram(ifaceName, direction, rootProgBPF); err != nil {
 			return nil, fmt.Errorf("failed to load root program on iface %s name %s direction %s", ifaceName, rootProgBPF.Program.Name, direction)
 		}
 	}
 
 	return rootProgBPF, nil
-}
-
-func (c *NFConfigs) LinkBPFProgram(mapID ebpf.MapID, seqID int, progID ebpf.ProgramID) error {
-	fmt.Println("LinkBPFProgam - begin - map id - ", mapID)
-	ebpfMap, err := ebpf.NewMapFromID(mapID)
-	if err != nil {
-		return fmt.Errorf("access root map from ID failed %v", err)
-	}
-	defer ebpfMap.Close()
-
-	bpfProg, err := ebpf.NewProgramFromID(ebpf.ProgramID(progID))
-	if err != nil {
-		return fmt.Errorf("failed to get next prog FD from ID for program id %d", progID)
-	}
-	fmt.Println("LinkBPF - before update - map id - ", mapID)
-	key := seqID
-	fd := bpfProg.FD()
-	log.Info().Msgf("LinkBPF : Map id %d program FD %d", mapID, fd)
-	if err = ebpfMap.Update(unsafe.Pointer(&key), unsafe.Pointer(&fd), 0); err != nil {
-		return fmt.Errorf("unable to update root prog map %v", err)
-	}
-
-	fmt.Println("LinkBPF - end")
-
-	return nil
 }
