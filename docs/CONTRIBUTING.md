@@ -52,7 +52,7 @@ It is recommended prior to working on a PR to submit an issue in github for the 
 to make describing the change and context around it. This gives the l3af maintainers a chance to review
 the issue and provide feedback and work with you on the change. If you have any questions, please
 feel free to reach out to the l3af maintainers via [Slack](https://app.slack.com/client/T02GD9YQJUT/C02GRTC0SAD) or
-[mail](main@lists.l3af.io) group. Below are some general guidelines to help ensure a successful PR approval.
+[mail](https://lists.l3af.io/g/main) group. Below are some general guidelines to help ensure a successful PR approval.
 
 - Provide background why you are making the change and the issue it addresses
 - List what is changing and provide a high-level summary of the change
