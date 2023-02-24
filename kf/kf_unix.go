@@ -131,15 +131,18 @@ func VerifyNMountTraceFS() error {
 		return fmt.Errorf("failed to read procfs: %v", err)
 	}
 
+	log.Info().Msgf("mnts - %s", string(mnts))
 	if !strings.Contains(string(mnts), dstPath) {
 		log.Warn().Msgf(" %s filesystem is not mounted going to mount", dstPath)
 		if _, err = os.Stat(dstPath); err != nil {
 			log.Warn().Msgf(" %s directory doesn't exists, creating", dstPath)
 			if err := os.Mkdir(dstPath, 0700); err != nil {
+				log.Error().Msgf("unable to create mount point %s : %s", dstPath, err)
 				return fmt.Errorf("unable to create mount point %s : %s", dstPath, err)
 			}
 		}
 		if err = syscall.Mount(srcPath, dstPath, fstype, uintptr(flags), ""); err != nil {
+			log.Error().Msgf("unable to mount %s at %s: %s", srcPath, dstPath, err)
 			return fmt.Errorf("unable to mount %s at %s: %s", srcPath, dstPath, err)
 		}
 	}
