@@ -59,7 +59,7 @@ jobs:
         run: |
           go test -tags WINDOWS ./...
 
-      - uses: dominikh/staticcheck-action@4ec9a0dff54be2642bc76581598ba433fd8d4967
+      - uses: dominikh/staticcheck-action@29e9b80fb8de0521ba4ed3fdf68fed5bbe82a2d2
         with:
           version: "2022.1.1"
           install-go: false
