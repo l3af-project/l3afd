@@ -214,15 +214,15 @@ func (c *NFConfigs) PushBackAndStartBPF(bpfProg *models.BPFProgram, ifaceName, d
 	return nil
 }
 
-func (c *NFConfigs) DownloadAndLoadBPFProgram(bpfProg *BPF, ifaceName string) error {
-	if err := bpfProg.VerifyAndGetArtifacts(c.HostConfig); err != nil {
-		return fmt.Errorf("failed to get artifacts %s with error: %v", bpfProg.Program.Artifact, err)
-	}
-	if err := bpfProg.LoadXDPProgram(ifaceName); err != nil {
-		return fmt.Errorf("failed to start bpf program %s with error: %v", bpfProg.Program.Name, err)
-	}
-	return nil
-}
+//func (c *NFConfigs) DownloadAndLoadBPFProgram(bpfProg *BPF, ifaceName string) error {
+//	if err := bpfProg.VerifyAndGetArtifacts(c.HostConfig); err != nil {
+//		return fmt.Errorf("failed to get artifacts %s with error: %v", bpfProg.Program.Artifact, err)
+//	}
+//	if err := bpfProg.LoadXDPProgram(ifaceName); err != nil {
+//		return fmt.Errorf("failed to start bpf program %s with error: %v", bpfProg.Program.Name, err)
+//	}
+//	return nil
+//}
 
 func (c *NFConfigs) DownloadAndStartBPFProgram(element *list.Element, ifaceName, direction string) error {
 
@@ -965,11 +965,9 @@ func (c *NFConfigs) AddAndStartBPF(bpfProg *models.BPFProgram, ifaceName string,
 		return nil
 	}
 
-	bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig)
 	switch direction {
 	case models.XDPIngressType:
 		bpfList = c.IngressXDPBpfs[ifaceName]
-		bpf.LoadXDPProgram(ifaceName)
 	case models.IngressType:
 		bpfList = c.IngressTCBpfs[ifaceName]
 	case models.EgressType:
@@ -1374,6 +1372,7 @@ func (c *NFConfigs) LoadRootProgram(ifaceName string, direction string, progType
 				StopArgs:          map[string]interface{}{},
 				StatusArgs:        map[string]interface{}{},
 				ObjectFile:        filepath.Join(conf.BPFDir, conf.XDPRootProgramName, conf.XDPRootProgramVersion, strings.Split(conf.XDPRootProgramArtifact, ".")[0], conf.XDPRootProgramObjectFile),
+				ProgramName:       conf.XDPRootProgramProgName,
 			},
 			RestartCount:    0,
 			Cmd:             nil,
@@ -1408,10 +1407,12 @@ func (c *NFConfigs) LoadRootProgram(ifaceName string, direction string, progType
 			rootProgBPF.Program.MapName = conf.TCRootProgramIngressMapName
 			rootProgBPF.MapNamePath = filepath.Join(conf.BpfMapDefaultPath, conf.TCRootProgramIngressMapName)
 			rootProgBPF.Program.ObjectFile = filepath.Join(conf.BPFDir, conf.TCRootProgramName, conf.TCRootProgramVersion, strings.Split(conf.TCRootProgramArtifact, ".")[0], conf.TCRootProgramIngressObjectFile)
+			rootProgBPF.Program.ProgramName = conf.TCRootProgramIngressProgName
 		} else if direction == models.EgressType {
 			rootProgBPF.Program.MapName = conf.TCRootProgramEgressMapName
 			rootProgBPF.MapNamePath = filepath.Join(conf.BpfMapDefaultPath, conf.TCRootProgramEgressMapName)
 			rootProgBPF.Program.ObjectFile = filepath.Join(conf.BPFDir, conf.TCRootProgramName, conf.TCRootProgramVersion, strings.Split(conf.TCRootProgramArtifact, ".")[0], conf.TCRootProgramEgressObjectFile)
+			rootProgBPF.Program.ProgramName = conf.TCRootProgramEgressProgName
 		}
 	default:
 		return nil, fmt.Errorf("unknown direction %s for root program in iface %s", direction, ifaceName)

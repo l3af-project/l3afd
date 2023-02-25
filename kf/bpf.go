@@ -65,7 +65,7 @@ type BPF struct {
 	MapID           ebpf.MapID                // This map id is used for root map only
 	BpfMaps         map[string]BPFMap         // Config maps passed as map-args, Map name is Key
 	MetricsBpfMaps  map[string]*MetricsBPFMap // Metrics map name+key+aggregator is key
-	ProgRefs        *ebpf.Collection          // eBPF Program references
+	ProgRefs        *ebpf.Collection          `json:"_"` // eBPF Program references
 	Ctx             context.Context
 	Done            chan bool `json:"-"`
 	hostConfig      *config.Config
@@ -991,11 +991,11 @@ func (b *BPF) LoadXDPRootProgram(ifaceName string, eBPFProgram *BPF) error {
 	}
 	//defer prg.Close()
 	b.ProgRefs = prg
-	bpfRootProg := prg.Programs[eBPFProgram.hostConfig.XDPRootProgramProgName]
-	bpfRootMap := prg.Maps[eBPFProgram.hostConfig.XDPRootProgramMapName]
+	bpfRootProg := prg.Programs[eBPFProgram.Program.ProgramName]
+	bpfRootMap := prg.Maps[eBPFProgram.Program.MapName]
 
 	// Pinning root map
-	rootArrayMapFileName := filepath.Join("/sys/fs/bpf/", eBPFProgram.Program.MapName)
+	rootArrayMapFileName := filepath.Join(b.hostConfig.BpfMapDefaultPath, eBPFProgram.Program.MapName)
 	if err := bpfRootMap.Pin(rootArrayMapFileName); err != nil {
 		return fmt.Errorf("%s:failed to pin the map", rootArrayMapFileName)
 	}
@@ -1007,7 +1007,6 @@ func (b *BPF) LoadXDPRootProgram(ifaceName string, eBPFProgram *BPF) error {
 	})
 
 	if err != nil {
-		log.Error().Msgf("could not attach XDP program: %s", err)
 		return fmt.Errorf("could not attach XDP program: %s", err)
 	}
 
@@ -1092,15 +1091,15 @@ func (b *BPF) LoadTCRootProgram(ifaceName string, direction string, eBPFProgram 
 	var bpfRootProg *ebpf.Program
 	var bpfRootMap *ebpf.Map
 	var rootArrayMapFileName string
-	if direction == models.IngressType {
-		bpfRootProg = prg.Programs[eBPFProgram.hostConfig.TCRootProgramIngressProgName]
-		bpfRootMap = prg.Maps[strings.Split(eBPFProgram.hostConfig.TCRootProgramIngressMapName, "/")[2]]
-		rootArrayMapFileName = filepath.Join("/sys/fs/bpf/", eBPFProgram.Program.MapName)
-	} else if direction == models.EgressType {
-		bpfRootProg = prg.Programs[eBPFProgram.hostConfig.TCRootProgramEgressProgName]
-		bpfRootMap = prg.Maps[strings.Split(eBPFProgram.hostConfig.TCRootProgramEgressMapName, "/")[2]]
-		rootArrayMapFileName = filepath.Join("/sys/fs/bpf/", eBPFProgram.Program.MapName)
-	}
+	//if direction == models.IngressType {
+	bpfRootProg = prg.Programs[eBPFProgram.Program.ProgramName]
+	bpfRootMap = prg.Maps[strings.Split(eBPFProgram.Program.MapName, "/")[2]]
+	rootArrayMapFileName = filepath.Join(b.hostConfig.BpfMapDefaultPath, eBPFProgram.Program.MapName)
+	//} else if direction == models.EgressType {
+	//	bpfRootProg = prg.Programs[eBPFProgram.hostConfig.TCRootProgramEgressProgName]
+	//	bpfRootMap = prg.Maps[strings.Split(eBPFProgram.hostConfig.TCRootProgramEgressMapName, "/")[2]]
+	//	rootArrayMapFileName = filepath.Join(b.hostConfig.BpfMapDefaultPath, eBPFProgram.Program.MapName)
+	//}
 
 	// Pinning root program
 	if err := bpfRootMap.Pin(rootArrayMapFileName); err != nil {
@@ -1144,7 +1143,7 @@ func (b *BPF) LoadXDPProgram(ifaceName string) error {
 	if err != nil {
 		log.Fatal().Msgf("lookup network iface %q: %s", ifaceName, err)
 	}
-
+	fmt.Println("LoadXDPProgram - Start")
 	ObjectFile := filepath.Join(b.FilePath, b.Program.ObjectFile)
 	prg, err := ebpf.LoadCollection(ObjectFile)
 	if err != nil {
@@ -1169,6 +1168,7 @@ func (b *BPF) LoadXDPProgram(ifaceName string) error {
 
 	b.ProgRefs = prg
 
+	fmt.Println("LoadXDPProgram - end")
 	return nil
 }
 

@@ -25,6 +25,7 @@ environment: PROD
 
 
 ## [l3afd]
+
 | FieldName     | Default                | Description     | Required        |
 | ------------- |------------------------| --------------- | --------------- |
 |pid-file| `"/var/l3afd/l3afd.pid"` | The path to the l3afd.pid file which contains process id of L3afd | Yes |
@@ -57,6 +58,7 @@ environment: PROD
 
 ## [xdp-root-program]
 This section is needed when bpf-chaining-enabled is set to true.
+
 
 | FieldName     | Default                  | Description     | Required        |
 | ------------- |--------------------------| --------------- | --------------- |
