@@ -3,7 +3,7 @@ module github.com/l3af-project/l3afd
 go 1.18
 
 require (
-	github.com/cilium/ebpf v0.9.3
+	github.com/cilium/ebpf v0.10.0
 	github.com/go-chi/chi/v5 v5.0.7
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/prometheus/client_golang v1.13.0
@@ -12,7 +12,7 @@ require (
 	github.com/safchain/ethtool v0.0.0-20210803160452-9aa261dae9b1
 	github.com/swaggo/http-swagger v1.3.3
 	github.com/swaggo/swag v1.8.7
-	golang.org/x/sys v0.0.0-20220928140112-f11e5e49a4ec // exclude
+	golang.org/x/sys v0.2.0 // exclude
 )
 
 require github.com/golang/mock v1.6.0
