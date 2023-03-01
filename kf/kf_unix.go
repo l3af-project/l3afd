@@ -179,3 +179,18 @@ func IsProcessRunning(pid int, name string) (bool, error) {
 
 	return true, nil
 }
+
+// VerifyNCreateTCDirs - Creating BPF sudo FS for pinning TC maps
+func VerifyNCreateTCDirs() error {
+	path := "/sys/fs/bpf/tc/globals"
+	if _, err := os.Stat(path); err == nil {
+		log.Debug().Msgf(" %s tc directory exists", path)
+		return nil
+	}
+	log.Info().Msgf(" %s tc directory doesn't exists, creating", path)
+	err := os.MkdirAll(path, 0700)
+	if err != nil {
+		return fmt.Errorf("unable to create directories to pin tc maps %s : %s", path, err)
+	}
+	return nil
+}
