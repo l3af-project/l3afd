@@ -135,18 +135,19 @@ func (c *NFConfigs) Close(ctx context.Context) error {
 // Check for XDP root program is running for a interface. if not loaded it
 func (c *NFConfigs) VerifyAndStartXDPRootProgram(ifaceName, direction string) error {
 
+	if err := DisableLRO(ifaceName); err != nil {
+		return fmt.Errorf("failed to disable lro %v", err)
+	}
+	if err := VerifyNMountBPFFS(); err != nil {
+		return fmt.Errorf("failed to mount bpf file system")
+	}
+
 	// chaining is disabled nothing to do
 	if !c.HostConfig.BpfChainingEnabled {
 		return nil
 	}
 
 	if c.IngressXDPBpfs[ifaceName].Len() == 0 {
-		if err := DisableLRO(ifaceName); err != nil {
-			return fmt.Errorf("failed to disable lro %v", err)
-		}
-		if err := VerifyNMountBPFFS(); err != nil {
-			return fmt.Errorf("failed to mount bpf file system")
-		}
 		rootBpf, err := LoadRootProgram(ifaceName, direction, models.XDPType, c.HostConfig)
 		if err != nil {
 			return fmt.Errorf("failed to load %s xdp root program: %v", direction, err)
@@ -161,6 +162,12 @@ func (c *NFConfigs) VerifyAndStartXDPRootProgram(ifaceName, direction string) er
 // Check for TC root program is running for a interface. If not start it
 func (c *NFConfigs) VerifyAndStartTCRootProgram(ifaceName, direction string) error {
 
+	if err := VerifyNMountBPFFS(); err != nil {
+		return fmt.Errorf("failed to mount bpf file system")
+	}
+	if err := VerifyNCreateTCDirs(); err != nil {
+		return fmt.Errorf("failed to create tc/global diretories")
+	}
 	// Check for chaining flag
 	if !c.HostConfig.BpfChainingEnabled {
 		return nil
