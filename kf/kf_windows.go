@@ -50,3 +50,8 @@ func (b *BPF) ProcessTerminate() error {
 	}
 	return nil
 }
+
+// VerifyNCreateTCDirs - Creating BPF sudo FS for pinning TC maps
+func VerifyNCreateTCDirs() error {
+	return nil
+}

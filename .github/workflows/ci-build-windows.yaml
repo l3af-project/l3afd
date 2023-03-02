@@ -22,12 +22,12 @@ jobs:
     
     steps:
       - name: Setup Go 1.18.6
-        uses: actions/setup-go@c4a742cab115ed795e34d4513e2cf7d472deb55f
+        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568
         with:
           go-version: '1.18.6'
 
       - name: Harden Runner
-        uses: step-security/harden-runner@2e205a28d0e1da00c5f53b161f4067b052c61f34
+        uses: step-security/harden-runner@c8454efe5d0bdefd25384362fe217428ca277d57
         with:
           egress-policy: audit # TODO: change to 'egress-policy: block' after couple of runs
 
@@ -38,7 +38,7 @@ jobs:
           echo "GOPATH=$gopath" >> $env:GITHUB_ENV
 
       - name: Checkout repository
-        uses: actions/checkout@1f9a0c22da41e6ebfa534300ef656657ea2c6707
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
       
       - name: Format
         run: |
