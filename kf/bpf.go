@@ -1000,7 +1000,7 @@ func (b *BPF) LoadXDPRootProgram(ifaceName string, eBPFProgram *BPF) error {
 		return fmt.Errorf("%s:failed to pin the map", rootArrayMapFileName)
 	}
 
-	// Attach the program.
+	// Attach the program
 	_, err = link.AttachXDP(link.XDPOptions{
 		Program:   bpfRootProg,
 		Interface: iface.Index,
@@ -1082,6 +1082,7 @@ func (b *BPF) LoadTCRootProgram(ifaceName string, direction string, eBPFProgram 
 
 	prg, err := ebpf.LoadCollection(eBPFProgram.Program.ObjectFile)
 	if err != nil {
+		log.Error().Msgf("loadingof tc root %s failed direction %s", eBPFProgram.Program.ObjectFile, direction)
 		return fmt.Errorf("%s: loading of tc root failed", eBPFProgram.Program.ObjectFile)
 	}
 
@@ -1091,15 +1092,10 @@ func (b *BPF) LoadTCRootProgram(ifaceName string, direction string, eBPFProgram 
 	var bpfRootProg *ebpf.Program
 	var bpfRootMap *ebpf.Map
 	var rootArrayMapFileName string
-	//if direction == models.IngressType {
+
 	bpfRootProg = prg.Programs[eBPFProgram.Program.ProgramName]
 	bpfRootMap = prg.Maps[strings.Split(eBPFProgram.Program.MapName, "/")[2]]
 	rootArrayMapFileName = filepath.Join(b.hostConfig.BpfMapDefaultPath, eBPFProgram.Program.MapName)
-	//} else if direction == models.EgressType {
-	//	bpfRootProg = prg.Programs[eBPFProgram.hostConfig.TCRootProgramEgressProgName]
-	//	bpfRootMap = prg.Maps[strings.Split(eBPFProgram.hostConfig.TCRootProgramEgressMapName, "/")[2]]
-	//	rootArrayMapFileName = filepath.Join(b.hostConfig.BpfMapDefaultPath, eBPFProgram.Program.MapName)
-	//}
 
 	// Pinning root program
 	if err := bpfRootMap.Pin(rootArrayMapFileName); err != nil {
