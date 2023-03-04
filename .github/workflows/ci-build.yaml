@@ -48,7 +48,7 @@ jobs:
         run: |
           go test ./...
 
-      - uses: dominikh/staticcheck-action@29e9b80fb8de0521ba4ed3fdf68fed5bbe82a2d2
+      - uses: dominikh/staticcheck-action@ba605356b4b29a60e87ab9404b712f3461e566dc
         with:
           version: "2022.1.1"
           install-go: false
