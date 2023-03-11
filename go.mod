@@ -8,11 +8,11 @@ require (
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/prometheus/client_golang v1.14.0
 	github.com/robfig/config v0.0.0-20141207224736-0f78529c8c7e
-	github.com/rs/zerolog v1.28.0
-	github.com/safchain/ethtool v0.0.0-20210803160452-9aa261dae9b1
+	github.com/rs/zerolog v1.29.0
+	github.com/safchain/ethtool v0.2.0
 	github.com/swaggo/http-swagger v1.3.3
-	github.com/swaggo/swag v1.8.7
-	golang.org/x/sys v0.2.0 // exclude
+	github.com/swaggo/swag v1.8.10
+	golang.org/x/sys v0.6.0 // exclude
 )
 
 require github.com/golang/mock v1.6.0
