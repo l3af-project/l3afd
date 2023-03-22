@@ -765,7 +765,7 @@ func (c *NFConfigs) EBPFPrograms(iface string) models.L3afBPFPrograms {
 	bpfList := c.IngressXDPBpfs[iface]
 	if bpfList != nil {
 		e := bpfList.Front()
-		if c.HostConfig.BpfChainingEnabled && e.Value.(*BPF).Program.Name == c.HostConfig.XDPRootProgramName {
+		if c.HostConfig.BpfChainingEnabled && e.Value.(*BPF).Program.Name == c.HostConfig.XDPRootPackageName {
 			e = e.Next()
 		}
 		for ; e != nil; e = e.Next() {
@@ -775,7 +775,7 @@ func (c *NFConfigs) EBPFPrograms(iface string) models.L3afBPFPrograms {
 	bpfList = c.IngressTCBpfs[iface]
 	if bpfList != nil {
 		e := bpfList.Front()
-		if c.HostConfig.BpfChainingEnabled && e.Value.(*BPF).Program.Name == c.HostConfig.TCRootProgramName {
+		if c.HostConfig.BpfChainingEnabled && e.Value.(*BPF).Program.Name == c.HostConfig.TCRootPackageName {
 			e = e.Next()
 		}
 		for ; e != nil; e = e.Next() {
@@ -785,7 +785,7 @@ func (c *NFConfigs) EBPFPrograms(iface string) models.L3afBPFPrograms {
 	bpfList = c.EgressTCBpfs[iface]
 	if bpfList != nil {
 		e := bpfList.Front()
-		if c.HostConfig.BpfChainingEnabled && e.Value.(*BPF).Program.Name == c.HostConfig.TCRootProgramName {
+		if c.HostConfig.BpfChainingEnabled && e.Value.(*BPF).Program.Name == c.HostConfig.TCRootPackageName {
 			e = e.Next()
 		}
 		for ; e != nil; e = e.Next() {
