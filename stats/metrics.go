@@ -18,7 +18,7 @@ var (
 	NFUpdateCount *prometheus.CounterVec
 	NFRunning     *prometheus.GaugeVec
 	NFStartTime   *prometheus.GaugeVec
-	NFMointorMap  *prometheus.GaugeVec
+	NFMonitorMap  *prometheus.GaugeVec
 )
 
 func SetupMetrics(hostname, daemonName, metricsAddr string) {
@@ -92,14 +92,14 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 			Name:      "NFMonitorMap",
 			Help:      "This value indicates network function monitor counters",
 		},
-		[]string{"host", "network_function", "map_name"},
+		[]string{"host", "ebpf_program", "map_name", "interface_name"},
 	)
 
 	if err := prometheus.Register(nfMonitorMapVec); err != nil {
 		log.Warn().Err(err).Msg("Failed to register NFMonitorMap metrics")
 	}
 
-	NFMointorMap = nfMonitorMapVec.MustCurryWith(prometheus.Labels{"host": hostname})
+	NFMonitorMap = nfMonitorMapVec.MustCurryWith(prometheus.Labels{"host": hostname})
 
 	// Prometheus handler
 	metricsHandler := promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{})
@@ -136,13 +136,13 @@ func Set(value float64, gaugeVec *prometheus.GaugeVec, networkFunction, directio
 	}
 }
 
-func SetValue(value float64, gaugeVec *prometheus.GaugeVec, networkFunction, mapName string) {
+func SetValue(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, mapName, ifaceName string) {
 
 	if gaugeVec == nil {
 		log.Warn().Msg("Metrics: gauge vector is nil and needs to be initialized before SetValue")
 		return
 	}
-	if nfGauge, err := gaugeVec.GetMetricWithLabelValues(networkFunction, mapName); err == nil {
+	if nfGauge, err := gaugeVec.GetMetricWithLabelValues(ebpfProgram, mapName, ifaceName); err == nil {
 		nfGauge.Set(value)
 	}
 }
