@@ -29,7 +29,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 			Name:      "NFStartCount",
 			Help:      "The count of network functions started",
 		},
-		[]string{"host", "network_function", "direction"},
+		[]string{"host", "ebpf_program", "direction", "interface_name"},
 	)
 
 	NFStartCount = nfStartCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
@@ -40,7 +40,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 			Name:      "NFStopCount",
 			Help:      "The count of network functions stopped",
 		},
-		[]string{"host", "network_function", "direction"},
+		[]string{"host", "ebpf_program", "direction", "interface_name"},
 	)
 
 	NFStopCount = nfStopCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
@@ -51,7 +51,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 			Name:      "NFUpdateCount",
 			Help:      "The count of network functions updated",
 		},
-		[]string{"host", "network_function", "direction"},
+		[]string{"host", "ebpf_program", "direction", "interface_name"},
 	)
 
 	NFUpdateCount = nfUpdateCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
@@ -62,7 +62,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 			Name:      "NFRunning",
 			Help:      "This value indicates network functions is running or not",
 		},
-		[]string{"host", "network_function", "direction"},
+		[]string{"host", "ebpf_program", "direction", "interface_name"},
 	)
 
 	if err := prometheus.Register(nfRunningVec); err != nil {
@@ -77,7 +77,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 			Name:      "NFStartTime",
 			Help:      "This value indicates start time of the network function since unix epoch in seconds",
 		},
-		[]string{"host", "network_function", "direction"},
+		[]string{"host", "ebpf_program", "direction", "interface_name"},
 	)
 
 	if err := prometheus.Register(nfStartTimeVec); err != nil {
@@ -114,29 +114,63 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 	}()
 }
 
-func Incr(counterVec *prometheus.CounterVec, networkFunction, direction string) {
+func Incr(counterVec *prometheus.CounterVec, ebpfProgram, direction string) {
 
 	if counterVec == nil {
 		log.Warn().Msg("Metrics: counter vector is nil and needs to be initialized before Incr")
 		return
 	}
-	if nfCounter, err := counterVec.GetMetricWithLabelValues(networkFunction, direction); err == nil {
+	if nfCounter, err := counterVec.GetMetricWithLabelValues(ebpfProgram, direction); err == nil {
 		nfCounter.Inc()
 	}
 }
 
-func Set(value float64, gaugeVec *prometheus.GaugeVec, networkFunction, direction string) {
+func IncrWithInterface(counterVec *prometheus.CounterVec, ebpfProgram, direction, ifaceName string) {
+
+	if counterVec == nil {
+		log.Warn().Msg("Metrics: counter vector is nil and needs to be initialized before Incr")
+		return
+	}
+	if nfCounter, err := counterVec.GetMetricWithLabelValues(ebpfProgram, direction, ifaceName); err == nil {
+		nfCounter.Inc()
+	}
+
+}
+
+func Set(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, direction string) {
 
 	if gaugeVec == nil {
 		log.Warn().Msg("Metrics: gauge vector is nil and needs to be initialized before Set")
 		return
 	}
-	if nfGauge, err := gaugeVec.GetMetricWithLabelValues(networkFunction, direction); err == nil {
+	if nfGauge, err := gaugeVec.GetMetricWithLabelValues(ebpfProgram, direction); err == nil {
 		nfGauge.Set(value)
 	}
 }
 
-func SetValue(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, mapName, ifaceName string) {
+func SetWithInterface(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, direction, ifaceName string) {
+
+	if gaugeVec == nil {
+		log.Warn().Msg("Metrics: gauge vector is nil and needs to be initialized before Set")
+		return
+	}
+	if nfGauge, err := gaugeVec.GetMetricWithLabelValues(ebpfProgram, direction, ifaceName); err == nil {
+		nfGauge.Set(value)
+	}
+}
+
+func SetValue(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, mapName string) {
+
+	if gaugeVec == nil {
+		log.Warn().Msg("Metrics: gauge vector is nil and needs to be initialized before SetValue")
+		return
+	}
+	if nfGauge, err := gaugeVec.GetMetricWithLabelValues(ebpfProgram, mapName); err == nil {
+		nfGauge.Set(value)
+	}
+}
+
+func SetValueWithInterface(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, mapName, ifaceName string) {
 
 	if gaugeVec == nil {
 		log.Warn().Msg("Metrics: gauge vector is nil and needs to be initialized before SetValue")

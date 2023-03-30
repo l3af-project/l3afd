@@ -840,7 +840,7 @@ func (b *BPF) MonitorMaps(ifaceName string, intervals int) error {
 		}
 		bpfMap := b.MetricsBpfMaps[mapKey]
 		MetricName := element.Name + "_" + strconv.Itoa(element.Key) + "_" + element.Aggregator
-		stats.SetValue(bpfMap.GetValue(), stats.NFMonitorMap, b.Program.Name, MetricName, ifaceName)
+		stats.SetValue(bpfMap.GetValue(), stats.NFMonitorMap, b.Program.Name, MetricName)
 	}
 	return nil
 }
