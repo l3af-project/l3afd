@@ -114,69 +114,65 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 	}()
 }
 
-func Incr(counterVec *prometheus.CounterVec, ebpfProgram, direction string) {
+func Incr(counterVec *prometheus.CounterVec, ebpfProgram, direction, ifaceName string) {
 
 	if counterVec == nil {
 		log.Warn().Msg("Metrics: counter vector is nil and needs to be initialized before Incr")
 		return
 	}
-	if nfCounter, err := counterVec.GetMetricWithLabelValues(ebpfProgram, direction); err == nil {
-		nfCounter.Inc()
-	}
-}
-
-func IncrWithInterface(counterVec *prometheus.CounterVec, ebpfProgram, direction, ifaceName string) {
-
-	if counterVec == nil {
-		log.Warn().Msg("Metrics: counter vector is nil and needs to be initialized before Incr")
+	nfCounter, err := counterVec.GetMetricWith(
+		prometheus.Labels(map[string]string{
+			"ebpf_program":   ebpfProgram,
+			"direction":      direction,
+			"interface_name": ifaceName,
+		}),
+	)
+	if err != nil {
+		log.Warn().Msgf("Metrics: unable to fetch counter with fields: ebpf_program: %s, direction: %s, interface_name: %s",
+			ebpfProgram, direction, ifaceName)
 		return
 	}
-	if nfCounter, err := counterVec.GetMetricWithLabelValues(ebpfProgram, direction, ifaceName); err == nil {
-		nfCounter.Inc()
-	}
-
+	nfCounter.Inc()
 }
 
-func Set(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, direction string) {
+func Set(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, direction, ifaceName string) {
 
 	if gaugeVec == nil {
 		log.Warn().Msg("Metrics: gauge vector is nil and needs to be initialized before Set")
 		return
 	}
-	if nfGauge, err := gaugeVec.GetMetricWithLabelValues(ebpfProgram, direction); err == nil {
-		nfGauge.Set(value)
-	}
-}
-
-func SetWithInterface(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, direction, ifaceName string) {
-
-	if gaugeVec == nil {
-		log.Warn().Msg("Metrics: gauge vector is nil and needs to be initialized before Set")
+	nfGauge, err := gaugeVec.GetMetricWith(
+		prometheus.Labels(map[string]string{
+			"ebpf_program":   ebpfProgram,
+			"direction":      direction,
+			"interface_name": ifaceName,
+		}),
+	)
+	if err != nil {
+		log.Warn().Msgf("Metrics: unable to fetch counter with fields: ebpf_program: %s, direction: %s, interface_name: %s",
+			ebpfProgram, direction, ifaceName)
 		return
 	}
-	if nfGauge, err := gaugeVec.GetMetricWithLabelValues(ebpfProgram, direction, ifaceName); err == nil {
-		nfGauge.Set(value)
-	}
+	nfGauge.Set(value)
 }
 
-func SetValue(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, mapName string) {
-
-	if gaugeVec == nil {
-		log.Warn().Msg("Metrics: gauge vector is nil and needs to be initialized before SetValue")
-		return
-	}
-	if nfGauge, err := gaugeVec.GetMetricWithLabelValues(ebpfProgram, mapName); err == nil {
-		nfGauge.Set(value)
-	}
-}
-
-func SetValueWithInterface(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, mapName, ifaceName string) {
+func SetValue(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, mapName, ifaceName string) {
 
 	if gaugeVec == nil {
 		log.Warn().Msg("Metrics: gauge vector is nil and needs to be initialized before SetValue")
 		return
 	}
-	if nfGauge, err := gaugeVec.GetMetricWithLabelValues(ebpfProgram, mapName, ifaceName); err == nil {
-		nfGauge.Set(value)
+	nfGauge, err := gaugeVec.GetMetricWith(
+		prometheus.Labels(map[string]string{
+			"ebpf_program":   ebpfProgram,
+			"map_name":       mapName,
+			"interface_name": ifaceName,
+		}),
+	)
+	if err != nil {
+		log.Warn().Msgf("Metrics: unable to fetch counter with fields: ebpf_program: %s, map_name: %s, interface_name: %s",
+			ebpfProgram, mapName, ifaceName)
+		return
 	}
+	nfGauge.Set(value)
 }
