@@ -51,7 +51,7 @@ func (c *pCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string
 				}
 				isRunning, _ := bpf.isRunning()
 				if isRunning {
-					stats.Set(1.0, stats.NFRunning, bpf.Program.Name, direction, "")
+					stats.Set(1.0, stats.NFRunning, bpf.Program.Name, direction, ifaceName)
 					continue
 				}
 				// Not running trying to restart
@@ -63,7 +63,7 @@ func (c *pCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string
 						log.Error().Err(err).Msgf("pMonitor BPF Program start failed for program %s", bpf.Program.Name)
 					}
 				} else {
-					stats.Set(0.0, stats.NFRunning, bpf.Program.Name, direction, "")
+					stats.Set(0.0, stats.NFRunning, bpf.Program.Name, direction, ifaceName)
 				}
 			}
 		}
