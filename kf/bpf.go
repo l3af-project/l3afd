@@ -237,10 +237,10 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	// Reset ProgID
 	b.ProgID = 0
 
-	stats.Incr(stats.NFStopCount, b.Program.Name, direction)
+	stats.Incr(stats.NFStopCount, b.Program.Name, direction, ifaceName)
 
 	// Setting NFRunning to 0, indicates not running
-	stats.Set(0.0, stats.NFRunning, b.Program.Name, direction)
+	stats.Set(0.0, stats.NFRunning, b.Program.Name, direction, ifaceName)
 
 	if len(b.Program.CmdStop) < 1 {
 		if err := b.ProcessTerminate(); err != nil {
@@ -434,8 +434,8 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	if err := b.SetPrLimits(); err != nil {
 		log.Warn().Err(err).Msg("failed to set resource limits")
 	}
-	stats.Incr(stats.NFStartCount, b.Program.Name, direction)
-	stats.Set(float64(time.Now().Unix()), stats.NFStartTime, b.Program.Name, direction)
+	stats.Incr(stats.NFStartCount, b.Program.Name, direction, ifaceName)
+	stats.Set(float64(time.Now().Unix()), stats.NFStartTime, b.Program.Name, direction, ifaceName)
 
 	log.Info().Msgf("BPF program - %s started Process id %d Program ID %d", b.Program.Name, b.Cmd.Process.Pid, b.ProgID)
 	return nil
@@ -462,7 +462,7 @@ func (b *BPF) Update(ifaceName, direction string) error {
 			bpfMap.Update(v)
 		}
 	}
-	stats.Incr(stats.NFUpdateCount, b.Program.Name, direction)
+	stats.Incr(stats.NFUpdateCount, b.Program.Name, direction, ifaceName)
 	return nil
 }
 
@@ -840,7 +840,7 @@ func (b *BPF) MonitorMaps(ifaceName string, intervals int) error {
 		}
 		bpfMap := b.MetricsBpfMaps[mapKey]
 		MetricName := element.Name + "_" + strconv.Itoa(element.Key) + "_" + element.Aggregator
-		stats.SetValue(bpfMap.GetValue(), stats.NFMointorMap, b.Program.Name, MetricName)
+		stats.SetValue(bpfMap.GetValue(), stats.NFMonitorMap, b.Program.Name, MetricName, ifaceName)
 	}
 	return nil
 }
