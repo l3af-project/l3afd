@@ -31,5 +31,7 @@ func ViewHandler(w http.ResponseWriter, r *http.Request) {
 	iface := strings.TrimPrefix(r.URL.Path, "/kfs/")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(kfcfgs.KFDetails(iface))
+	if err := json.NewEncoder(w).Encode(kfcfgs.KFDetails(iface)); err != nil {
+		log.Err(err).Msgf("unable to serialize json")
+	}
 }
