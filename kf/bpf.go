@@ -50,7 +50,7 @@ const fileScheme string = "file"
 // BPF defines run time details for BPFProgram.
 type BPF struct {
 	Program         models.BPFProgram
-	Cmd             *exec.Cmd
+	Cmd             *exec.Cmd                 `json:"-"`
 	FilePath        string                    // Binary file path
 	RestartCount    int                       // To track restart count
 	PrevMapNamePath string                    // Previous Map name with path to link
