@@ -58,8 +58,8 @@ type BPF struct {
 	ProgID          int                       // eBPF Program ID
 	BpfMaps         map[string]BPFMap         // Config maps passed as map-args, Map name is Key
 	MetricsBpfMaps  map[string]*MetricsBPFMap // Metrics map name+key+aggregator is key
-	Ctx             context.Context
-	Done            chan bool `json:"-"`
+	Ctx             context.Context           `json:"-"`
+	Done            chan bool                 `json:"-"`
 	hostConfig      *config.Config
 }
 
