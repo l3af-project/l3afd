@@ -9,10 +9,10 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/robfig/config v0.0.0-20141207224736-0f78529c8c7e
 	github.com/rs/zerolog v1.29.0
-	github.com/safchain/ethtool v0.2.0
-	github.com/swaggo/http-swagger v1.3.3
-	github.com/swaggo/swag v1.8.10
-	golang.org/x/sys v0.6.0 // exclude
+	github.com/safchain/ethtool v0.3.0
+	github.com/swaggo/http-swagger v1.3.4
+	github.com/swaggo/swag v1.8.12
+	golang.org/x/sys v0.7.0 // exclude
 )
 
 require github.com/golang/mock v1.6.0
@@ -35,8 +35,8 @@ require (
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/swaggo/files v0.0.0-20220728132757-551d4a08d97a // indirect
-	golang.org/x/net v0.0.0-20221004154528-8021a29435af // indirect
-	golang.org/x/tools v0.1.12 // indirect
+	golang.org/x/net v0.8.0 // indirect
+	golang.org/x/tools v0.7.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
