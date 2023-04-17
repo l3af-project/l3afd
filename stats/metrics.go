@@ -62,7 +62,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 			Name:      "NFRunning",
 			Help:      "This value indicates network functions is running or not",
 		},
-		[]string{"host", "ebpf_program", "direction", "interface_name"},
+		[]string{"host", "ebpf_program", "version", "direction", "interface_name"},
 	)
 
 	if err := prometheus.Register(nfRunningVec); err != nil {
@@ -149,7 +149,7 @@ func Set(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, direction, i
 		}),
 	)
 	if err != nil {
-		log.Warn().Msgf("Metrics: unable to fetch counter with fields: ebpf_program: %s, direction: %s, interface_name: %s",
+		log.Warn().Msgf("Metrics: unable to fetch gauge with fields: ebpf_program: %s, direction: %s, interface_name: %s",
 			ebpfProgram, direction, ifaceName)
 		return
 	}
@@ -170,8 +170,30 @@ func SetValue(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, mapName
 		}),
 	)
 	if err != nil {
-		log.Warn().Msgf("Metrics: unable to fetch counter with fields: ebpf_program: %s, map_name: %s, interface_name: %s",
+		log.Warn().Msgf("Metrics: unable to fetch gauge with fields: ebpf_program: %s, map_name: %s, interface_name: %s",
 			ebpfProgram, mapName, ifaceName)
+		return
+	}
+	nfGauge.Set(value)
+}
+
+func SetWithVersion(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, version, direction, ifaceName string) {
+
+	if gaugeVec == nil {
+		log.Warn().Msg("Metrics: gauge vector is nil and needs to be initialized before Set")
+		return
+	}
+	nfGauge, err := gaugeVec.GetMetricWith(
+		prometheus.Labels(map[string]string{
+			"ebpf_program":   ebpfProgram,
+			"version":        version,
+			"direction":      direction,
+			"interface_name": ifaceName,
+		}),
+	)
+	if err != nil {
+		log.Warn().Msgf("Metrics: unable to fetch gauge with fields: ebpf_program: %s, direction: %s, interface_name: %s",
+			ebpfProgram, direction, ifaceName)
 		return
 	}
 	nfGauge.Set(value)
