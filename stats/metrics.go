@@ -192,8 +192,8 @@ func SetWithVersion(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, v
 		}),
 	)
 	if err != nil {
-		log.Warn().Msgf("Metrics: unable to fetch gauge with fields: ebpf_program: %s, direction: %s, interface_name: %s",
-			ebpfProgram, direction, ifaceName)
+		log.Warn().Msgf("Metrics: unable to fetch gauge with fields: ebpf_program: %s, version: %s, direction: %s, interface_name: %s",
+			ebpfProgram, version, direction, ifaceName)
 		return
 	}
 	nfGauge.Set(value)
