@@ -240,7 +240,7 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	stats.Incr(stats.NFStopCount, b.Program.Name, direction, ifaceName)
 
 	// Setting NFRunning to 0, indicates not running
-	stats.Set(0.0, stats.NFRunning, b.Program.Name, direction, ifaceName)
+	stats.SetWithVersion(0.0, stats.NFRunning, b.Program.Name, b.Program.Version, direction, ifaceName)
 
 	if len(b.Program.CmdStop) < 1 {
 		if err := b.ProcessTerminate(); err != nil {
