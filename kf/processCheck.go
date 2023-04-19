@@ -5,9 +5,9 @@
 package kf
 
 import (
-	"container/list"
 	"time"
 
+	"github.com/l3af-project/l3afd/list"
 	"github.com/l3af-project/l3afd/models"
 	"github.com/l3af-project/l3afd/stats"
 

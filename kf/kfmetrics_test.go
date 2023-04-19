@@ -4,9 +4,10 @@
 package kf
 
 import (
-	"container/list"
 	"reflect"
 	"testing"
+
+	"github.com/l3af-project/l3afd/list"
 )
 
 func TestNewpKFMetrics(t *testing.T) {

@@ -38,6 +38,9 @@ import (
 var (
 	execCommand           = exec.Command
 	copyBufPool sync.Pool = sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
+
+	// errTypeAssertion
+	errTypeAssertion = errors.New("type assertion failed")
 )
 
 //lint:ignore U1000 avoid false linter error on windows, since this variable is only used in linux code
@@ -62,6 +65,8 @@ type BPF struct {
 	Done            chan bool                 `json:"-"`
 	hostConfig      *config.Config
 }
+
+var _ models.BPF = &BPF{}
 
 func NewBpfProgram(ctx context.Context, program models.BPFProgram, conf *config.Config) *BPF {
 	bpf := &BPF{
@@ -204,6 +209,51 @@ func StopExternalRunningProcess(processName string) error {
 		}
 	}
 	return nil
+}
+
+// Name returns the program name
+func (b *BPF) Name() string {
+	return b.Program.Name
+}
+
+// Artfact returns the program artifact
+func (b *BPF) Artifact() string {
+	return b.Program.Artifact
+}
+
+// MapName returns the map name for the program
+func (b *BPF) MapName() string {
+	return b.Program.MapName
+}
+
+// MapNamePth returns the map name path
+func (b *BPF) MapNamePth() string {
+	return b.MapNamePath
+}
+
+// PrevMapNamePth return the previous map name path
+func (b *BPF) PrevMapNamePth() string {
+	return b.PrevMapNamePath
+}
+
+// ProgId returns the program ID
+func (b *BPF) ProgId() int {
+	return b.ProgID
+}
+
+// SeqId returns the program ID
+func (b *BPF) SeqId() int {
+	return b.Program.SeqID
+}
+
+// UpdatePrevMapNamePath changes the PrevMapNamePath to the passed value
+func (b *BPF) UpdatePrevMapNamePath(value string) {
+	b.PrevMapNamePath = value
+}
+
+// UpdateAdminStatus changes the Program.AdminStatus to the passed value
+func (b *BPF) UpdateAdminStatus(value string) {
+	b.Program.AdminStatus = value
 }
 
 // Stop returns the last error seen, but stops bpf program.
@@ -721,17 +771,21 @@ func fileExists(filename string) bool {
 
 // Add eBPF map into BPFMaps list
 func (b *BPF) AddBPFMap(mapName string) error {
-	bpfMap, err := b.GetBPFMap(mapName)
+	bMap, err := b.GetBPFMap(mapName)
 
 	if err != nil {
 		return err
 	}
 
+	bpfMap, ok := bMap.(*BPFMap)
+	if !ok {
+		return errTypeAssertion
+	}
 	b.BpfMaps[mapName] = *bpfMap
 	return nil
 }
 
-func (b *BPF) GetBPFMap(mapName string) (*BPFMap, error) {
+func (b *BPF) GetBPFMap(mapName string) (models.BPFMap, error) {
 	var newBPFMap BPFMap
 
 	// TC maps are pinned by default
@@ -809,12 +863,16 @@ func (b *BPF) GetBPFMap(mapName string) (*BPFMap, error) {
 func (b *BPF) AddMetricsBPFMap(mapName, aggregator string, key, samplesLength int) error {
 
 	var tmpMetricsBPFMap MetricsBPFMap
-	bpfMap, err := b.GetBPFMap(mapName)
+	bMap, err := b.GetBPFMap(mapName)
 
 	if err != nil {
 		return err
 	}
 
+	bpfMap, ok := bMap.(*BPFMap)
+	if !ok {
+		return errTypeAssertion
+	}
 	tmpMetricsBPFMap.BPFMap = *bpfMap
 	tmpMetricsBPFMap.key = key
 	tmpMetricsBPFMap.aggregator = aggregator
