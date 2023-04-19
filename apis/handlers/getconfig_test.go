@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"container/list"
 	"context"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +8,7 @@ import (
 
 	chi "github.com/go-chi/chi/v5"
 	"github.com/l3af-project/l3afd/kf"
+	"github.com/l3af-project/l3afd/list"
 )
 
 func Test_GetConfig(t *testing.T) {

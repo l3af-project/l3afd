@@ -534,16 +534,18 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 		bpfProgs *models.BPFPrograms
 	}
 	tests := []struct {
-		name    string
-		field   fields
-		arg     args
-		wanterr bool
+		name  string
+		field fields
+		arg   args
+		want  error
 	}{
 		{
-			name:    "UnknownHostName",
-			field:   fields{},
-			arg:     args{},
-			wanterr: true,
+			name: "UnknownHostName",
+			field: fields{
+				hostName: "l3af-local-test",
+			},
+			arg:  args{},
+			want: errUnknownHostName,
 		},
 		{
 			name: "NilInterface",
@@ -551,14 +553,27 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 				hostName: "l3af-local-test",
 			},
 			arg: args{
-				hostName: "fakeif0",
+				hostName: "l3af-local-test",
 			},
-			wanterr: true,
+			want: errEmptyParameter,
+		},
+		{
+			name: "NilBPFProgs",
+			field: fields{
+				hostName: "l3af-local-test",
+			},
+			arg: args{
+				hostName: "l3af-local-test",
+				iface:    "dummyinterface",
+				bpfProgs: nil,
+			},
+			want: errEmptyParameter,
 		},
 		{
 			name: "UnknownInterface",
 			field: fields{
-				hostName: "l3af-local-test",
+				hostName:       "l3af-local-test",
+				hostInterfaces: map[string]bool{},
 			},
 			arg: args{
 				hostName: "l3af-local-test",
@@ -580,7 +595,89 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 					},
 				},
 			},
-			wanterr: true,
+			want: errUnknownInterface,
+		},
+		{
+			name: "BPFChainingDisabled",
+			field: fields{
+				hostName:       "l3af-local-test",
+				hostInterfaces: map[string]bool{"fakeif0": true},
+				mu:             new(sync.Mutex),
+				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
+				ingressTCBpfs:  map[string]*list.List{"fakeif0": nil},
+				egressTCBpfs:   map[string]*list.List{"fakeif0": nil},
+				hostConfig: &config.Config{
+					BpfChainingEnabled: false,
+				},
+			},
+			arg: args{
+				hostName: "l3af-local-test",
+				iface:    "fakeif0",
+				bpfProgs: &models.BPFPrograms{
+					XDPIngress: []*models.BPFProgram{
+						&models.BPFProgram{
+							Name:              "dummy_name",
+							SeqID:             1,
+							Artifact:          "dummy_artifact.tar.gz",
+							MapName:           "xdp_rl_ingress_next_prog",
+							CmdStart:          "dummy_command",
+							Version:           "latest",
+							UserProgramDaemon: true,
+							AdminStatus:       "enabled",
+							ProgType:          "xdp",
+							CfgVersion:        1,
+						},
+						&models.BPFProgram{
+							Name:              "dummy_name_2",
+							SeqID:             1,
+							Artifact:          "dummy_artifact.tar.gz",
+							MapName:           "xdp_rl_ingress_next_prog",
+							CmdStart:          "dummy_command",
+							Version:           "latest",
+							UserProgramDaemon: true,
+							AdminStatus:       "enabled",
+							ProgType:          "xdp",
+							CfgVersion:        1,
+						},
+					},
+				},
+			},
+			want: errAddProgramFailure,
+		},
+		{
+			name: "BadInput",
+			field: fields{
+				hostName:       "l3af-local-test",
+				hostInterfaces: map[string]bool{"fakeif0": true},
+				mu:             new(sync.Mutex),
+				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
+				ingressTCBpfs:  map[string]*list.List{"fakeif0": nil},
+				egressTCBpfs:   map[string]*list.List{"fakeif0": nil},
+				hostConfig: &config.Config{
+					BpfChainingEnabled: true,
+				},
+			},
+			arg: args{
+				hostName: "l3af-local-test",
+				iface:    "fakeif0",
+				bpfProgs: &models.BPFPrograms{
+					XDPIngress: []*models.BPFProgram{
+						&models.BPFProgram{
+							Name:              "dummy_name",
+							SeqID:             1,
+							Artifact:          "dummy_artifact.tar.gz",
+							MapName:           "xdp_rl_ingress_next_prog",
+							CmdStart:          "dummy_command",
+							Version:           "latest",
+							UserProgramDaemon: true,
+							AdminStatus:       models.Enabled,
+							ProgType:          "xdp",
+							CfgVersion:        1,
+						},
+					},
+				},
+			},
+			want: errDisableLROFailure,
 		},
 		{
 			name: "GoodInput",
@@ -604,7 +701,7 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 					TCIngress:  []*models.BPFProgram{},
 				},
 			},
-			wanterr: false,
+			want: nil,
 		},
 	}
 	for _, tt := range tests {
@@ -620,11 +717,132 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 				mu:             tt.field.mu,
 			}
 			err := cfg.addProgramsOnInterface(tt.arg.iface, tt.arg.hostName, tt.arg.bpfProgs)
-			if (err != nil) != tt.wanterr {
+			if !errors.Is(err, tt.want) {
 				t.Errorf("AddProgramsOnInterface: %v", err)
 			}
 		})
 	}
+}
+
+func TestAddeBPDProgramsByHook(t *testing.T) {
+	mocked := errors.New("mocked")
+	type fields struct {
+		hostname            string
+		hostInterfaces      map[string]bool
+		ingressXDPBpfs      map[string]*list.List
+		ingressTCBpfs       map[string]*list.List
+		egressTCBpfs        map[string]*list.List
+		hostConfig          *config.Config
+		testLoadRootProgram func(ifaceName, direction, progType string, conf *config.Config) (models.BPF, error)
+	}
+	type args struct {
+		iface     string
+		direction string
+		progMap   map[string]*list.List
+		bpfProgs  []*models.BPFProgram
+	}
+	tests := []struct {
+		name  string
+		field fields
+		arg   args
+		want  error
+	}{
+		{
+			name:  "NonNilProgMap",
+			field: fields{},
+			arg: args{
+				iface:   "fakeif0",
+				progMap: map[string]*list.List{"fakeif0": setupValidBPFList("mocked")},
+				bpfProgs: []*models.BPFProgram{
+					&models.BPFProgram{},
+				},
+			},
+			want: errUnknownDirection,
+		},
+		{
+			name:  "AdminStatusDisabled",
+			field: fields{},
+			arg: args{
+				iface:   "fakeif0",
+				progMap: map[string]*list.List{"fakeif0": nil},
+				bpfProgs: []*models.BPFProgram{
+					&models.BPFProgram{
+						AdminStatus: models.Disabled,
+					},
+				},
+			},
+			want: nil,
+		},
+		{
+			name: "UnknownDirection",
+			arg: args{
+				iface:   "fakeif0",
+				progMap: map[string]*list.List{"fakeif0": nil},
+				bpfProgs: []*models.BPFProgram{
+					&models.BPFProgram{
+						AdminStatus: models.Enabled,
+					},
+				},
+			},
+			want: errUnknownDirection,
+		},
+		{
+			name: "BadInput",
+			field: fields{
+				hostname:       "l3af-local-test",
+				hostInterfaces: map[string]bool{"fakeif0": true},
+				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
+				ingressTCBpfs:  map[string]*list.List{"fakeif0": nil},
+				egressTCBpfs:   map[string]*list.List{"fakeif0": nil},
+				hostConfig: &config.Config{
+					BpfChainingEnabled: false,
+				},
+				testLoadRootProgram: func(ifaceName, direction, progType string, conf *config.Config) (models.BPF, error) {
+					return &mocks.BPF{}, mocked
+				},
+			},
+			arg: args{
+				iface:     "fakeif0",
+				direction: models.XDPIngressType,
+				progMap: map[string]*list.List{
+					"fakeif0": nil,
+				},
+				bpfProgs: []*models.BPFProgram{
+					&models.BPFProgram{
+						Name:              "dummy_name",
+						SeqID:             1,
+						Artifact:          "dummy_artifact.tar.gz",
+						MapName:           "xdp_rl_ingress_next_prog",
+						CmdStart:          "dummy_command",
+						Version:           "latest",
+						UserProgramDaemon: true,
+						AdminStatus:       models.Enabled,
+						ProgType:          "xdp",
+						CfgVersion:        1,
+					},
+				},
+			},
+			want: errDisableLROFailure,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &NFConfigs{
+				HostName:            tt.field.hostname,
+				hostInterfaces:      tt.field.hostInterfaces,
+				IngressXDPBpfs:      tt.field.ingressXDPBpfs,
+				IngressTCBpfs:       tt.field.ingressTCBpfs,
+				EgressTCBpfs:        tt.field.egressTCBpfs,
+				HostConfig:          tt.field.hostConfig,
+				TestLoadRootProgram: tt.field.testLoadRootProgram,
+			}
+			err := cfg.addeBPFProgramsByHook(tt.arg.iface, tt.arg.direction, tt.arg.progMap, tt.arg.bpfProgs)
+			if !errors.Is(err, tt.want) {
+				t.Errorf("AddeBPFProgramsByHook: %v", err)
+			}
+		})
+	}
+
 }
 
 func TestAddeBPFPrograms(t *testing.T) {

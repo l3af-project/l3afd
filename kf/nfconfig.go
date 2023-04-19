@@ -65,8 +65,20 @@ var (
 	// errStopFailure indicates that there was a failure while stopping a program
 	errStopFailure = errors.New("failed to stop program")
 
-	// errUpdateFdFailure indicates that there was a failure while
+	// errUpdateFdFailure indicates that there was a failure while updating the program fd
 	errUpdateFdFailure = errors.New("failed to update program fd")
+
+	// errAddProgramFailure indicates that there was a failure while adding programs
+	errAddProgramFailure = errors.New("failed to add program")
+
+	// errDisableLROFailure indicates that there was a failure while disabling LRO
+	errDisableLROFailure = errors.New("failed to disable LRO")
+
+	// errDownloadFailure indicates that there was a failure while downloading the BPF
+	errDownloadFailure = errors.New("failed to download")
+
+	// err LoadRootFailure indicates that there was a failure while loading the root program
+	errLoadRootFailure = errors.New("failed to load root program")
 )
 
 var shutdownInterval = 900 * time.Millisecond
@@ -176,7 +188,7 @@ func (c *NFConfigs) Close(ctx context.Context) error {
 func (c *NFConfigs) VerifyAndStartXDPRootProgram(ifaceName, direction string) error {
 
 	if err := DisableLRO(ifaceName); err != nil {
-		return fmt.Errorf("failed to disable lro %v", err)
+		return fmt.Errorf("%w: %v", errDisableLROFailure, err)
 	}
 	if err := VerifyNMountBPFFS(); err != nil {
 		return fmt.Errorf("failed to mount bpf file system")
@@ -190,7 +202,7 @@ func (c *NFConfigs) VerifyAndStartXDPRootProgram(ifaceName, direction string) er
 	if c.IngressXDPBpfs[ifaceName].Len() == 0 {
 		rootBpf, err := c.LoadRootProgram(ifaceName, direction, models.XDPType)
 		if err != nil {
-			return fmt.Errorf("failed to load %s xdp root program: %v", direction, err)
+			return fmt.Errorf("%w: %s xdp root program: %v", errLoadRootFailure, direction, err)
 		}
 		log.Info().Msg("ingress xdp root program attached")
 		c.IngressXDPBpfs[ifaceName].PushFront(rootBpf)
@@ -217,7 +229,7 @@ func (c *NFConfigs) VerifyAndStartTCRootProgram(ifaceName, direction string) err
 		if c.IngressTCBpfs[ifaceName].Len() == 0 { //Root program is not running start then
 			rootBpf, err := c.LoadRootProgram(ifaceName, direction, models.TCType)
 			if err != nil {
-				return fmt.Errorf("failed to load %s tc root program: %v", direction, err)
+				return fmt.Errorf("%w: %s tc root program: %v", errLoadRootFailure, direction, err)
 			}
 			log.Info().Msg("ingress tc root program attached")
 			c.IngressTCBpfs[ifaceName].PushFront(rootBpf)
@@ -226,7 +238,7 @@ func (c *NFConfigs) VerifyAndStartTCRootProgram(ifaceName, direction string) err
 		if c.EgressTCBpfs[ifaceName].Len() == 0 { //Root program is not running start then
 			rootBpf, err := c.LoadRootProgram(ifaceName, direction, models.TCType)
 			if err != nil {
-				return fmt.Errorf("failed to load %s tc root program: %v", direction, err)
+				return fmt.Errorf("%w: %s tc root program: %v", errLoadRootFailure, direction, err)
 			}
 			log.Info().Msg("egress tc root program attached")
 			c.EgressTCBpfs[ifaceName].PushFront(rootBpf)
@@ -255,7 +267,7 @@ func (c *NFConfigs) PushBackAndStartBPF(bpfProg *models.BPFProgram, ifaceName, d
 	}
 
 	if err := c.DownloadAndStartBPFProgram(bpfList.PushBack(bpf), ifaceName, direction); err != nil {
-		return fmt.Errorf("failed to download and start the BPF %s iface %s direction %s", bpfProg.Name, ifaceName, direction)
+		return fmt.Errorf("%w: BPF %s iface %s direction %s", errDownloadFailure, bpfProg.Name, ifaceName, direction)
 	}
 
 	return nil
@@ -1009,7 +1021,7 @@ func (c *NFConfigs) AddAndStartBPF(bpfProg *models.BPFProgram, ifaceName string,
 	case models.EgressType:
 		bpfList = c.EgressTCBpfs[ifaceName]
 	default:
-		return fmt.Errorf("unknown direction type")
+		return errUnknownDirection
 	}
 
 	for e := bpfList.Front(); e != nil; e = e.Next() {
@@ -1027,7 +1039,7 @@ func (c *NFConfigs) AddAndStartBPF(bpfProg *models.BPFProgram, ifaceName string,
 	for e := bpfList.Front(); e != nil; e = e.Next() {
 		data := e.Value
 		if data.SeqId() > bpfProg.SeqID {
-			bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig)
+			bpf := c.NewBpfProgram(c.ctx, *bpfProg)
 			tmpBPF := bpfList.InsertBefore(bpf, e)
 			if err := c.DownloadAndStartBPFProgram(tmpBPF, ifaceName, direction); err != nil {
 				return fmt.Errorf("failed to download and start eBPF program %s version %s iface %s direction %s", bpfProg.Name, bpfProg.Version, ifaceName, direction)
@@ -1058,7 +1070,7 @@ func (c *NFConfigs) AddProgramWithoutChaining(ifaceName string, bpfProgs *models
 	}
 
 	if len(bpfProgs.XDPIngress) > 1 || len(bpfProgs.TCIngress) > 1 || len(bpfProgs.TCEgress) > 1 {
-		return fmt.Errorf("failed to add multiple programs because chaining is disabled")
+		return fmt.Errorf("%w: chaining is disabled", errAddProgramFailure)
 	}
 
 	if err := c.addProgramByHookWithoutChaining(ifaceName, models.XDPIngressType, c.IngressXDPBpfs, bpfProgs.XDPIngress); err != nil {
@@ -1082,7 +1094,7 @@ func (c *NFConfigs) addProgramByHookWithoutChaining(ifaceName, progType string, 
 			if progMap[ifaceName] == nil {
 				progMap[ifaceName] = list.New()
 				if err := c.PushBackAndStartBPF(bpfProg, ifaceName, progType); err != nil {
-					return fmt.Errorf("failed to PushBackAndStartBPF BPF Program: %v", err)
+					return fmt.Errorf("failed to PushBackAndStartBPF BPF Program: %w", err)
 				}
 			} else {
 				prog := progMap[ifaceName].Front().Value
@@ -1109,7 +1121,7 @@ func (c *NFConfigs) addProgramsOnInterface(ifaceName, HostName string, bpfProgs 
 	}
 
 	if _, ok := c.hostInterfaces[ifaceName]; !ok {
-		errOut := fmt.Errorf("%w: %s interface name not found in the host", errEmptyParameter, ifaceName)
+		errOut := fmt.Errorf("%w: %s interface name not found in the host", errUnknownInterface, ifaceName)
 		log.Error().Err(errOut)
 		return errOut
 	}
@@ -1139,38 +1151,40 @@ func (c *NFConfigs) addProgramsOnInterface(ifaceName, HostName string, bpfProgs 
 }
 
 // addeBPFProgramsByHook adds programs depending on the passed subsystem kernel map
-func (c *NFConfigs) addeBPFProgramsByHook(ifaceName, progType string, progMap map[string]*list.List, bpfProgs []*models.BPFProgram) error {
+func (c *NFConfigs) addeBPFProgramsByHook(ifaceName, direction string, progMap map[string]*list.List, bpfProgs []*models.BPFProgram) error {
 	for _, bpfProg := range bpfProgs {
 		if progMap[ifaceName] == nil {
 			if bpfProg.AdminStatus == models.Enabled {
 				progMap[ifaceName] = list.New()
 
-				switch progType {
+				switch direction {
 				case models.XDPIngressType:
-					if err := c.VerifyAndStartXDPRootProgram(ifaceName, progType); err != nil {
+					if err := c.VerifyAndStartXDPRootProgram(ifaceName, direction); err != nil {
 						c.IngressXDPBpfs[ifaceName] = nil
-						return fmt.Errorf("failed to chain BPF programs: %v", err)
+						return fmt.Errorf("failed to chain BPF programs: %w", err)
 					}
 				case models.IngressType:
-					if err := c.VerifyAndStartTCRootProgram(ifaceName, progType); err != nil {
+					if err := c.VerifyAndStartTCRootProgram(ifaceName, direction); err != nil {
 						c.IngressTCBpfs[ifaceName] = nil
-						return fmt.Errorf("failed to chain ingress tc bpf programs: %v", err)
+						return fmt.Errorf("failed to chain ingress tc bpf programs: %w", err)
 					}
 				case models.EgressType:
-					if err := c.VerifyAndStartTCRootProgram(ifaceName, progType); err != nil {
+					if err := c.VerifyAndStartTCRootProgram(ifaceName, direction); err != nil {
 						c.EgressTCBpfs[ifaceName] = nil
-						return fmt.Errorf("failed to chain ingress tc bpf programs: %v", err)
+						return fmt.Errorf("failed to chain ingress tc bpf programs: %w", err)
 					}
+				default:
+					return errUnknownDirection
 				}
 
 				// TODO(DecFox): format string with proper logs
 				// log.Info().Msgf("Push Back and Start XDP program : %s seq_id : %d", bpfProg.Name, bpfProg.SeqID)
-				if err := c.PushBackAndStartBPF(bpfProg, ifaceName, progType); err != nil {
+				if err := c.PushBackAndStartBPF(bpfProg, ifaceName, direction); err != nil {
 					return fmt.Errorf("failed to PushBackAndStartBPF BPF Program: %v", err)
 				}
 			}
-		} else if err := c.AddAndStartBPF(bpfProg, ifaceName, progType); err != nil {
-			return fmt.Errorf("failed to AddAndStartBPF BPF Program: %v", err)
+		} else if err := c.AddAndStartBPF(bpfProg, ifaceName, direction); err != nil {
+			return fmt.Errorf("failed to AddAndStartBPF BPF Program: %w", err)
 		}
 	}
 	return nil
