@@ -49,7 +49,7 @@ func setupDBTest() {
 
 func setupValidBPF() {
 	bpf := BPF{
-		Program: models.BPFProgram{
+		Program: &models.BPFProgram{
 			ID:                1,
 			Name:              "foo",
 			Artifact:          "foo.tar.gz",
@@ -991,7 +991,7 @@ func TestAddAndStartBPF(t *testing.T) {
 func TestAddProgramWithoutChaining(t *testing.T) {
 	progList := list.New()
 	progList.PushBack(&BPF{
-		Program: models.BPFProgram{
+		Program: &models.BPFProgram{
 			Name: "dummyProgram",
 		},
 	})

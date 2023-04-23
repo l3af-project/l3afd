@@ -42,28 +42,28 @@ func (c *pCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string
 				continue
 			}
 			for e := bpfList.Front(); e != nil; e = e.Next() {
-				bpf := e.Value.(*BPF)
-				if c.Chain && bpf.Program.SeqID == 0 { // do not monitor root program
+				bpf := e.Value.(models.BPF)
+				if c.Chain && bpf.SeqId() == 0 { // do not monitor root program
 					continue
 				}
-				if bpf.Program.AdminStatus == models.Disabled {
+				if bpf.AdminStatus() == models.Disabled {
 					continue
 				}
-				isRunning, _ := bpf.isRunning()
+				isRunning, _ := bpf.IsRunning()
 				if isRunning {
-					stats.SetWithVersion(1.0, stats.NFRunning, bpf.Program.Name, bpf.Program.Version, direction, ifaceName)
+					stats.SetWithVersion(1.0, stats.NFRunning, bpf.Name(), bpf.Version(), direction, ifaceName)
 					continue
 				}
 				// Not running trying to restart
-				if bpf.RestartCount < c.MaxRetryCount && bpf.Program.AdminStatus == models.Enabled {
-					bpf.RestartCount++
+				if bpf.GetRestartCount() < c.MaxRetryCount && bpf.AdminStatus() == models.Enabled {
+					bpf.AddToRestartCount(1)
 					log.Warn().Msgf("pMonitor BPF Program is not running. Restart attempt: %d, program name: %s, iface: %s",
-						bpf.RestartCount, bpf.Program.Name, ifaceName)
+						bpf.GetRestartCount(), bpf.Name(), ifaceName)
 					if err := bpf.Start(ifaceName, direction, c.Chain); err != nil {
-						log.Error().Err(err).Msgf("pMonitor BPF Program start failed for program %s", bpf.Program.Name)
+						log.Error().Err(err).Msgf("pMonitor BPF Program start failed for program %s", bpf.Name())
 					}
 				} else {
-					stats.SetWithVersion(0.0, stats.NFRunning, bpf.Program.Name, bpf.Program.Version, direction, ifaceName)
+					stats.SetWithVersion(0.0, stats.NFRunning, bpf.Name(), bpf.Version(), direction, ifaceName)
 				}
 			}
 		}

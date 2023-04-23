@@ -45,7 +45,7 @@ func TestHelperProcess(t *testing.T) {
 
 func TestNewBpfProgram(t *testing.T) {
 	type args struct {
-		program    models.BPFProgram
+		program    *models.BPFProgram
 		logDir     string
 		chain      bool
 		direction  string
@@ -62,7 +62,7 @@ func TestNewBpfProgram(t *testing.T) {
 	}{
 		{name: "GoodInput",
 			args: args{
-				program: models.BPFProgram{
+				program: &models.BPFProgram{
 					Name:              "nfprogram",
 					Artifact:          "foo.tar.gz",
 					CmdStart:          "foo",
@@ -83,7 +83,7 @@ func TestNewBpfProgram(t *testing.T) {
 				},
 			},
 			want: &BPF{
-				Program: models.BPFProgram{
+				Program: &models.BPFProgram{
 					Name:              "nfprogram",
 					Artifact:          "foo.tar.gz",
 					CmdStart:          "foo",
@@ -96,7 +96,7 @@ func TestNewBpfProgram(t *testing.T) {
 				},
 				Cmd:            nil,
 				FilePath:       "",
-				BpfMaps:        make(map[string]BPFMap, 0),
+				BpfMaps:        make(map[string]models.BPFMap, 0),
 				MetricsBpfMaps: make(map[string]*MetricsBPFMap, 0),
 				Ctx:            nil,
 				Done:           nil,
@@ -108,14 +108,14 @@ func TestNewBpfProgram(t *testing.T) {
 		},
 		{name: "EmptyBPFProgram",
 			args: args{
-				program:    models.BPFProgram{},
+				program:    &models.BPFProgram{},
 				hostConfig: &config.Config{},
 			},
 			want: &BPF{
-				Program:        models.BPFProgram{},
+				Program:        &models.BPFProgram{},
 				Cmd:            nil,
 				FilePath:       "",
-				BpfMaps:        make(map[string]BPFMap, 0),
+				BpfMaps:        make(map[string]models.BPFMap, 0),
 				MetricsBpfMaps: make(map[string]*MetricsBPFMap, 0),
 				hostConfig:     &config.Config{},
 			},
@@ -132,7 +132,7 @@ func TestNewBpfProgram(t *testing.T) {
 
 func TestBPF_Stop(t *testing.T) {
 	type fields struct {
-		Program      models.BPFProgram
+		Program      *models.BPFProgram
 		Cmd          *exec.Cmd
 		FilePath     string
 		RestartCount int
@@ -145,7 +145,7 @@ func TestBPF_Stop(t *testing.T) {
 	}{
 		{name: "NilCmd",
 			fields: fields{
-				Program: models.BPFProgram{
+				Program: &models.BPFProgram{
 					Name:              "nfprogram",
 					Artifact:          "foo.tar.gz",
 					CmdStart:          "foo",
@@ -162,7 +162,7 @@ func TestBPF_Stop(t *testing.T) {
 		},
 		{name: "WithStopCmd",
 			fields: fields{
-				Program: models.BPFProgram{
+				Program: &models.BPFProgram{
 					Name:              "nfprogram",
 					Artifact:          "foo.tar.gz",
 					CmdStart:          "foo",
@@ -179,7 +179,7 @@ func TestBPF_Stop(t *testing.T) {
 		},
 		{name: "AnyBinaryFile",
 			fields: fields{
-				Program: models.BPFProgram{
+				Program: &models.BPFProgram{
 					Name:              "nfprogram",
 					Artifact:          "ls.tar.gz",
 					CmdStart:          GetTestExecutableName(),
@@ -211,7 +211,7 @@ func TestBPF_Stop(t *testing.T) {
 
 func TestBPF_Start(t *testing.T) {
 	type fields struct {
-		Program      models.BPFProgram
+		Program      *models.BPFProgram
 		Cmd          *exec.Cmd
 		FilePath     string
 		RestartCount int
@@ -225,7 +225,7 @@ func TestBPF_Start(t *testing.T) {
 	}{
 		{name: "NoFilePath",
 			fields: fields{
-				Program:      models.BPFProgram{},
+				Program:      &models.BPFProgram{},
 				Cmd:          nil,
 				FilePath:     "",
 				RestartCount: 0,
@@ -237,7 +237,7 @@ func TestBPF_Start(t *testing.T) {
 		},
 		{name: "AnyBinary",
 			fields: fields{
-				Program: models.BPFProgram{
+				Program: &models.BPFProgram{
 					Name:              "nfprogram",
 					Artifact:          "ls.tar.gz",
 					CmdStart:          GetTestExecutableName(),
@@ -256,7 +256,7 @@ func TestBPF_Start(t *testing.T) {
 		},
 		{name: "UserProgramFalse",
 			fields: fields{
-				Program: models.BPFProgram{
+				Program: &models.BPFProgram{
 					Name:              "nfprogram",
 					Artifact:          "ls.tar.gz",
 					CmdStart:          GetTestExecutableName(),
@@ -275,7 +275,7 @@ func TestBPF_Start(t *testing.T) {
 		},
 		{name: "withResourceLimits",
 			fields: fields{
-				Program: models.BPFProgram{
+				Program: &models.BPFProgram{
 					Name:              "nfprogram",
 					Artifact:          "ls.tar.gz",
 					CmdStart:          GetTestExecutableName(),
@@ -313,7 +313,7 @@ func TestBPF_Start(t *testing.T) {
 
 func TestBPF_isRunning(t *testing.T) {
 	type fields struct {
-		Program      models.BPFProgram
+		Program      *models.BPFProgram
 		Cmd          *exec.Cmd
 		FilePath     string
 		RestartCount int
@@ -328,7 +328,7 @@ func TestBPF_isRunning(t *testing.T) {
 		{
 			name: "NoPID",
 			fields: fields{
-				Program:      models.BPFProgram{},
+				Program:      &models.BPFProgram{},
 				Cmd:          nil,
 				FilePath:     "",
 				RestartCount: 0,
@@ -345,7 +345,7 @@ func TestBPF_isRunning(t *testing.T) {
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
 			}
-			got, err := b.isRunning()
+			got, err := b.IsRunning()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("BPF.isRunning() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -374,7 +374,7 @@ func NewTestClient(fn RoundTripFunc) *http.Client {
 func TestBPF_GetArtifacts(t *testing.T) {
 
 	type fields struct {
-		Program      models.BPFProgram
+		Program      *models.BPFProgram
 		Cmd          *exec.Cmd
 		FilePath     string
 		RestartCount int
@@ -391,7 +391,7 @@ func TestBPF_GetArtifacts(t *testing.T) {
 	}{
 		{name: "EmptyArtifact",
 			fields: fields{
-				Program:      models.BPFProgram{},
+				Program:      &models.BPFProgram{},
 				Cmd:          nil,
 				FilePath:     "",
 				RestartCount: 0,
@@ -401,7 +401,7 @@ func TestBPF_GetArtifacts(t *testing.T) {
 		},
 		{name: "DummyArtifact",
 			fields: fields{
-				Program: models.BPFProgram{
+				Program: &models.BPFProgram{
 					Name:     "dummy",
 					Version:  "1",
 					Artifact: "dummy.tar.gz",
@@ -434,7 +434,7 @@ func TestBPF_GetArtifacts(t *testing.T) {
 		{
 			name: "Unknown_url_with_http_scheme",
 			fields: fields{
-				Program: models.BPFProgram{
+				Program: &models.BPFProgram{
 					EPRURL: "http://www.example.com",
 				},
 				Cmd:          nil,
@@ -452,7 +452,7 @@ func TestBPF_GetArtifacts(t *testing.T) {
 		{
 			name: "Unknown_url_with_file_scheme",
 			fields: fields{
-				Program: models.BPFProgram{
+				Program: &models.BPFProgram{
 					EPRURL: "file:///Users/random/dummy.tar.gz",
 				},
 				Cmd:          nil,
@@ -470,7 +470,7 @@ func TestBPF_GetArtifacts(t *testing.T) {
 		{
 			name: "Unknown_scheme",
 			fields: fields{
-				Program: models.BPFProgram{
+				Program: &models.BPFProgram{
 					EPRURL: "ftp://ftp.foo.org/dummy.tar.gz",
 				},
 				Cmd:          nil,
@@ -488,7 +488,7 @@ func TestBPF_GetArtifacts(t *testing.T) {
 		{
 			name: "ZipReaderFail",
 			fields: fields{
-				Program: models.BPFProgram{
+				Program: &models.BPFProgram{
 					Name:     "testebpfprogram",
 					Version:  "1.0",
 					Artifact: "testebpfprogram.zip",
@@ -534,7 +534,7 @@ func TestBPF_GetArtifacts(t *testing.T) {
 			} else {
 				m.EXPECT().GetPlatform().Return("focal", nil).AnyTimes()
 			}
-			err := b.GetArtifacts(tt.args.conf)
+			err := b.getArtifacts(tt.args.conf)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("BPF.download() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -544,7 +544,7 @@ func TestBPF_GetArtifacts(t *testing.T) {
 
 func TestBPF_SetPrLimits(t *testing.T) {
 	type fields struct {
-		Program models.BPFProgram
+		Program *models.BPFProgram
 		Cmd     *exec.Cmd
 		//		Pid          int
 		FilePath     string
@@ -557,7 +557,7 @@ func TestBPF_SetPrLimits(t *testing.T) {
 	}{
 		{name: "DefaultLimitsWithNoCmd",
 			fields: fields{
-				Program:      models.BPFProgram{},
+				Program:      &models.BPFProgram{},
 				Cmd:          nil,
 				FilePath:     "",
 				RestartCount: 0,
@@ -566,7 +566,7 @@ func TestBPF_SetPrLimits(t *testing.T) {
 		},
 		{name: "ValidLimitsWithNoCmd",
 			fields: fields{
-				Program: models.BPFProgram{
+				Program: &models.BPFProgram{
 					CPU:    100,
 					Memory: 1024,
 				},
@@ -674,7 +674,7 @@ func Test_StopExternalRunningProcess(t *testing.T) {
 
 func Test_createUpdateRulesFile(t *testing.T) {
 	type fields struct {
-		Program models.BPFProgram
+		Program *models.BPFProgram
 		Cmd     *exec.Cmd
 		//		Pid          int
 		FilePath     string
@@ -688,7 +688,7 @@ func Test_createUpdateRulesFile(t *testing.T) {
 		{
 			name: "emptyRuleFileName",
 			fields: fields{
-				Program: models.BPFProgram{
+				Program: &models.BPFProgram{
 					RulesFile: "",
 				},
 				Cmd:          nil,
@@ -700,7 +700,7 @@ func Test_createUpdateRulesFile(t *testing.T) {
 		{
 			name: "invalidPath",
 			fields: fields{
-				Program: models.BPFProgram{
+				Program: &models.BPFProgram{
 					RulesFile: "bad",
 				},
 				Cmd:          nil,
@@ -728,7 +728,7 @@ func Test_createUpdateRulesFile(t *testing.T) {
 
 func Test_PutNextProgFDFromID(t *testing.T) {
 	type fields struct {
-		Program models.BPFProgram
+		Program *models.BPFProgram
 		Cmd     *exec.Cmd
 		//		Pid          int
 		FilePath     string
@@ -745,7 +745,7 @@ func Test_PutNextProgFDFromID(t *testing.T) {
 		{
 			name: "emptyMapName",
 			fields: fields{
-				Program: models.BPFProgram{
+				Program: &models.BPFProgram{
 					MapName: "",
 				},
 				hostConfig: &config.Config{
@@ -758,7 +758,7 @@ func Test_PutNextProgFDFromID(t *testing.T) {
 		{
 			name: "invalidMapName",
 			fields: fields{
-				Program: models.BPFProgram{
+				Program: &models.BPFProgram{
 					MapName: "invalidname",
 				},
 				hostConfig: &config.Config{
@@ -771,7 +771,7 @@ func Test_PutNextProgFDFromID(t *testing.T) {
 		{
 			name: "invalidProgID",
 			fields: fields{
-				Program: models.BPFProgram{
+				Program: &models.BPFProgram{
 					Name:              "ratelimiting",
 					SeqID:             1,
 					Artifact:          "l3af_ratelimiting.tar.gz",
@@ -810,7 +810,7 @@ func Test_PutNextProgFDFromID(t *testing.T) {
 
 func Test_VerifyPinnedMapExists(t *testing.T) {
 	type fields struct {
-		Program models.BPFProgram
+		Program *models.BPFProgram
 		Cmd     *exec.Cmd
 		//		Pid          int
 		FilePath     string
@@ -825,7 +825,7 @@ func Test_VerifyPinnedMapExists(t *testing.T) {
 		{
 			name: "invalidMapName",
 			fields: fields{
-				Program: models.BPFProgram{
+				Program: &models.BPFProgram{
 					MapName: "invalid",
 				},
 				hostConfig: &config.Config{
@@ -844,7 +844,7 @@ func Test_VerifyPinnedMapExists(t *testing.T) {
 				RestartCount: tt.fields.RestartCount,
 				hostConfig:   tt.fields.hostConfig,
 			}
-			err := b.VerifyPinnedMapExists(true)
+			err := b.verifyPinnedMapExists(true)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("VerifyPinnedMapExists() error : %v", err)
 			}
@@ -853,7 +853,7 @@ func Test_VerifyPinnedMapExists(t *testing.T) {
 }
 func Test_VerifyProcessObject(t *testing.T) {
 	type fields struct {
-		Program      models.BPFProgram
+		Program      *models.BPFProgram
 		Cmd          *exec.Cmd
 		FilePath     string
 		RestartCount int
@@ -866,7 +866,7 @@ func Test_VerifyProcessObject(t *testing.T) {
 		{
 			name: "nilCmd",
 			fields: fields{
-				Program:      models.BPFProgram{},
+				Program:      &models.BPFProgram{},
 				Cmd:          nil,
 				FilePath:     "",
 				RestartCount: 0,
@@ -876,7 +876,7 @@ func Test_VerifyProcessObject(t *testing.T) {
 		{
 			name: "nillCmdProcess",
 			fields: fields{
-				Program: models.BPFProgram{},
+				Program: &models.BPFProgram{},
 				Cmd: &exec.Cmd{
 					Process: nil,
 				},
@@ -894,7 +894,7 @@ func Test_VerifyProcessObject(t *testing.T) {
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
 			}
-			err := b.VerifyProcessObject()
+			err := b.verifyProcessObject()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("VerifyProcessObject() error : %v", err)
 			}
@@ -904,7 +904,7 @@ func Test_VerifyProcessObject(t *testing.T) {
 
 func Test_VerifyPinnedMapVanish(t *testing.T) {
 	type fields struct {
-		Program      models.BPFProgram
+		Program      *models.BPFProgram
 		Cmd          *exec.Cmd
 		FilePath     string
 		RestartCount int
@@ -918,7 +918,7 @@ func Test_VerifyPinnedMapVanish(t *testing.T) {
 		{
 			name: "emptyMapName",
 			fields: fields{
-				Program: models.BPFProgram{
+				Program: &models.BPFProgram{
 					MapName: "",
 				},
 				hostConfig: &config.Config{
@@ -930,7 +930,7 @@ func Test_VerifyPinnedMapVanish(t *testing.T) {
 		{
 			name: "invalidProgType",
 			fields: fields{
-				Program: models.BPFProgram{
+				Program: &models.BPFProgram{
 					MapName:  "tc/globals/something",
 					ProgType: models.TCType,
 				},
@@ -952,7 +952,7 @@ func Test_VerifyPinnedMapVanish(t *testing.T) {
 					BpfMapDefaultPath: tt.fields.hostConfig.BpfMapDefaultPath,
 				},
 			}
-			err := b.VerifyPinnedMapVanish(true)
+			err := b.verifyPinnedMapVanish(true)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("VerifyPinnedMapVanish() error : %v", err)
 			}
