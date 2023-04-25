@@ -16,7 +16,7 @@ type BPF interface {
 	// Artifact returns the BPFProgram Artifact
 	Artifact() string
 
-	//
+	// MapName returns the map name of the BPFProgram
 	MapName() string
 
 	// ProgId returns the program ID of the BPFProgram
@@ -76,7 +76,7 @@ type BPF interface {
 	// IsRunning checks the status of the user program and returns if it is running or not
 	IsRunning() (bool, error)
 
-	//
+	// GetBPFMap returns a BPFMap containg the pinned map in case of a TC program and a new map for a given ID in case of XDP program
 	GetBPFMap(mapName string) (BPFMap, error)
 
 	// MonitorMaps fetches values from bpf maps and publishes to metrics
