@@ -1237,7 +1237,7 @@ func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfPro
 	sort.Strings(bpfProgs.TCEgress)
 	if c.EgressTCBpfs[ifaceName] != nil {
 		bpfList := c.EgressTCBpfs[ifaceName]
-		for e := bpfList.Front(); e != nil; e = e.Next() {
+		for e := bpfList.Front(); e != nil; {
 			next := e.Next()
 			data := e.Value.(*BPF)
 			if BinarySearch(bpfProgs.TCEgress, data.Program.Name) {
