@@ -50,7 +50,7 @@ const fileScheme string = "file"
 // BPF defines run time details for BPFProgram.
 type BPF struct {
 	Program         models.BPFProgram
-	Cmd             *exec.Cmd
+	Cmd             *exec.Cmd                 `json:"-"`
 	FilePath        string                    // Binary file path
 	RestartCount    int                       // To track restart count
 	PrevMapNamePath string                    // Previous Map name with path to link
@@ -58,8 +58,8 @@ type BPF struct {
 	ProgID          int                       // eBPF Program ID
 	BpfMaps         map[string]BPFMap         // Config maps passed as map-args, Map name is Key
 	MetricsBpfMaps  map[string]*MetricsBPFMap // Metrics map name+key+aggregator is key
-	Ctx             context.Context
-	Done            chan bool `json:"-"`
+	Ctx             context.Context           `json:"-"`
+	Done            chan bool                 `json:"-"`
 	hostConfig      *config.Config
 }
 
@@ -237,10 +237,10 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	// Reset ProgID
 	b.ProgID = 0
 
-	stats.Incr(stats.NFStopCount, b.Program.Name, direction)
+	stats.Incr(stats.NFStopCount, b.Program.Name, direction, ifaceName)
 
 	// Setting NFRunning to 0, indicates not running
-	stats.Set(0.0, stats.NFRunning, b.Program.Name, direction)
+	stats.SetWithVersion(0.0, stats.NFRunning, b.Program.Name, b.Program.Version, direction, ifaceName)
 
 	if len(b.Program.CmdStop) < 1 {
 		if err := b.ProcessTerminate(); err != nil {
@@ -434,8 +434,8 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	if err := b.SetPrLimits(); err != nil {
 		log.Warn().Err(err).Msg("failed to set resource limits")
 	}
-	stats.Incr(stats.NFStartCount, b.Program.Name, direction)
-	stats.Set(float64(time.Now().Unix()), stats.NFStartTime, b.Program.Name, direction)
+	stats.Incr(stats.NFStartCount, b.Program.Name, direction, ifaceName)
+	stats.Set(float64(time.Now().Unix()), stats.NFStartTime, b.Program.Name, direction, ifaceName)
 
 	log.Info().Msgf("BPF program - %s started Process id %d Program ID %d", b.Program.Name, b.Cmd.Process.Pid, b.ProgID)
 	return nil
@@ -462,7 +462,7 @@ func (b *BPF) Update(ifaceName, direction string) error {
 			bpfMap.Update(v)
 		}
 	}
-	stats.Incr(stats.NFUpdateCount, b.Program.Name, direction)
+	stats.Incr(stats.NFUpdateCount, b.Program.Name, direction, ifaceName)
 	return nil
 }
 
@@ -840,7 +840,7 @@ func (b *BPF) MonitorMaps(ifaceName string, intervals int) error {
 		}
 		bpfMap := b.MetricsBpfMaps[mapKey]
 		MetricName := element.Name + "_" + strconv.Itoa(element.Key) + "_" + element.Aggregator
-		stats.SetValue(bpfMap.GetValue(), stats.NFMointorMap, b.Program.Name, MetricName)
+		stats.SetValue(bpfMap.GetValue(), stats.NFMonitorMap, b.Program.Name, MetricName, ifaceName)
 	}
 	return nil
 }

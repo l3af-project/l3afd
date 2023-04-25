@@ -25,6 +25,7 @@ environment: PROD
 
 
 ## [l3afd]
+
 | FieldName     | Default                | Description     | Required        |
 | ------------- |------------------------| --------------- | --------------- |
 |pid-file| `"/var/l3afd/l3afd.pid"` | The path to the l3afd.pid file which contains process id of L3afd | Yes |
@@ -67,6 +68,7 @@ This section is needed when bpf-chaining-enabled is set to true.
 | version             | `"latest"`               | Version of xdp-root program                                              | Yes |
 | object-file         | `"xdp_root_kern.o"`      | File containing the object code for xdp-root program                     | Yes |
 | entry-function-name | `"xdp_root"`             | Name of the function that begins the XDP-root program                    | Yes |
+
 
 ## [tc-root]
 This section is needed when bpf-chaining-enabled is set to true.
