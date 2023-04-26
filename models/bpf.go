@@ -10,7 +10,7 @@ import (
 
 // BPF defines run time details for BPFProgram.
 type BPF interface {
-	// Name returns the BPFProgram Name
+	// Name returns the BPFProgram Package Name
 	Name() string
 
 	// Artifact returns the BPFProgram Artifact
@@ -76,16 +76,16 @@ type BPF interface {
 	// IsRunning checks the status of the user program and returns if it is running or not
 	IsRunning() (bool, error)
 
-	// GetBPFMap returns a BPFMap containg the pinned map in case of a TC program and a new map for a given ID in case of XDP program
+	// GetBPFMap returns a BPFMap given the map name of the BPFProgram
 	GetBPFMap(mapName string) (BPFMap, error)
 
 	// MonitorMaps fetches values from bpf maps and publishes to metrics
 	MonitorMaps(ifaceName string, intervals int) error
 
 	// PutNextProgFDFromID updates next program FD from program ID
-	PutNextProgFDFromID(progsID int) error
+	PutNextProgFDFromID(progID int) error
 
-	// RemoceNextProgFD deletes the entry if its last program in the chain.
+	// RemoveNextProgFD deletes the entry if its last program in the chain.
 	// This method is called when sequence of the program changed to last in the chain
 	RemoveNextProgFD() error
 
@@ -116,7 +116,7 @@ type BPFMap interface {
 	// Hashmap can be multiple values or single values.
 	// If hash map entries then key will be values and value will be set to 1
 	// In case of Array then key will be index starting from 0 and values are stored.
-	// for e.g.
+	// for example:
 	//
 	//	HashMap scenario 1. --ports="80,443" values are stored in rl_ports_map BPF map
 	//		key => 80 value => 1

@@ -385,7 +385,7 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	return nil
 }
 
-// Start immplements models.BPF.Start
+// Start implements models.BPF.Start
 func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	if b.FilePath == "" {
 		return errors.New("no program binary path found")
@@ -537,7 +537,7 @@ func (b *BPF) Update(ifaceName, direction string) error {
 	return nil
 }
 
-// IsRunning implements models.BPF.IsRuning
+// IsRunning implements models.BPF.IsRunning
 func (b *BPF) IsRunning() (bool, error) {
 	// No user program or may be disabled
 	if len(b.Program.CmdStatus) > 1 {
@@ -1008,7 +1008,7 @@ func (b *BPF) RemovePrevProgFD() error {
 	return nil
 }
 
-// making sure program fd map's pinned file is created
+// verifyPinnedMapExists makes sure program fd map's pinned file is created
 func (b *BPF) verifyPinnedMapExists(chain bool) error {
 
 	if !chain {
@@ -1038,7 +1038,7 @@ func (b *BPF) verifyPinnedMapExists(chain bool) error {
 	return nil
 }
 
-// verifyPinnedMapVanish - making sure XDP program fd map's pinned file is removed
+// verifyPinnedMapVanish makes sure program fd map's pinned file is removed
 func (b *BPF) verifyPinnedMapVanish(chain bool) error {
 
 	if len(b.Program.MapName) <= 0 || b.Program.ProgType != models.XDPType || !chain {
