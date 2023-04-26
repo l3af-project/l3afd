@@ -85,7 +85,7 @@ type BPF interface {
 	// PutNextProgFDFromID updates next program FD from program ID
 	PutNextProgFDFromID(progID int) error
 
-	// RemoveNextProgFD deletes the entry if its last program in the chain.
+	// RemoveNextProgFD deletes the entry if it is the last program in the chain.
 	// This method is called when sequence of the program changed to last in the chain
 	RemoveNextProgFD() error
 
