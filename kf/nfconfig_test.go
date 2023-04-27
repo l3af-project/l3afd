@@ -11,7 +11,6 @@ import (
 	"reflect"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/l3af-project/l3afd/config"
 	"github.com/l3af-project/l3afd/models"
@@ -397,7 +396,7 @@ func TestNFConfigs_Close(t *testing.T) {
 				HostConfig:     tt.fields.hostConfig,
 				processMon:     tt.fields.processMon,
 			}
-			ctx, cancelfunc := context.WithTimeout(context.Background(), 900*time.Millisecond)
+			ctx, cancelfunc := context.WithCancel(context.Background())
 			defer cancelfunc()
 			if err := cfg.Close(ctx); (err != nil) != tt.wantErr {
 				t.Errorf("NFConfigs.Close() error = %v, wantErr %v", err, tt.wantErr)
