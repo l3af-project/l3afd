@@ -116,19 +116,19 @@ func ReadConfig(configPath string) (*Config, error) {
 		SwaggerApiEnabled:              LoadOptionalConfigBool(confReader, "l3afd", "swagger-api-enabled", false),
 		Environment:                    LoadOptionalConfigString(confReader, "l3afd", "environment", ENV_PROD),
 		BpfMapDefaultPath:              LoadConfigString(confReader, "l3afd", "BpfMapDefaultPath"),
-		XDPRootPackageName:             LoadOptionalConfigString(confReader, "xdp-root", "package-name", "xdp-root"),
-		XDPRootArtifact:                LoadOptionalConfigString(confReader, "xdp-root", "artifact", "l3af_xdp_root.tar.gz"),
-		XDPRootMapName:                 LoadOptionalConfigString(confReader, "xdp-root", "ingress-map-name", "xdp_root_array"),
-		XDPRootCommand:                 LoadOptionalConfigString(confReader, "xdp-root", "command", "xdp_root"),
-		XDPRootVersion:                 LoadOptionalConfigString(confReader, "xdp-root", "version", "latest"),
+		XDPRootPackageName:             loadXDPRootPackageName(confReader),
+		XDPRootArtifact:                loadXDPRootArtifact(confReader),
+		XDPRootMapName:                 loadXDPRootIngressMapName(confReader),
+		XDPRootCommand:                 loadXDPRootCommand(confReader),
+		XDPRootVersion:                 loadXDPRootVersion(confReader),
 		XDPRootObjectFile:              LoadOptionalConfigString(confReader, "xdp-root", "object-file", "xdp_root_kern.o"),
 		XDPRootEntryFunctionName:       LoadOptionalConfigString(confReader, "xdp-root", "entry-function-name", "xdp_root"),
-		TCRootPackageName:              LoadOptionalConfigString(confReader, "tc-root", "package-name", "tc-root"),
-		TCRootArtifact:                 LoadOptionalConfigString(confReader, "tc-root", "artifact", "l3af_tc_root.tar.gz"),
-		TCRootIngressMapName:           LoadOptionalConfigString(confReader, "tc-root", "ingress-map-name", "tc/globals/tc_ingress_root_array"),
-		TCRootEgressMapName:            LoadOptionalConfigString(confReader, "tc-root", "egress-map-name", "tc/globals/tc_egress_root_array"),
-		TCRootCommand:                  LoadOptionalConfigString(confReader, "tc-root", "command", "tc_root"),
-		TCRootVersion:                  LoadOptionalConfigString(confReader, "tc-root", "version", "latest"),
+		TCRootPackageName:              loadTCRootPackageName(confReader),
+		TCRootArtifact:                 loadTCRootArtifact(confReader),
+		TCRootIngressMapName:           loadTCRootIngressMapName(confReader),
+		TCRootEgressMapName:            loadTCRootEgressMapName(confReader),
+		TCRootCommand:                  loadTCRootCommand(confReader),
+		TCRootVersion:                  loadTCRootVersion(confReader),
 		TCRootIngressObjectFile:        LoadOptionalConfigString(confReader, "tc-root", "ingress-object-file", "tc_root_ingress_kern.o"),
 		TCRootEgressObjectFile:         LoadOptionalConfigString(confReader, "tc-root", "egress-object-file", "tc_root_egress_kern.o"),
 		TCRootIngressEntryFunctionName: LoadOptionalConfigString(confReader, "tc-root", "ingress-entry-function-name", "tc_ingress_root"),
@@ -160,4 +160,92 @@ func loadTLSVersion(cfgRdr *config.Config, fieldName string) (uint16, error) {
 	default:
 		return 0, fmt.Errorf("Unsupported TLS version: \"" + ver + "\". Use: TLS_1.{2,3}.")
 	}
+}
+
+func loadXDPRootPackageName(cfgRdr *config.Config) string {
+	xdpRootPackageName := LoadOptionalConfigString(cfgRdr, "xdp-root-program", "name", "")
+	if xdpRootPackageName == "" {
+		xdpRootPackageName = LoadOptionalConfigString(cfgRdr, "xdp-root", "package-name", "xdp-root")
+	}
+	return xdpRootPackageName
+}
+
+func loadXDPRootArtifact(cfgRdr *config.Config) string {
+	xdpRootArtifactName := LoadOptionalConfigString(cfgRdr, "xdp-root-program", "artifact", "")
+	if xdpRootArtifactName == "" {
+		xdpRootArtifactName = LoadOptionalConfigString(cfgRdr, "xdp-root", "artifact", "l3af_xdp_root.tar.gz")
+	}
+	return xdpRootArtifactName
+}
+
+func loadXDPRootIngressMapName(cfgRdr *config.Config) string {
+	xdpRootIngressMapName := LoadOptionalConfigString(cfgRdr, "xdp-root-program", "ingress-map-name", "")
+	if xdpRootIngressMapName == "" {
+		xdpRootIngressMapName = LoadOptionalConfigString(cfgRdr, "xdp-root", "ingress-map-name", "xdp_root_array")
+	}
+	return xdpRootIngressMapName
+}
+
+func loadXDPRootCommand(cfgRdr *config.Config) string {
+	xdpRootCommand := LoadOptionalConfigString(cfgRdr, "xdp-root-program", "command", "")
+	if xdpRootCommand == "" {
+		xdpRootCommand = LoadOptionalConfigString(cfgRdr, "xdp-root", "command", "xdp_root")
+	}
+	return xdpRootCommand
+}
+
+func loadXDPRootVersion(cfgRdr *config.Config) string {
+	xdpRootVersion := LoadOptionalConfigString(cfgRdr, "xdp-root-program", "version", "")
+	if xdpRootVersion == "" {
+		xdpRootVersion = LoadOptionalConfigString(cfgRdr, "xdp-root", "version", "latest")
+	}
+	return xdpRootVersion
+}
+
+func loadTCRootPackageName(cfgRdr *config.Config) string {
+	tcRootPackageName := LoadOptionalConfigString(cfgRdr, "tc-root-program", "name", "")
+	if tcRootPackageName == "" {
+		tcRootPackageName = LoadOptionalConfigString(cfgRdr, "tc-root", "package-name", "tc-root")
+	}
+	return tcRootPackageName
+}
+
+func loadTCRootArtifact(cfgRdr *config.Config) string {
+	tcRootArtifactName := LoadOptionalConfigString(cfgRdr, "tc-root-program", "artifact", "")
+	if tcRootArtifactName == "" {
+		tcRootArtifactName = LoadOptionalConfigString(cfgRdr, "tc-root", "artifact", "l3af_tc_root.tar.gz")
+	}
+	return tcRootArtifactName
+}
+
+func loadTCRootIngressMapName(cfgRdr *config.Config) string {
+	tcRootIngressMapName := LoadOptionalConfigString(cfgRdr, "tc-root-program", "ingress-map-name", "")
+	if tcRootIngressMapName == "" {
+		tcRootIngressMapName = LoadOptionalConfigString(cfgRdr, "tc-root", "ingress-map-name", "tc/globals/tc_ingress_root_array")
+	}
+	return tcRootIngressMapName
+}
+
+func loadTCRootEgressMapName(cfgRdr *config.Config) string {
+	tcRootEgressMapName := LoadOptionalConfigString(cfgRdr, "tc-root-program", "egress-map-name", "")
+	if tcRootEgressMapName == "" {
+		tcRootEgressMapName = LoadOptionalConfigString(cfgRdr, "tc-root", "egress-map-name", "tc/globals/tc_egress_root_array")
+	}
+	return tcRootEgressMapName
+}
+
+func loadTCRootCommand(cfgRdr *config.Config) string {
+	tcRootCommand := LoadOptionalConfigString(cfgRdr, "tc-root-program", "command", "")
+	if tcRootCommand == "" {
+		tcRootCommand = LoadOptionalConfigString(cfgRdr, "tc-root", "command", "tc_root")
+	}
+	return tcRootCommand
+}
+
+func loadTCRootVersion(cfgRdr *config.Config) string {
+	tcRootVersion := LoadOptionalConfigString(cfgRdr, "tc-root-program", "version", "")
+	if tcRootVersion == "" {
+		tcRootVersion = LoadOptionalConfigString(cfgRdr, "tc-root", "version", "latest")
+	}
+	return tcRootVersion
 }
