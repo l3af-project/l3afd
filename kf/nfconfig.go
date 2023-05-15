@@ -405,11 +405,18 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 			}
 		}
 
-		// map arguments change - basically any config change to KF
+		// map arguments change - basically any config change to ebpf program updating config maps
 		if !reflect.DeepEqual(data.Program.MapArgs, bpfProg.MapArgs) {
 			log.Info().Msg("maps_args are mismatched")
 			data.Program.MapArgs = bpfProg.MapArgs
-			data.Update(ifaceName, direction)
+			data.UpdateBPFMaps(ifaceName, direction)
+		}
+
+		// update arguments change - basically any config change to ebpf program config maps using user program
+		if !reflect.DeepEqual(data.Program.UpdateArgs, bpfProg.UpdateArgs) {
+			log.Info().Msg("update_args are mismatched")
+			data.Program.UpdateArgs = bpfProg.UpdateArgs
+			data.UpdateArgs(ifaceName, direction)
 		}
 
 		return nil
