@@ -1,9 +1,0 @@
-# Copyright Contributors to the L3AF Project.
-# SPDX-License-Identifier: Apache-2.0
-
-coverage:
-  status:
-    project:
-      default:
-        target: 70%
-        threshold: 1%
