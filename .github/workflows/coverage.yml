@@ -32,7 +32,7 @@ jobs:
 
       - run: go test -short -tags shaping -coverprofile=l3afd.cov ./...
 
-      - uses: shogo82148/actions-goveralls@e7e9c3ddc1d2d899354279206caddc53f6ddb156
+      - uses: shogo82148/actions-goveralls@df920a6a2468668dfcf71a0b43817f89eaa5ea04
         with:
           path-to-profile: l3afd.cov
           parallel: true
@@ -41,6 +41,6 @@ jobs:
     needs: measure_coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: shogo82148/actions-goveralls@e7e9c3ddc1d2d899354279206caddc53f6ddb156
+      - uses: shogo82148/actions-goveralls@df920a6a2468668dfcf71a0b43817f89eaa5ea04
         with:
           parallel-finished: true
