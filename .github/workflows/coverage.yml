@@ -3,32 +3,36 @@
 
 # Runs tests and computes the code coverage
 
-name: coverage
+name: Coverage
+
 on:
   pull_request:
+    branches: [ main ]
   push:
-    branches:
-      - "main"
+    branches: [ main ]
+
+# Declare default permissions as read only.
+permissions: read-all
 
 jobs:
   measure_coverage:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab
 
       - name: Get GOVERSION content
         id: goversion
         run: echo ::set-output name=version::$(cat GOVERSION)
-
-      - uses: magnetikonline/action-golang-cache@v2
+      
+      - uses: magnetikonline/action-golang-cache@777394c89f8ed6fcf1649505277c46c1cd06494d
         with:
           go-version: "${{ steps.goversion.outputs.version }}"
           cache-key-suffix: "-coverage-${{ steps.goversion.outputs.version }}"
 
       - run: go test -short -race -tags shaping -coverprofile=l3afd.cov ./...
 
-      - uses: shogo82148/actions-goveralls@v1
+      - uses: shogo82148/actions-goveralls@e7e9c3ddc1d2d899354279206caddc53f6ddb156
         with:
           path-to-profile: l3afd.cov
           parallel: true
@@ -37,6 +41,6 @@ jobs:
     needs: measure_coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: shogo82148/actions-goveralls@v1
+      - uses: shogo82148/actions-goveralls@e7e9c3ddc1d2d899354279206caddc53f6ddb156
         with:
           parallel-finished: true
