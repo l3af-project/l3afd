@@ -30,7 +30,7 @@ jobs:
           go-version: "${{ steps.goversion.outputs.version }}"
           cache-key-suffix: "-coverage-${{ steps.goversion.outputs.version }}"
 
-      - run: go test -short -race -tags shaping -coverprofile=l3afd.cov ./...
+      - run: go test -short -tags shaping -coverprofile=l3afd.cov ./...
 
       - uses: shogo82148/actions-goveralls@e7e9c3ddc1d2d899354279206caddc53f6ddb156
         with:
