@@ -8,8 +8,9 @@ const (
 	Enabled  = "enabled"
 	Disabled = "disabled"
 
-	StartType = "start"
-	StopType  = "stop"
+	StartType  = "start"
+	StopType   = "stop"
+	UpdateType = "update"
 
 	XDPType = "xdp"
 	TCType  = "tc"
@@ -32,6 +33,7 @@ type BPFProgram struct {
 	CmdStop           string              `json:"cmd_stop"`              // Program stop command
 	CmdStatus         string              `json:"cmd_status"`            // Program status command
 	CmdConfig         string              `json:"cmd_config"`            // Program config providing command
+	CmdUpdate         string              `json:"cmd_update"`            // Program update config command
 	Version           string              `json:"version"`               // Program version
 	UserProgramDaemon bool                `json:"user_program_daemon"`   // User program daemon or not
 	IsPlugin          bool                `json:"is_plugin"`             // User program is plugin or not
@@ -46,6 +48,7 @@ type BPFProgram struct {
 	StartArgs         L3afDNFArgs         `json:"start_args"`            // Map of arguments to start command
 	StopArgs          L3afDNFArgs         `json:"stop_args"`             // Map of arguments to stop command
 	StatusArgs        L3afDNFArgs         `json:"status_args"`           // Map of arguments to status command
+	UpdateArgs        L3afDNFArgs         `json:"update_args"`           // Map of arguments to update command
 	MapArgs           L3afDNFArgs         `json:"map_args"`              // Config BPF Map of arguments
 	ConfigArgs        L3afDNFArgs         `json:"config_args"`           // Map of arguments to config command
 	MonitorMaps       []L3afDNFMetricsMap `json:"monitor_maps"`          // Metrics BPF maps
