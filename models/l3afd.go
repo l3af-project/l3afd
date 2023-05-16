@@ -24,7 +24,7 @@ type L3afDNFArgs map[string]interface{}
 // BPFProgram defines BPF Program for specific host
 type BPFProgram struct {
 	ID                int                 `json:"id"`                    // Program id
-	Name              string              `json:"name"`                  // Name of the BPF program
+	Name              string              `json:"name"`                  // Name of the BPF program package
 	SeqID             int                 `json:"seq_id"`                // Sequence position in the chain
 	Artifact          string              `json:"artifact"`              // Artifact file name
 	MapName           string              `json:"map_name"`              // BPF map to store next program fd
@@ -50,6 +50,8 @@ type BPFProgram struct {
 	ConfigArgs        L3afDNFArgs         `json:"config_args"`           // Map of arguments to config command
 	MonitorMaps       []L3afDNFMetricsMap `json:"monitor_maps"`          // Metrics BPF maps
 	EPRURL            string              `json:"ebpf_package_repo_url"` // Download url for Program
+	ObjectFile        string              `json:"object_file"`           // Object file contains kernel code
+	EntryFunctionName string              `json:"entry_function_name"`   // BPF entry function name to load
 }
 
 // L3afDNFMetricsMap defines BPF map

@@ -90,13 +90,13 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 	case models.XDPType:
 		rootProgBPF = &BPF{
 			Program: models.BPFProgram{
-				Name:              conf.XDPRootProgramName,
-				Artifact:          conf.XDPRootProgramArtifact,
-				MapName:           conf.XDPRootProgramMapName,
-				Version:           conf.XDPRootProgramVersion,
+				Name:              conf.XDPRootPackageName,
+				Artifact:          conf.XDPRootArtifact,
+				MapName:           conf.XDPRootMapName,
+				Version:           conf.XDPRootVersion,
 				UserProgramDaemon: false,
-				CmdStart:          conf.XDPRootProgramCommand,
-				CmdStop:           conf.XDPRootProgramCommand,
+				CmdStart:          conf.XDPRootCommand,
+				CmdStop:           conf.XDPRootCommand,
 				CmdStatus:         "",
 				AdminStatus:       models.Enabled,
 				ProgType:          models.XDPType,
@@ -110,17 +110,17 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 			FilePath:        "",
 			PrevMapNamePath: "",
 			hostConfig:      conf,
-			MapNamePath:     filepath.Join(conf.BpfMapDefaultPath, conf.XDPRootProgramMapName),
+			MapNamePath:     filepath.Join(conf.BpfMapDefaultPath, conf.XDPRootMapName),
 		}
 	case models.TCType:
 		rootProgBPF = &BPF{
 			Program: models.BPFProgram{
-				Name:              conf.TCRootProgramName,
-				Artifact:          conf.TCRootProgramArtifact,
-				Version:           conf.TCRootProgramVersion,
+				Name:              conf.TCRootPackageName,
+				Artifact:          conf.TCRootArtifact,
+				Version:           conf.TCRootVersion,
 				UserProgramDaemon: false,
-				CmdStart:          conf.TCRootProgramCommand,
-				CmdStop:           conf.TCRootProgramCommand,
+				CmdStart:          conf.TCRootCommand,
+				CmdStop:           conf.TCRootCommand,
 				CmdStatus:         "",
 				AdminStatus:       models.Enabled,
 				ProgType:          models.TCType,
@@ -135,11 +135,11 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 			hostConfig:      conf,
 		}
 		if direction == models.IngressType {
-			rootProgBPF.Program.MapName = conf.TCRootProgramIngressMapName
-			rootProgBPF.MapNamePath = filepath.Join(conf.BpfMapDefaultPath, conf.TCRootProgramIngressMapName)
+			rootProgBPF.Program.MapName = conf.TCRootIngressMapName
+			rootProgBPF.MapNamePath = filepath.Join(conf.BpfMapDefaultPath, conf.TCRootIngressMapName)
 		} else if direction == models.EgressType {
-			rootProgBPF.Program.MapName = conf.TCRootProgramEgressMapName
-			rootProgBPF.MapNamePath = filepath.Join(conf.BpfMapDefaultPath, conf.TCRootProgramEgressMapName)
+			rootProgBPF.Program.MapName = conf.TCRootEgressMapName
+			rootProgBPF.MapNamePath = filepath.Join(conf.BpfMapDefaultPath, conf.TCRootEgressMapName)
 		}
 	default:
 		return nil, fmt.Errorf("unknown direction %s for root program in iface %s", direction, ifaceName)
