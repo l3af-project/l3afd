@@ -25,6 +25,7 @@ environment: PROD
 
 
 ## [l3afd]
+
 | FieldName     | Default                | Description     | Required        |
 | ------------- |------------------------| --------------- | --------------- |
 |pid-file| `"/var/l3afd/l3afd.pid"` | The path to the l3afd.pid file which contains process id of L3afd | Yes |
@@ -55,28 +56,36 @@ environment: PROD
 | n-metric-samples   |`"20"`|Number of Metric Samples| No       |
 
 
-## [xdp-root-program]
+## [xdp-root]
 This section is needed when bpf-chaining-enabled is set to true.
 
-| FieldName     | Default                  | Description     | Required        |
-| ------------- |--------------------------| --------------- | --------------- |
-|name| `"xdp-root"`             |Name of subdirectory in which to extract artifact| Yes |
-|artifact| `"l3af_xdp_root.tar.gz"` |Filename of xdp-root package. Only tar.gz and .zip formats are supported| Yes |
-|ingress-map-name| `"xdp_root_array"`       |Ingress map name of xdp-root program| Yes |
-|command| `"xdp_root"`             |Command to run xdp-root program| Yes |
-|version| `"latest"`               |Version of xdp-root program| Yes |
+| FieldName           | Default                  | Description                                                              | Required        |
+|---------------------|--------------------------|--------------------------------------------------------------------------| --------------- |
+| package-name        | `"xdp-root"`             | Name of subdirectory in which to extract artifact                        | Yes |
+| artifact            | `"l3af_xdp_root.tar.gz"` | Filename of xdp-root package. Only tar.gz and .zip formats are supported | Yes |
+| ingress-map-name    | `"xdp_root_array"`       | Ingress map name of xdp-root program                                     | Yes |
+| command             | `"xdp_root"`             | Command to run xdp-root program                                          | Yes |
+| version             | `"latest"`               | Version of xdp-root program                                              | Yes |
+| object-file         | `"xdp_root_kern.o"`      | File containing the object code for xdp-root program                     | Yes |
+| entry-function-name | `"xdp_root"`             | Name of the function that begins the XDP-root program                    | Yes |
 
-## [tc-root-program]
+
+## [tc-root]
 This section is needed when bpf-chaining-enabled is set to true.
 
-| FieldName     | Default                   | Description     | Required        |
-| ------------- |---------------------------| --------------- | --------------- |
-|name| `"tc-root"`               |Name of subdirectory in which to extract artifact| Yes |
-|artifact| `"l3af_tc_root.tar.gz"`   |Filename of tc_root package| Yes |
-|ingress-map-name| `"tc_ingress_root_array"` |Ingress map name of tc_root program| Yes |
-|egress-map-name| `"tc_egress_root_array"`  |Egress map name of tc_root program,for more info about ingress/egress check [cilium](https://docs.cilium.io/en/v1.9/concepts/ebpf/intro/)| Yes |
-|command| `"tc_root"`               |Command to run tc_root program| Yes |
-|version| `"latest"`                |Version of tc_root program| Yes |
+| FieldName                   | Default                    | Description                                                                                                                               | Required        |
+|-----------------------------|----------------------------|-------------------------------------------------------------------------------------------------------------------------------------------| --------------- |
+| pakage-name                 | `"tc-root"`                | Name of subdirectory in which to extract artifact                                                                                         | Yes |
+| artifact                    | `"l3af_tc_root.tar.gz"`    | Filename of tc_root package                                                                                                               | Yes |
+| ingress-map-name            | `"tc_ingress_root_array"`  | Ingress map name of tc_root program                                                                                                       | Yes |
+| egress-map-name             | `"tc_egress_root_array"`   | Egress map name of tc_root program,for more info about ingress/egress check [cilium](https://docs.cilium.io/en/v1.9/concepts/ebpf/intro/) | Yes |
+| command                     | `"tc_root"`                | Command to run tc_root program                                                                                                            | Yes |
+| version                     | `"latest"`                 | Version of tc_root program                                                                                                                | Yes |
+| ingress-object-file         | `"tc_root_ingress_kern.o"` | File containing the object code for tc-root ingress program                                                                               | Yes |
+| egress-object-file          | `"tc_root_egress_kern.o"`  | File containing the object code for tc-root egress program                                                                                | Yes |
+| ingress-entry-function-name | `"tc_ingress_root"`        | Name of the function that begins the tc-root ingress program                                                                              | Yes |
+| egress-entry-function-name  | `"tc_egress_root"`         | Name of the function that begins the tc-root egress program                                                                               | Yes |
+
 
 ## [ebpf-chain-debug]
 | FieldName | Default            | Description                                                    | Required |
