@@ -23,8 +23,12 @@ definitions:
       cmd_stop:
         description: Program stop command
         type: string
+      cmd_update:
+        description: Program update config command
+        type: string
       config_args:
-        $ref: '#/definitions/models.L3afDNFArgs'
+        allOf:
+        - $ref: '#/definitions/models.L3afDNFArgs'
         description: Map of arguments to config command
       config_file_path:
         description: Config file location
@@ -42,7 +46,8 @@ definitions:
         description: User program is plugin or not
         type: boolean
       map_args:
-        $ref: '#/definitions/models.L3afDNFArgs'
+        allOf:
+        - $ref: '#/definitions/models.L3afDNFArgs'
         description: Config BPF Map of arguments
       map_name:
         description: BPF map to store next program fd
@@ -71,14 +76,21 @@ definitions:
         description: Sequence position in the chain
         type: integer
       start_args:
-        $ref: '#/definitions/models.L3afDNFArgs'
+        allOf:
+        - $ref: '#/definitions/models.L3afDNFArgs'
         description: Map of arguments to start command
       status_args:
-        $ref: '#/definitions/models.L3afDNFArgs'
+        allOf:
+        - $ref: '#/definitions/models.L3afDNFArgs'
         description: Map of arguments to status command
       stop_args:
-        $ref: '#/definitions/models.L3afDNFArgs'
+        allOf:
+        - $ref: '#/definitions/models.L3afDNFArgs'
         description: Map of arguments to stop command
+      update_args:
+        allOf:
+        - $ref: '#/definitions/models.L3afDNFArgs'
+        description: Map of arguments to update command
       user_program_daemon:
         description: User program daemon or not
         type: boolean
@@ -125,7 +137,8 @@ definitions:
   models.L3afBPFProgramNames:
     properties:
       bpf_programs:
-        $ref: '#/definitions/models.BPFProgramNames'
+        allOf:
+        - $ref: '#/definitions/models.BPFProgramNames'
         description: List of eBPF program names to remove
       host_name:
         description: Host name or pod name
@@ -137,7 +150,8 @@ definitions:
   models.L3afBPFPrograms:
     properties:
       bpf_programs:
-        $ref: '#/definitions/models.BPFPrograms'
+        allOf:
+        - $ref: '#/definitions/models.BPFPrograms'
         description: List of bpf programs
       host_name:
         description: Host name or pod name
