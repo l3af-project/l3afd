@@ -32,13 +32,10 @@ import (
 	"github.com/l3af-project/l3afd/stats"
 
 	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/rlimit"
 	tc "github.com/florianl/go-tc"
-	"github.com/florianl/go-tc/core"
 	ps "github.com/mitchellh/go-ps"
 	"github.com/rs/zerolog/log"
-	"golang.org/x/sys/unix"
 )
 
 var (
@@ -1070,6 +1067,7 @@ func (b *BPF) VerifyMetricsMapsVanish() error {
 	return err
 }
 
+// LoadXDPRootProgram - Load and attach xdp root programs
 func (b *BPF) LoadXDPRootProgram(ifaceName string, eBPFProgram *BPF) error {
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
@@ -1091,12 +1089,7 @@ func (b *BPF) LoadXDPRootProgram(ifaceName string, eBPFProgram *BPF) error {
 		return fmt.Errorf("%s:failed to pin the map", rootArrayMapFileName)
 	}
 
-	// Attach the program
-	_, err = link.AttachXDP(link.XDPOptions{
-		Program:   bpfRootProg,
-		Interface: iface.Index,
-	})
-
+	err = AttachXDP(bpfRootProg, iface.Index)
 	if err != nil {
 		return fmt.Errorf("could not attach XDP program: %s", err)
 	}
@@ -1125,112 +1118,7 @@ func (b *BPF) LoadXDPRootProgram(ifaceName string, eBPFProgram *BPF) error {
 	return nil
 }
 
-func (b *BPF) LoadTCRootProgram(ifaceName, direction string, eBPFProgram *BPF) error {
-	iface, err := net.InterfaceByName(ifaceName)
-	if err != nil {
-		log.Fatal().Msgf("lookup network iface %q: %s", ifaceName, err)
-	}
-
-	// verify and add attribute clsact
-	tcgo, err := tc.Open(&tc.Config{})
-	if err != nil {
-		return fmt.Errorf("could not open rtnetlink socket: %v", err)
-	}
-
-	clsactFound := false
-	// get all the qdiscs from all interfaces
-	qdiscs, err := tcgo.Qdisc().Get()
-	if err != nil {
-		return fmt.Errorf("could not get qdiscs: %v", err)
-	}
-	for _, qdisc := range qdiscs {
-		iface, err := net.InterfaceByIndex(int(qdisc.Ifindex))
-		if err != nil {
-			return fmt.Errorf("could not get interface from id %d: %v", qdisc.Ifindex, err)
-		}
-		if iface.Name == ifaceName && qdisc.Kind == "clsact" {
-			clsactFound = true
-		}
-	}
-
-	if !clsactFound {
-		qdisc := tc.Object{
-			Msg: tc.Msg{
-				Family:  unix.AF_UNSPEC,
-				Ifindex: uint32(iface.Index),
-				Handle:  core.BuildHandle(tc.HandleRoot, 0x0000),
-				Parent:  tc.HandleIngress,
-				Info:    0,
-			},
-			Attribute: tc.Attribute{
-				Kind: "clsact",
-			},
-		}
-
-		if err := tcgo.Qdisc().Add(&qdisc); err != nil {
-			log.Info().Msgf("could not assign clsact to %s: %v, its already exists", ifaceName, err)
-		}
-	}
-
-	CollectionRef, err := ebpf.LoadCollection(eBPFProgram.Program.ObjectFile)
-	if err != nil {
-		log.Error().Msgf("loading of tc root %s failed direction %s", eBPFProgram.Program.ObjectFile, direction)
-		return fmt.Errorf("%s: loading of tc root failed", eBPFProgram.Program.ObjectFile)
-	}
-
-	// storing collection reference pointer
-	b.CollectionRef = CollectionRef
-
-	var bpfRootProg *ebpf.Program
-	var bpfRootMap *ebpf.Map
-	var rootArrayMapFileName string
-
-	bpfRootProg = CollectionRef.Programs[eBPFProgram.Program.EntryFunctionName]
-	bpfRootMap = CollectionRef.Maps[strings.Split(eBPFProgram.Program.MapName, "/")[2]]
-	rootArrayMapFileName = filepath.Join(b.hostConfig.BpfMapDefaultPath, eBPFProgram.Program.MapName)
-
-	// Pinning root program
-	if err := bpfRootMap.Pin(rootArrayMapFileName); err != nil {
-		return fmt.Errorf("%s failed to pin the map", rootArrayMapFileName)
-	}
-
-	var parent uint32
-	if direction == models.IngressType {
-		parent = tc.HandleMinIngress
-	} else if direction == models.EgressType {
-		parent = tc.HandleMinEgress
-	}
-
-	progFD := uint32(bpfRootProg.FD())
-	bpfFlag := uint32(0x1)
-	filter := tc.Object{
-		Msg: tc.Msg{
-			Family:  unix.AF_UNSPEC,
-			Ifindex: uint32(iface.Index),
-			Handle:  0,
-			Parent:  core.BuildHandle(tc.HandleRoot, parent),
-			Info:    0x300,
-		},
-		Attribute: tc.Attribute{
-			Kind: "bpf",
-			BPF: &tc.Bpf{
-				FD:    &progFD,
-				Flags: &bpfFlag,
-			},
-		},
-	}
-
-	// Storing Filter handle
-	b.TCFilter = tcgo.Filter()
-
-	// Attaching / Adding as filter
-	if err := b.TCFilter.Add(&filter); err != nil {
-		return fmt.Errorf("could not attach filter for eBPF program: %v", err)
-	}
-
-	return nil
-}
-
+// UnLoadProgram - Unload the program
 func (b *BPF) UnLoadProgram(ifaceName, direction string) error {
 	_, err := net.InterfaceByName(ifaceName)
 	if err != nil {
@@ -1250,61 +1138,6 @@ func (b *BPF) UnLoadProgram(ifaceName, direction string) error {
 	// remove pinned map file
 	if err := b.RemoveMapFile(); err != nil {
 		log.Error().Msgf("failed to remove map file for program %s => %s", ifaceName, b.Program.Name)
-	}
-
-	return nil
-}
-
-func (b *BPF) UnLoadTCProgram(ifaceName, direction string) error {
-
-	iface, err := net.InterfaceByName(ifaceName)
-	if err != nil {
-		log.Fatal().Msgf("lookup network iface %q: %s", ifaceName, err)
-	}
-
-	bpfRootProg := b.CollectionRef.Programs[b.Program.EntryFunctionName]
-
-	var parent uint32
-	if direction == models.IngressType {
-		parent = tc.HandleMinIngress
-	} else if direction == models.EgressType {
-		parent = tc.HandleMinEgress
-	}
-
-	tcfilts, err := b.TCFilter.Get(&tc.Msg{
-		Family:  unix.AF_UNSPEC,
-		Ifindex: uint32(iface.Index),
-		Handle:  0x0,
-		Parent:  core.BuildHandle(tc.HandleRoot, tc.HandleMinIngress),
-	})
-
-	if err != nil {
-		log.Warn().Msgf("Could not get filters for interface %s direction %s ", ifaceName, direction)
-		return fmt.Errorf("could not get filters %v", err)
-	}
-
-	progFD := uint32(bpfRootProg.FD())
-	bpfFlag := uint32(0x1)
-	filter := tc.Object{
-		Msg: tc.Msg{
-			Family:  unix.AF_UNSPEC,
-			Ifindex: uint32(iface.Index),
-			Handle:  0,
-			Parent:  core.BuildHandle(tc.HandleRoot, parent),
-			Info:    tcfilts[0].Msg.Info,
-		},
-		Attribute: tc.Attribute{
-			Kind: "bpf",
-			BPF: &tc.Bpf{
-				FD:    &progFD,
-				Flags: &bpfFlag,
-			},
-		},
-	}
-
-	// Detaching / Deleting filter
-	if err := b.TCFilter.Delete(&filter); err != nil {
-		return fmt.Errorf("could not dettach filter : %v", err)
 	}
 
 	return nil
