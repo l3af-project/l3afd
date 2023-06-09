@@ -289,6 +289,8 @@ func (c *NFConfigs) StopNRemoveAllBPFPrograms(ifaceName, direction string) error
 // 3. BPF Program running but needs version update
 // 4. BPF Program running but position change (seq_id change)
 // 5. BPF Program not running but needs to start.
+// 6. BPF Program running but map args change, will update the map values (i.e. Array and Hash maps only)
+// 7. BPF Program running but update args change, will invoke cmd_update with additional option --cmd=update
 func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceName, direction string) error {
 
 	var bpfList *list.List
