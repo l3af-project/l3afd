@@ -380,7 +380,7 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 
 			// update if not a last program
 			if e.Next() != nil {
-				data.PutNextProgFDFromID(e.Next().Value.(*BPF).ProgID)
+				data.PutNextProgFDFromID(int(e.Next().Value.(*BPF).ProgID))
 			}
 
 			return nil
@@ -608,7 +608,7 @@ func (c *NFConfigs) StopRootProgram(ifaceName, direction string) error {
 func (c *NFConfigs) LinkBPFPrograms(leftBPF, rightBPF *BPF) error {
 	log.Info().Msgf("LinkBPFPrograms : left BPF Prog %s right BPF Prog %s", leftBPF.Program.Name, rightBPF.Program.Name)
 	rightBPF.PrevMapNamePath = leftBPF.MapNamePath
-	if err := leftBPF.PutNextProgFDFromID(rightBPF.ProgID); err != nil {
+	if err := leftBPF.PutNextProgFDFromID(int(rightBPF.ProgID)); err != nil {
 		log.Error().Err(err).Msgf("LinkBPFPrograms - failed to update program fd in prev prog map before move")
 		return fmt.Errorf("LinkBPFPrograms - failed to update program fd in prev prog prog map before move %v", err)
 	}

@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -31,6 +32,9 @@ import (
 	"github.com/l3af-project/l3afd/stats"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
+	"github.com/cilium/ebpf/rlimit"
+	tc "github.com/florianl/go-tc"
 	ps "github.com/mitchellh/go-ps"
 	"github.com/rs/zerolog/log"
 )
@@ -55,12 +59,15 @@ type BPF struct {
 	RestartCount    int                       // To track restart count
 	PrevMapNamePath string                    // Previous Map name with path to link
 	MapNamePath     string                    // Map name with path
-	ProgID          int                       // eBPF Program ID
+	ProgID          ebpf.ProgramID            // eBPF Program ID
 	BpfMaps         map[string]BPFMap         // Config maps passed as map-args, Map name is Key
 	MetricsBpfMaps  map[string]*MetricsBPFMap // Metrics map name+key+aggregator is key
 	Ctx             context.Context           `json:"-"`
 	Done            chan bool                 `json:"-"`
+	CollectionRef   *ebpf.Collection          `json:"_"` // eBPF Collection reference
+	ProgMapID       ebpf.MapID
 	hostConfig      *config.Config
+	TCFilter        *tc.Filter
 }
 
 func NewBpfProgram(ctx context.Context, program models.BPFProgram, conf *config.Config) *BPF {
@@ -95,8 +102,6 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 				MapName:           conf.XDPRootMapName,
 				Version:           conf.XDPRootVersion,
 				UserProgramDaemon: false,
-				CmdStart:          conf.XDPRootCommand,
-				CmdStop:           conf.XDPRootCommand,
 				CmdStatus:         "",
 				AdminStatus:       models.Enabled,
 				ProgType:          models.XDPType,
@@ -104,6 +109,8 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 				StartArgs:         map[string]interface{}{},
 				StopArgs:          map[string]interface{}{},
 				StatusArgs:        map[string]interface{}{},
+				ObjectFile:        filepath.Join(conf.BPFDir, conf.XDPRootPackageName, conf.XDPRootVersion, strings.Split(conf.XDPRootArtifact, ".")[0], conf.XDPRootObjectFile),
+				EntryFunctionName: conf.XDPRootEntryFunctionName,
 			},
 			RestartCount:    0,
 			Cmd:             nil,
@@ -119,8 +126,6 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 				Artifact:          conf.TCRootArtifact,
 				Version:           conf.TCRootVersion,
 				UserProgramDaemon: false,
-				CmdStart:          conf.TCRootCommand,
-				CmdStop:           conf.TCRootCommand,
 				CmdStatus:         "",
 				AdminStatus:       models.Enabled,
 				ProgType:          models.TCType,
@@ -137,17 +142,17 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 		if direction == models.IngressType {
 			rootProgBPF.Program.MapName = conf.TCRootIngressMapName
 			rootProgBPF.MapNamePath = filepath.Join(conf.BpfMapDefaultPath, conf.TCRootIngressMapName)
+			rootProgBPF.Program.ObjectFile = filepath.Join(conf.BPFDir, conf.TCRootPackageName, conf.TCRootVersion, strings.Split(conf.TCRootArtifact, ".")[0], conf.TCRootIngressObjectFile)
+			rootProgBPF.Program.EntryFunctionName = conf.TCRootIngressEntryFunctionName
 		} else if direction == models.EgressType {
 			rootProgBPF.Program.MapName = conf.TCRootEgressMapName
 			rootProgBPF.MapNamePath = filepath.Join(conf.BpfMapDefaultPath, conf.TCRootEgressMapName)
+			rootProgBPF.Program.ObjectFile = filepath.Join(conf.BPFDir, conf.TCRootPackageName, conf.TCRootVersion, strings.Split(conf.TCRootArtifact, ".")[0], conf.TCRootEgressObjectFile)
+			rootProgBPF.Program.EntryFunctionName = conf.TCRootEgressEntryFunctionName
 		}
 	default:
 		return nil, fmt.Errorf("unknown direction %s for root program in iface %s", direction, ifaceName)
 	}
-
-	// Loading default arguments
-	rootProgBPF.Program.StartArgs["cmd"] = models.StartType
-	rootProgBPF.Program.StopArgs["cmd"] = models.StopType
 
 	if err := rootProgBPF.VerifyAndGetArtifacts(conf); err != nil {
 		log.Error().Err(err).Msg("failed to get root artifacts")
@@ -155,17 +160,26 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 	}
 
 	// On l3afd crashing scenario verify root program are unloaded properly by checking existence of persisted maps
-	// if map file exists then root program is still running
+	// if map file exists then root program didn't clean up pinned map files
 	if fileExists(rootProgBPF.MapNamePath) {
-		log.Warn().Msgf("previous instance of root program %s is running, stopping it ", rootProgBPF.Program.Name)
-		if err := rootProgBPF.Stop(ifaceName, direction, conf.BpfChainingEnabled); err != nil {
-			return nil, fmt.Errorf("failed to stop root program on iface %s name %s direction %s", ifaceName, rootProgBPF.Program.Name, direction)
+		log.Warn().Msgf("previous instance of root program %s persisted map %s file exists", rootProgBPF.Program.Name, rootProgBPF.MapNamePath)
+		rootProgBPF.RemoveMapFile()
+	}
+
+	if progType == models.XDPType {
+		rlimit.RemoveMemlock()
+		if err := rootProgBPF.LoadXDPRootProgram(ifaceName, rootProgBPF); err != nil {
+			return nil, fmt.Errorf("failed to load root program on iface %s name %s direction %s", ifaceName, rootProgBPF.Program.Name, direction)
+		}
+	} else if progType == models.TCType {
+		if err := rootProgBPF.LoadTCRootProgram(ifaceName, direction, rootProgBPF); err != nil {
+			return nil, fmt.Errorf("failed to load root program on iface %s name %s direction %s", ifaceName, rootProgBPF.Program.Name, direction)
 		}
 	}
 
-	if err := rootProgBPF.Start(ifaceName, direction, conf.BpfChainingEnabled); err != nil {
-		return nil, fmt.Errorf("failed to start root program on interface %s, err: %v", ifaceName, err)
-	}
+	//if err := rootProgBPF.Start(ifaceName, direction, conf.BpfChainingEnabled); err != nil {
+	//	return nil, fmt.Errorf("failed to start root program on interface %s, err: %v", ifaceName, err)
+	//}
 
 	return rootProgBPF, nil
 }
@@ -243,6 +257,19 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	stats.SetWithVersion(0.0, stats.NFRunning, b.Program.Name, b.Program.Version, direction, ifaceName)
 
 	if len(b.Program.CmdStop) < 1 {
+		// Program ref handle - loaded from l3afd
+		if b.CollectionRef != nil {
+			if err := b.UnLoadProgram(ifaceName, direction); err != nil {
+				return fmt.Errorf("BPFProgram %s unload failed with error: %v", b.Program.Name, err)
+			}
+			log.Info().Msgf("%s => %s direction => %s - program is unloaded/detached successfully", ifaceName, b.Program.Name, direction)
+			return nil
+		} else if len(b.Program.ObjectFile) > 0 {
+			b.RemoveMapFile()
+			return nil
+		}
+
+		// Loaded using user program
 		if err := b.ProcessTerminate(); err != nil {
 			return fmt.Errorf("BPFProgram %s process terminate failed with error: %v", b.Program.Name, err)
 		}
@@ -435,7 +462,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 
 	// KFconfigs
 	if len(b.Program.CmdConfig) > 0 && len(b.Program.ConfigFilePath) > 0 {
-		log.Info().Msgf("KP specific config monitoring - %s", b.Program.ConfigFilePath)
+		log.Info().Msgf("eBPF program specific config monitoring - %s", b.Program.ConfigFilePath)
 		b.Done = make(chan bool)
 		go b.RunKFConfigs()
 	}
@@ -931,7 +958,7 @@ func (b *BPF) PutNextProgFDFromID(progID int) error {
 }
 
 // GetProgID - This returns ID of the bpf program
-func (b *BPF) GetProgID() (int, error) {
+func (b *BPF) GetProgID() (ebpf.ProgramID, error) {
 
 	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapNamePath, &ebpf.LoadPinOptions{ReadOnly: true})
 	if err != nil {
@@ -939,7 +966,7 @@ func (b *BPF) GetProgID() (int, error) {
 		return 0, fmt.Errorf("unable to access pinned prog map %s %v", b.PrevMapNamePath, err)
 	}
 	defer ebpfMap.Close()
-	var value int
+	var value ebpf.ProgramID
 	key := 0
 
 	if err = ebpfMap.Lookup(unsafe.Pointer(&key), unsafe.Pointer(&value)); err != nil {
@@ -1096,6 +1123,95 @@ func (b *BPF) VerifyMetricsMapsVanish() error {
 	err := fmt.Errorf("metrics maps are never removed by Kernel %s", b.Program.Name)
 	log.Error().Err(err).Msg("")
 	return err
+}
+
+// LoadXDPRootProgram - Load and attach xdp root programs
+func (b *BPF) LoadXDPRootProgram(ifaceName string, eBPFProgram *BPF) error {
+	iface, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		log.Fatal().Msgf("lookup network iface %q: %s", ifaceName, err)
+	}
+
+	CollectionRef, err := ebpf.LoadCollection(eBPFProgram.Program.ObjectFile)
+	if err != nil {
+		return fmt.Errorf("%s: loading of xdp root failed", eBPFProgram.Program.ObjectFile)
+	}
+	//defer prg.Close()
+	b.CollectionRef = CollectionRef
+	bpfRootProg := CollectionRef.Programs[eBPFProgram.Program.EntryFunctionName]
+	bpfRootMap := CollectionRef.Maps[eBPFProgram.Program.MapName]
+
+	// Pinning root map
+	rootArrayMapFileName := filepath.Join(b.hostConfig.BpfMapDefaultPath, eBPFProgram.Program.MapName)
+	if err := bpfRootMap.Pin(rootArrayMapFileName); err != nil {
+		return fmt.Errorf("%s:failed to pin the map", rootArrayMapFileName)
+	}
+
+	//err = AttachXDP(bpfRootProg, iface.Index)
+	//Attach the program
+	_, err = link.AttachXDP(link.XDPOptions{
+		Program:   bpfRootProg,
+		Interface: iface.Index,
+	})
+	if err != nil {
+		return fmt.Errorf("could not attach XDP program: %s", err)
+	}
+
+	progInfo, err := bpfRootProg.Info()
+	if err != nil {
+		return fmt.Errorf("could not get program info of xdp root program: %s", err)
+	}
+
+	ok := false
+	b.ProgID, ok = progInfo.ID()
+	if !ok {
+		return fmt.Errorf("failed to fetch the xdp root Program ID")
+	}
+
+	ebpfInfo, err := bpfRootMap.Info()
+	if err != nil {
+		return fmt.Errorf("fetching map info failed %v", err)
+	}
+
+	b.ProgMapID, ok = ebpfInfo.ID()
+	if !ok {
+		return fmt.Errorf("fetching map id failed %v", err)
+	}
+
+	return nil
+}
+
+// UnLoadProgram - Unload the program
+func (b *BPF) UnLoadProgram(ifaceName, direction string) error {
+	_, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		log.Fatal().Msgf("lookup network iface %q: %s", ifaceName, err)
+	}
+
+	if b.Program.ProgType == models.TCType {
+		if err := b.UnLoadTCProgram(ifaceName, direction); err != nil {
+			log.Warn().Msgf("UnloadTC program failed iface %q direction %s error - %v", ifaceName, direction, err)
+		}
+	}
+
+	if b.CollectionRef != nil {
+		b.CollectionRef.Close()
+	}
+
+	// remove pinned map file
+	if err := b.RemoveMapFile(); err != nil {
+		log.Error().Msgf("failed to remove map file for program %s => %s", ifaceName, b.Program.Name)
+	}
+
+	return nil
+}
+
+func (b *BPF) RemoveMapFile() error {
+	if err := os.RemoveAll(b.MapNamePath); os.IsNotExist(err) {
+		log.Info().Msgf("RemoveMapFile: map file removed successfully - %s ", b.MapNamePath)
+		return nil
+	}
+	return nil
 }
 
 func ValidatePath(filePath string, destination string) (string, error) {
