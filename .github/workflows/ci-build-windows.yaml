@@ -51,13 +51,13 @@ jobs:
             exit 1
           }
 
-#      - name: Vet
-#        run: |
-#          go vet -tags WINDOWS ./...
+      - name: Vet
+        run: |
+          go vet -tags WINDOWS ./...
 
-#      - name: Test
-#        run: |
-#          go test -tags WINDOWS ./...
+      - name: Test
+        run: |
+          go test -tags WINDOWS ./...
 
       - uses: dominikh/staticcheck-action@ba605356b4b29a60e87ab9404b712f3461e566dc
         with:
