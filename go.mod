@@ -6,7 +6,7 @@ require (
 	github.com/cilium/ebpf v0.10.0
 	github.com/go-chi/chi/v5 v5.0.8
 	github.com/mitchellh/go-ps v1.0.0
-	github.com/prometheus/client_golang v1.15.1
+	github.com/prometheus/client_golang v1.16.0
 	github.com/robfig/config v0.0.0-20141207224736-0f78529c8c7e
 	github.com/rs/zerolog v1.29.1
 	github.com/safchain/ethtool v0.3.0
@@ -38,7 +38,7 @@ require (
 	github.com/mdlayher/socket v0.1.1 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.42.0 // indirect
-	github.com/prometheus/procfs v0.9.0 // indirect
+	github.com/prometheus/procfs v0.10.1 // indirect
 	github.com/swaggo/files v0.0.0-20220728132757-551d4a08d97a // indirect
 	golang.org/x/net v0.9.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
