@@ -21,8 +21,7 @@ import (
 	"github.com/l3af-project/l3afd/models"
 
 	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/link"
-	"github.com/florianl/go-tc"
+	tc "github.com/florianl/go-tc"
 	"github.com/florianl/go-tc/core"
 	"github.com/rs/zerolog/log"
 	"github.com/safchain/ethtool"
@@ -203,15 +202,15 @@ func VerifyNCreateTCDirs() error {
 	return nil
 }
 
-func AttachXDP(bpfRootProg *ebpf.Program, index int) error {
-	// Attach the program
-	_, err := link.AttachXDP(link.XDPOptions{
-		Program:   bpfRootProg,
-		Interface: index,
-	})
-
-	return err
-}
+//func AttachXDP(bpfRootProg *ebpf.Program, index int) error {
+//	// Attach the program
+//	_, err := link.AttachXDP(link.XDPOptions{
+//		Program:   bpfRootProg,
+//		Interface: index,
+//	})
+//
+//	return err
+//}
 
 // LoadTCRootProgram - Load and add tc filters
 func (b *BPF) LoadTCRootProgram(ifaceName, direction string, eBPFProgram *BPF) error {

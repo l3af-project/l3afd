@@ -1149,7 +1149,7 @@ func (b *BPF) LoadXDPRootProgram(ifaceName string, eBPFProgram *BPF) error {
 
 	//err = AttachXDP(bpfRootProg, iface.Index)
 	//Attach the program
-	_, err = link.AttachXDP(link.XDPOptions{
+	err = AttachXDP(link.XDPOptions{
 		Program:   bpfRootProg,
 		Interface: iface.Index,
 	})
@@ -1223,4 +1223,24 @@ func ValidatePath(filePath string, destination string) (string, error) {
 		return "", fmt.Errorf("%s: illegal file path", filePath)
 	}
 	return destpath, nil
+}
+
+// AttachXDP links an XDP BPF program to an XDP hook.
+func AttachXDP(opts link.XDPOptions) error {
+	if t := opts.Program.Type(); t != ebpf.XDP {
+		return fmt.Errorf("invalid program type %s, expected XDP", t)
+	}
+
+	if opts.Interface < 1 {
+		return fmt.Errorf("invalid interface index: %d", opts.Interface)
+	}
+
+	_, err := link.AttachRawLink(link.RawLinkOptions{
+		Program: opts.Program,
+		Attach:  ebpf.AttachXDP,
+		Target:  opts.Interface,
+		Flags:   uint32(opts.Flags),
+	})
+
+	return err
 }
