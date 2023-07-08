@@ -3,7 +3,7 @@ module github.com/l3af-project/l3afd
 go 1.18
 
 require (
-	github.com/cilium/ebpf v0.10.0
+	github.com/cilium/ebpf v0.11.0
 	github.com/go-chi/chi/v5 v5.0.8
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/prometheus/client_golang v1.16.0
@@ -15,13 +15,15 @@ require (
 	golang.org/x/sys v0.9.0 // exclude
 )
 
-require github.com/golang/mock v1.6.0
+require (
+	github.com/florianl/go-tc v0.4.2
+	github.com/golang/mock v1.6.0
+)
 
 require (
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
-	github.com/florianl/go-tc v0.4.2 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
 	github.com/go-openapi/spec v0.20.8 // indirect
@@ -40,8 +42,9 @@ require (
 	github.com/prometheus/common v0.42.0 // indirect
 	github.com/prometheus/procfs v0.10.1 // indirect
 	github.com/swaggo/files v0.0.0-20220728132757-551d4a08d97a // indirect
+	golang.org/x/exp v0.0.0-20230224173230-c95f2b4c22f2 // indirect
 	golang.org/x/net v0.9.0 // indirect
-	golang.org/x/sync v0.1.0 // indirect
+	golang.org/x/sync v0.2.0 // indirect
 	golang.org/x/tools v0.8.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
