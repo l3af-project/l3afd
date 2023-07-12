@@ -21,7 +21,6 @@ import (
 	"github.com/l3af-project/l3afd/models"
 
 	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/link"
 	"github.com/florianl/go-tc"
 	"github.com/florianl/go-tc/core"
 	"github.com/rs/zerolog/log"
@@ -201,16 +200,6 @@ func VerifyNCreateTCDirs() error {
 		return fmt.Errorf("unable to create directories to pin tc maps %s : %s", path, err)
 	}
 	return nil
-}
-
-func AttachXDP(bpfRootProg *ebpf.Program, index int) error {
-	// Attach the program
-	_, err := link.AttachXDP(link.XDPOptions{
-		Program:   bpfRootProg,
-		Interface: index,
-	})
-
-	return err
 }
 
 // LoadTCRootProgram - Load and add tc filters

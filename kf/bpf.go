@@ -32,6 +32,7 @@ import (
 	"github.com/l3af-project/l3afd/stats"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/rlimit"
 	tc "github.com/florianl/go-tc"
 	ps "github.com/mitchellh/go-ps"
@@ -1146,7 +1147,10 @@ func (b *BPF) LoadXDPRootProgram(ifaceName string, eBPFProgram *BPF) error {
 		return fmt.Errorf("%s:failed to pin the map", rootArrayMapFileName)
 	}
 
-	err = AttachXDP(bpfRootProg, iface.Index)
+	_, err = link.AttachXDP(link.XDPOptions{
+		Program:   bpfRootProg,
+		Interface: iface.Index,
+	})
 	if err != nil {
 		return fmt.Errorf("could not attach XDP program: %s", err)
 	}

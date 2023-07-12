@@ -24,7 +24,6 @@ var (
 	hostInterfaces  map[string]bool
 	pMon            *pCheck
 	mMon            *kfMetrics
-	//	val             []byte
 	valVerChange    *models.BPFPrograms
 	valStatusChange *models.BPFPrograms
 	ingressXDPBpfs  map[string]*list.List

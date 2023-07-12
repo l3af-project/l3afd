@@ -11,8 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-
-	"github.com/cilium/ebpf"
 )
 
 // DisableLRO - XDP programs are failing when Large Receive Offload is enabled, to fix this we use to manually disable.
@@ -56,11 +54,6 @@ func (b *BPF) ProcessTerminate() error {
 // VerifyNCreateTCDirs - Creating BPF sudo FS for pinning TC maps
 func VerifyNCreateTCDirs() error {
 	return nil
-}
-
-// AttachXDP - Attach BPF Program
-func AttachXDP(bpfRootProg *ebpf.Program, index int) error {
-	return fmt.Errorf("AttachXDP - UnSupported on windows")
 }
 
 // LoadTCRootProgram - not implemented in windows
