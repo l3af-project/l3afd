@@ -48,6 +48,12 @@ func setupDBTest() {
 	egressTCBpfs = make(map[string]*list.List)
 }
 
+func setupNilBPFList() *list.List {
+	l := list.New()
+	l.PushBack(nil)
+	return l
+}
+
 func setupValidBPFList(progName string) *list.List {
 	l := list.New()
 	bpf := &mocks.BPF{
@@ -521,8 +527,10 @@ func Test_BinarySearch(t *testing.T) {
 	}
 }
 
-func TestAddeBPDProgramsByHook(t *testing.T) {
+// TODO(DecFox): add "GoodInput" test
+func TestAddeBPFProgramsByHook(t *testing.T) {
 	mocked := errors.New("mocked")
+	mockedList := setupNilBPFList()
 	type fields struct {
 		hostname            string
 		hostInterfaces      map[string]bool
@@ -588,9 +596,9 @@ func TestAddeBPDProgramsByHook(t *testing.T) {
 			field: fields{
 				hostname:       "l3af-local-test",
 				hostInterfaces: map[string]bool{"fakeif0": true},
-				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
-				ingressTCBpfs:  map[string]*list.List{"fakeif0": nil},
-				egressTCBpfs:   map[string]*list.List{"fakeif0": nil},
+				ingressXDPBpfs: map[string]*list.List{"fakeif0": mockedList},
+				ingressTCBpfs:  map[string]*list.List{"fakeif0": mockedList},
+				egressTCBpfs:   map[string]*list.List{"fakeif0": mockedList},
 				hostConfig: &config.Config{
 					BpfChainingEnabled: false,
 				},
