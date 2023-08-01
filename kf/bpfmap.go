@@ -12,6 +12,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/ebpf"
+	"github.com/l3af-project/l3afd/models"
 	"github.com/rs/zerolog/log"
 )
 
@@ -23,6 +24,8 @@ type BPFMap struct {
 	// BPFProg reference in case of stale map id
 	BPFProg *BPF `json:"-"`
 }
+
+var _ models.BPFMap = &BPFMap{}
 
 // This stores Metrics map details.
 type MetricsBPFMap struct {
@@ -108,12 +111,18 @@ func (b *MetricsBPFMap) GetValue() float64 {
 		// We have observed in smaller configuration VM's, if we restart KF's
 		// Stale mapID's are reported, in such cases re-checking map id
 		log.Warn().Err(err).Msgf("GetValue : NewMapFromID failed ID %d, re-looking up of map id", b.MapID)
-		tmpBPF, err := b.BPFProg.GetBPFMap(b.Name)
+		tmp, err := b.BPFProg.GetBPFMap(b.Name)
 		if err != nil {
-			log.Warn().Err(err).Msgf("GetValue: Update new map ID %d", tmpBPF.MapID)
+			log.Warn().Err(err).Msgf("GetValue: Update new map ID")
+			return 0
+		}
+		tmpBPF, ok := tmp.(*BPFMap)
+		if !ok {
+			log.Warn().Msgf("type assertion error")
 			return 0
 		}
 		log.Info().Msgf("GetValue: Update new map ID %d", tmpBPF.MapID)
+
 		b.MapID = tmpBPF.MapID
 		ebpfMap, err = ebpf.NewMapFromID(b.MapID)
 		if err != nil {

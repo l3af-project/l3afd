@@ -4,10 +4,11 @@
 package kf
 
 import (
-	"container/list"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/l3af-project/l3afd/list"
 )
 
 func TestNewpCheck(t *testing.T) {
