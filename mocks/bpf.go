@@ -28,6 +28,8 @@ type BPF struct {
 	MockUpdatePrevMapNamePath func(value string)
 	MockStop                  func(ifaceName, direction string, chain bool) error
 	MockStart                 func(ifaceName, direction string, chain bool) error
+	MockUpdateBPFMaps         func(ifaceName, direction string) error
+	MockUpdateArgs            func(ifaceName, direction string) error
 	MockUpdate                func(ifaceName, direction string) error
 	MockVerifyAndGetArtifacts func(conf *config.Config) error
 	MockIsRunning             func() (bool, error)
@@ -118,6 +120,16 @@ func (b *BPF) UpdatePrevMapNamePath(value string) {
 // Start implements models.BPF.Start
 func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	return b.MockStart(ifaceName, direction, chain)
+}
+
+// UpdateBPFMaps implements models.BPF.UpdateBPFMaps
+func (b *BPF) UpdateBPFMaps(ifaceName, direction string) error {
+	return b.MockUpdateBPFMaps(ifaceName, direction)
+}
+
+// UpdateArgs implements models.BPF.UpdateArgs
+func (b *BPF) UpdateArgs(ifaceName, direction string) error {
+	return b.MockUpdateArgs(ifaceName, direction)
 }
 
 // Stop implements models.BPF.Stop
