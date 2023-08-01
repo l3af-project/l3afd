@@ -303,7 +303,7 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 		delete(b.MetricsBpfMaps, key)
 	}
 
-	// Stop KFcnfigs
+	// Stop KFconfigs
 	if len(b.Program.CmdConfig) > 0 && len(b.Program.ConfigFilePath) > 0 {
 		log.Info().Msgf("Stopping KF configs %s ", b.Program.Name)
 		b.Done <- true
@@ -469,10 +469,19 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		return fmt.Errorf("failed to find pinned file %s  %v", b.MapNamePath, err)
 	}
 
+	// BPF map config values
 	if len(b.Program.MapArgs) > 0 {
-		if err := b.Update(ifaceName, direction); err != nil {
-			log.Error().Err(err).Msg("failed to update network functions BPF maps")
-			return fmt.Errorf("failed to update network functions BPF maps %v", err)
+		if err := b.UpdateBPFMaps(ifaceName, direction); err != nil {
+			log.Error().Err(err).Msg("failed to update ebpf program BPF maps")
+			return fmt.Errorf("failed to update ebpf program BPF maps %v", err)
+		}
+	}
+
+	// Update args config values
+	if len(b.Program.UpdateArgs) > 0 {
+		if err := b.UpdateArgs(ifaceName, direction); err != nil {
+			log.Error().Err(err).Msg("failed to update ebpf program config update")
+			return fmt.Errorf("failed to update ebpf program config update %v", err)
 		}
 	}
 
@@ -490,8 +499,8 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		}
 
 		if err != nil {
-			log.Error().Err(err).Msg("failed to fetch network functions program FD")
-			return fmt.Errorf("failed to fetch network functions program FD %v", err)
+			log.Error().Err(err).Msg("failed to fetch ebpf program FD")
+			return fmt.Errorf("failed to fetch ebpf program FD %v", err)
 		}
 	}
 
@@ -512,8 +521,8 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	return nil
 }
 
-// Update implements models.BPF.Update
-func (b *BPF) Update(ifaceName, direction string) error {
+// UpdateBPFMaps - Update the config ebpf maps via map arguments
+func (b *BPF) UpdateBPFMaps(ifaceName, direction string) error {
 	for k, val := range b.Program.MapArgs {
 
 		if v, ok := val.(string); !ok {
@@ -537,7 +546,55 @@ func (b *BPF) Update(ifaceName, direction string) error {
 	return nil
 }
 
-// IsRunning implements models.BPF.IsRunning
+// Update config arguments using user program
+func (b *BPF) UpdateArgs(ifaceName, direction string) error {
+	if b.FilePath == "" {
+		return errors.New("update - no program binary path found")
+	}
+
+	cmd := filepath.Join(b.FilePath, b.Program.CmdUpdate)
+	// Validate
+	if err := assertExecutable(cmd); err != nil {
+		return fmt.Errorf("no executable permissions on %s - error %v", b.Program.CmdUpdate, err)
+	}
+
+	args := make([]string, 0, len(b.Program.UpdateArgs)<<1)
+	args = append(args, "--iface="+ifaceName)       // attaching to interface
+	args = append(args, "--direction="+direction)   // direction xdpingress or ingress or egress
+	args = append(args, "--cmd="+models.UpdateType) // argument cmd to update configs
+
+	if len(b.hostConfig.BPFLogDir) > 1 {
+		args = append(args, "--log-dir="+b.hostConfig.BPFLogDir)
+	}
+
+	for k, val := range b.Program.UpdateArgs {
+		if v, ok := val.(string); !ok {
+			err := fmt.Errorf("update args is not a string for the ebpf program %s", b.Program.Name)
+			log.Error().Err(err).Msgf("failed to convert update args value into string for program %s", b.Program.Name)
+			return err
+		} else {
+			args = append(args, "--"+k+"="+v)
+		}
+	}
+
+	log.Info().Msgf("BPF Program update command : %s %v", cmd, args)
+	UpdateCmd := execCommand(cmd, args...)
+	if err := UpdateCmd.Start(); err != nil {
+		log.Info().Err(err).Msgf("user mode BPF program failed - %s", b.Program.Name)
+		return fmt.Errorf("failed to start : %s %v", cmd, args)
+	}
+
+	if err := UpdateCmd.Wait(); err != nil {
+		return fmt.Errorf("cmd wait at starting of bpf program returned with error %v", err)
+	}
+
+	stats.Incr(stats.NFUpdateCount, b.Program.Name, direction, ifaceName)
+
+	log.Info().Msgf("BPF program - %s config updated", b.Program.Name)
+	return nil
+}
+
+// Status of user program is running
 func (b *BPF) IsRunning() (bool, error) {
 	// No user program or may be disabled
 	if len(b.Program.CmdStatus) > 1 {

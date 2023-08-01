@@ -309,6 +309,8 @@ func (c *NFConfigs) StopNRemoveAllBPFPrograms(ifaceName, direction string) error
 // 3. BPF Program running but needs version update
 // 4. BPF Program running but position change (seq_id change)
 // 5. BPF Program not running but needs to start.
+// 6. BPF Program running but map args change, will update the map values (i.e. Array and Hash maps only)
+// 7. BPF Program running but update args change, will invoke cmd_update with additional option --cmd=update
 func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceName, direction string) error {
 
 	var bpfList *list.List
@@ -426,11 +428,18 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 			}
 		}
 
-		// map arguments change - basically any config change to KF
+		// map arguments change - basically any config change to ebpf program updating config maps
 		if !reflect.DeepEqual(prog.MapArgs, bpfProg.MapArgs) {
 			log.Info().Msg("maps_args are mismatched")
 			prog.MapArgs = bpfProg.MapArgs
-			data.Update(ifaceName, direction)
+			data.UpdateBPFMaps(ifaceName, direction)
+		}
+
+		// update arguments change - basically any config change to ebpf program config maps using user program
+		if !reflect.DeepEqual(prog.UpdateArgs, bpfProg.UpdateArgs) {
+			log.Info().Msg("update_args are mismatched")
+			prog.UpdateArgs = bpfProg.UpdateArgs
+			data.UpdateArgs(ifaceName, direction)
 		}
 
 		return nil
