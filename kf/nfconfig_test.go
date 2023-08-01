@@ -48,12 +48,6 @@ func setupDBTest() {
 	egressTCBpfs = make(map[string]*list.List)
 }
 
-func setupNilBPFList() *list.List {
-	l := list.New()
-	l.PushBack(nil)
-	return l
-}
-
 func setupValidBPFList(progName string) *list.List {
 	l := list.New()
 	bpf := &mocks.BPF{
