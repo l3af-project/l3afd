@@ -67,8 +67,11 @@ type BPF interface {
 	// It also verifies the next program pinned map is created or not.
 	Start(ifaceName, direction string, chain bool) error
 
-	// Update updates the config map_args
-	Update(ifaceName, direction string) error
+	// UpdateBPFMaps updates config ebpf maps via map arguments
+	UpdateBPFMaps(ifacename, direction string) error
+
+	// UpdateArgs updates the config map_args
+	UpdateArgs(ifaceName, direction string) error
 
 	// VerifyAndGetArtifacts checks if binary already exists and downloads artifacts from the specified eBPF repo
 	VerifyAndGetArtifacts(conf *config.Config) error
