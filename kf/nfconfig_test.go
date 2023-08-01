@@ -121,6 +121,37 @@ func setupBPFListsWithPutError(progName string) *list.List {
 	return l
 }
 
+func setupBPFListsWithStartError(progName string) *list.List {
+	l := list.New()
+	bpf := &mocks.BPF{
+		MockName: func() string {
+			return progName
+		},
+		MockStart: func(ifaceName, direction string, chain bool) error {
+			return errors.New("start failure")
+		},
+		MockStop: func(ifaceName, direction string, chain bool) error {
+			return nil
+		},
+		MockUpdateAdminStatus: func(value string) {
+			// do nothing
+		},
+		MockProgId: func() int {
+			return 0
+		},
+		MockGetMapNamePath: func() string {
+			return ""
+		},
+		MockUpdatePrevMapNamePath: func(value string) {
+			// do nothing
+		},
+	}
+	l.PushBack(bpf)
+	l.PushBack(bpf)
+	l.PushBack(bpf)
+	return l
+}
+
 func setupValidBPF() {
 	bpf := BPF{
 		Program: &models.BPFProgram{
@@ -530,7 +561,7 @@ func Test_BinarySearch(t *testing.T) {
 // TODO(DecFox): add "GoodInput" test
 func TestAddeBPFProgramsByHook(t *testing.T) {
 	mocked := errors.New("mocked")
-	mockedList := setupNilBPFList()
+	mockedList := setupBPFListsWithStartError("mocked")
 	type fields struct {
 		hostname            string
 		hostInterfaces      map[string]bool
