@@ -80,8 +80,10 @@ func main() {
 		log.Fatal().Err(err).Msgf("The PID file: %s, could not be created", conf.PIDFilename)
 	}
 
-	if err = checkKernelVersion(conf); err != nil {
-		log.Fatal().Err(err).Msg("The unsupported kernel version please upgrade")
+	if runtime.GOOS == "linux" {
+		if err = checkKernelVersion(conf); err != nil {
+			log.Fatal().Err(err).Msg("The unsupported kernel version please upgrade")
+		}
 	}
 
 	if err = registerL3afD(conf); err != nil {
