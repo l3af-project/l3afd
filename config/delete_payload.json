@@ -1,0 +1,18 @@
+[
+    {
+      "host_name": "l3af",
+      "iface": "Ethernet 4",
+      "bpf_program_names": {
+        "xdp_ingress": [
+          "port_quota"
+        ],
+        "tc_ingress": [
+          "ipfix-flow-exporter"
+        ],
+        "tc_egress": [
+          "ipfix-flow-exporter"
+        ]
+      }
+    }
+  ]
+  

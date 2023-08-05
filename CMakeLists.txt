@@ -17,7 +17,6 @@ add_custom_command(OUTPUT ${CMAKE_SOURCE_DIR}/docs/docs.go
                    DEPENDS ${CMAKE_SOURCE_DIR}/apis/configwatch.go
                            $ENV{GOPATH}/bin/swag.exe
                    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-                   COMMAND env
                    COMMAND "$ENV{GOPATH}/bin/swag.exe" init -d "./" -g "apis/configwatch.go")
 
 add_custom_target(build ALL
