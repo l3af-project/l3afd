@@ -258,7 +258,7 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 
 	// First preference to unload/stop from l3afd
 	if b.ProgMapCollection != nil {
-		if err := b.UnloadProgram(ifaceName, direction); err != nil {
+		if err := b.UnLoadProgram(ifaceName, direction); err != nil {
 			return fmt.Errorf("BPFProgram %s unload failed with error: %v", b.Program.Name, err)
 		}
 		log.Info().Msgf("%s => %s direction => %s - program is unloaded/detached successfully", ifaceName, b.Program.Name, direction)
