@@ -8,7 +8,7 @@ require (
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/prometheus/client_golang v1.16.0
 	github.com/robfig/config v0.0.0-20141207224736-0f78529c8c7e
-	github.com/rs/zerolog v1.29.1
+	github.com/rs/zerolog v1.30.0
 	github.com/safchain/ethtool v0.3.0
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/swaggo/swag v1.16.1
