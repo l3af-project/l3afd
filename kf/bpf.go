@@ -53,21 +53,21 @@ const fileScheme string = "file"
 
 // BPF defines run time details for BPFProgram.
 type BPF struct {
-	Program         models.BPFProgram
-	Cmd             *exec.Cmd                 `json:"-"`
-	FilePath        string                    // Binary file path
-	RestartCount    int                       // To track restart count
-	PrevMapNamePath string                    // Previous Map name with path to link
-	MapNamePath     string                    // Map name with path
-	ProgID          ebpf.ProgramID            // eBPF Program ID
-	BpfMaps         map[string]BPFMap         // Config maps passed as map-args, Map name is Key
-	MetricsBpfMaps  map[string]*MetricsBPFMap // Metrics map name+key+aggregator is key
-	Ctx             context.Context           `json:"-"`
-	Done            chan bool                 `json:"-"`
-	CollectionRef   *ebpf.Collection          `json:"_"` // eBPF Collection reference
-	ProgMapID       ebpf.MapID
-	hostConfig      *config.Config
-	TCFilter        *tc.Filter
+	Program           models.BPFProgram
+	Cmd               *exec.Cmd                 `json:"-"`
+	FilePath          string                    // Binary file path
+	RestartCount      int                       // To track restart count
+	PrevMapNamePath   string                    // Previous Map name with path to link
+	MapNamePath       string                    // Map name with path
+	ProgID            ebpf.ProgramID            // eBPF Program ID
+	BpfMaps           map[string]BPFMap         // Config maps passed as map-args, Map name is Key
+	MetricsBpfMaps    map[string]*MetricsBPFMap // Metrics map name+key+aggregator is key
+	Ctx               context.Context           `json:"-"`
+	Done              chan bool                 `json:"-"`
+	ProgMapCollection *ebpf.Collection          `json:"_"` // eBPF Collection reference
+	ProgMapID         ebpf.MapID
+	hostConfig        *config.Config
+	TCFilter          *tc.Filter
 }
 
 func NewBpfProgram(ctx context.Context, program models.BPFProgram, conf *config.Config) *BPF {
@@ -168,12 +168,12 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 
 	if progType == models.XDPType {
 		rlimit.RemoveMemlock()
-		if err := rootProgBPF.LoadXDPRootProgram(ifaceName, rootProgBPF); err != nil {
-			return nil, fmt.Errorf("failed to load root program on iface %s name %s direction %s", ifaceName, rootProgBPF.Program.Name, direction)
+		if err := rootProgBPF.LoadXDPAttachProgram(ifaceName, rootProgBPF); err != nil {
+			return nil, fmt.Errorf("failed to load root program on iface \"%s\" name %s direction %s", ifaceName, rootProgBPF.Program.Name, direction)
 		}
 	} else if progType == models.TCType {
-		if err := rootProgBPF.LoadTCRootProgram(ifaceName, direction, rootProgBPF); err != nil {
-			return nil, fmt.Errorf("failed to load root program on iface %s name %s direction %s", ifaceName, rootProgBPF.Program.Name, direction)
+		if err := rootProgBPF.LoadTCAttachProgram(ifaceName, direction, rootProgBPF); err != nil {
+			return nil, fmt.Errorf("failed to load root program on iface \"%s\" name %s direction %s", ifaceName, rootProgBPF.Program.Name, direction)
 		}
 	}
 
@@ -256,19 +256,16 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	// Setting NFRunning to 0, indicates not running
 	stats.SetWithVersion(0.0, stats.NFRunning, b.Program.Name, b.Program.Version, direction, ifaceName)
 
-	if len(b.Program.CmdStop) < 1 {
-		// Program ref handle - loaded from l3afd
-		if b.CollectionRef != nil {
-			if err := b.UnLoadProgram(ifaceName, direction); err != nil {
-				return fmt.Errorf("BPFProgram %s unload failed with error: %v", b.Program.Name, err)
-			}
-			log.Info().Msgf("%s => %s direction => %s - program is unloaded/detached successfully", ifaceName, b.Program.Name, direction)
-			return nil
-		} else if len(b.Program.ObjectFile) > 0 {
-			b.RemoveMapFile()
-			return nil
+	// First preference to unload/stop from l3afd
+	if b.ProgMapCollection != nil {
+		if err := b.UnloadProgram(ifaceName, direction); err != nil {
+			return fmt.Errorf("BPFProgram %s unload failed with error: %v", b.Program.Name, err)
 		}
+		log.Info().Msgf("%s => %s direction => %s - program is unloaded/detached successfully", ifaceName, b.Program.Name, direction)
+		return nil
+	}
 
+	if len(b.Program.CmdStop) < 1 {
 		// Loaded using user program
 		if err := b.ProcessTerminate(); err != nil {
 			return fmt.Errorf("BPFProgram %s process terminate failed with error: %v", b.Program.Name, err)
@@ -280,16 +277,9 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 			b.Cmd = nil
 		}
 
-		// verify pinned map file is removed.
-		if err := b.VerifyPinnedMapVanish(chain); err != nil {
-			log.Error().Err(err).Msgf("stop user program - failed to remove pinned file %s", b.Program.Name)
-			return fmt.Errorf("stop user program - failed to remove pinned file %s", b.Program.Name)
-		}
-
-		// Verify all metrics map references are removed from kernel
-		if err := b.VerifyMetricsMapsVanish(); err != nil {
-			log.Error().Err(err).Msgf("stop user program - failed to remove metric map references %s", b.Program.Name)
-			return fmt.Errorf("stop user program - failed to remove metric map references %s", b.Program.Name)
+		if err := b.VerifyCleanupMaps(chain); err != nil {
+			log.Error().Err(err).Msgf("stop user program - failed to remove map files %s", b.Program.Name)
+			return fmt.Errorf("stop user program - failed to remove map files %s", b.Program.Name)
 		}
 
 		return nil
@@ -322,16 +312,9 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	}
 	b.Cmd = nil
 
-	// verify pinned map file is removed.
-	if err := b.VerifyPinnedMapVanish(chain); err != nil {
-		log.Error().Err(err).Msgf("failed to remove pinned file %s", b.Program.Name)
-		return fmt.Errorf("failed to remove pinned file %s", b.Program.Name)
-	}
-
-	// Verify all metrics map references are removed from kernel
-	if err := b.VerifyMetricsMapsVanish(); err != nil {
-		log.Error().Err(err).Msgf("failed to remove metric map references %s", b.Program.Name)
-		return fmt.Errorf("failed to remove metric map references %s", b.Program.Name)
+	if err := b.VerifyCleanupMaps(chain); err != nil {
+		log.Error().Err(err).Msgf("stop user program - failed to remove map files %s", b.Program.Name)
+		return fmt.Errorf("stop user program - failed to remove map files %s", b.Program.Name)
 	}
 
 	return nil
@@ -1125,8 +1108,8 @@ func (b *BPF) VerifyMetricsMapsVanish() error {
 	return err
 }
 
-// LoadXDPRootProgram - Load and attach xdp root programs
-func (b *BPF) LoadXDPRootProgram(ifaceName string, eBPFProgram *BPF) error {
+// LoadXDPAttachProgram - Load and attach xdp root program or any xdp program when chaining is disabled
+func (b *BPF) LoadXDPAttachProgram(ifaceName string, eBPFProgram *BPF) error {
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
 		log.Fatal().Msgf("lookup network iface %q: %s", ifaceName, err)
@@ -1136,8 +1119,8 @@ func (b *BPF) LoadXDPRootProgram(ifaceName string, eBPFProgram *BPF) error {
 	if err != nil {
 		return fmt.Errorf("%s: loading of xdp root failed", eBPFProgram.Program.ObjectFile)
 	}
-	//defer prg.Close()
-	b.CollectionRef = CollectionRef
+
+	b.ProgMapCollection = CollectionRef
 	bpfRootProg := CollectionRef.Programs[eBPFProgram.Program.EntryFunctionName]
 	bpfRootMap := CollectionRef.Maps[eBPFProgram.Program.MapName]
 
@@ -1192,8 +1175,8 @@ func (b *BPF) UnLoadProgram(ifaceName, direction string) error {
 		}
 	}
 
-	if b.CollectionRef != nil {
-		b.CollectionRef.Close()
+	if b.ProgMapCollection != nil {
+		b.ProgMapCollection.Close()
 	}
 
 	// remove pinned map file
@@ -1209,6 +1192,23 @@ func (b *BPF) RemoveMapFile() error {
 		log.Info().Msgf("RemoveMapFile: map file removed successfully - %s ", b.MapNamePath)
 		return nil
 	}
+	return nil
+}
+
+// VerifyCleanupMaps - This method verifies map entries in the fs is removed
+func (b *BPF) VerifyCleanupMaps(chain bool) error {
+	// verify pinned map file is removed.
+	if err := b.VerifyPinnedMapVanish(chain); err != nil {
+		log.Error().Err(err).Msgf("stop user program - failed to remove pinned file %s", b.Program.Name)
+		return fmt.Errorf("stop user program - failed to remove pinned file %s", b.Program.Name)
+	}
+
+	// Verify all metrics map references are removed from kernel
+	if err := b.VerifyMetricsMapsVanish(); err != nil {
+		log.Error().Err(err).Msgf("stop user program - failed to remove metric map references %s", b.Program.Name)
+		return fmt.Errorf("stop user program - failed to remove metric map references %s", b.Program.Name)
+	}
+
 	return nil
 }
 

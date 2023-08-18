@@ -56,10 +56,10 @@ func VerifyNCreateTCDirs() error {
 	return nil
 }
 
-// LoadTCRootProgram - not implemented in windows
-func (b *BPF) LoadTCRootProgram(ifaceName, direction string, eBPFProgram *BPF) error {
+// LoadTCAttachProgram - not implemented in windows
+func (b *BPF) LoadTCAttachProgram(ifaceName, direction string, eBPFProgram *BPF) error {
 	// not implement nothing todo
-	return fmt.Errorf("LoadTCRootProgram - TC programs UnSupported on windows")
+	return fmt.Errorf("LoadTCAttachProgram - TC programs Unsupported on windows")
 }
 
 // UnLoadTCProgram - Remove TC filters

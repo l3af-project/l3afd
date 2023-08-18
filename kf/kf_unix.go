@@ -203,7 +203,7 @@ func VerifyNCreateTCDirs() error {
 }
 
 // LoadTCRootProgram - Load and add tc filters
-func (b *BPF) LoadTCRootProgram(ifaceName, direction string, eBPFProgram *BPF) error {
+func (b *BPF) LoadTCAttachProgram(ifaceName, direction string, eBPFProgram *BPF) error {
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
 		log.Fatal().Msgf("lookup network iface %q: %s", ifaceName, err)
@@ -257,14 +257,15 @@ func (b *BPF) LoadTCRootProgram(ifaceName, direction string, eBPFProgram *BPF) e
 	}
 
 	// storing collection reference pointer
-	b.CollectionRef = CollectionRef
+	b.ProgMapCollection = CollectionRef
 
 	var bpfRootProg *ebpf.Program
 	var bpfRootMap *ebpf.Map
 	var rootArrayMapFileName string
 
 	bpfRootProg = CollectionRef.Programs[eBPFProgram.Program.EntryFunctionName]
-	bpfRootMap = CollectionRef.Maps[strings.Split(eBPFProgram.Program.MapName, "/")[2]]
+	ss := strings.Split(eBPFProgram.Program.MapName, "/")
+	bpfRootMap = CollectionRef.Maps[ss[len(ss)-1]]
 	rootArrayMapFileName = filepath.Join(b.hostConfig.BpfMapDefaultPath, eBPFProgram.Program.MapName)
 
 	// Pinning root program
@@ -303,7 +304,7 @@ func (b *BPF) LoadTCRootProgram(ifaceName, direction string, eBPFProgram *BPF) e
 
 	// Attaching / Adding as filter
 	if err := b.TCFilter.Add(&filter); err != nil {
-		return fmt.Errorf("could not attach filter for eBPF program: %v", err)
+		return fmt.Errorf("could not attach filter to %s for eBPF program: %v", ifaceName, err)
 	}
 
 	return nil
@@ -317,7 +318,7 @@ func (b *BPF) UnLoadTCProgram(ifaceName, direction string) error {
 		log.Fatal().Msgf("lookup network iface %q: %s", ifaceName, err)
 	}
 
-	bpfRootProg := b.CollectionRef.Programs[b.Program.EntryFunctionName]
+	bpfRootProg := b.ProgMapCollection.Programs[b.Program.EntryFunctionName]
 
 	var parent uint32
 	if direction == models.IngressType {
