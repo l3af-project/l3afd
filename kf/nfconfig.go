@@ -828,32 +828,32 @@ func (c *NFConfigs) RemoveMissingNetIfacesNBPFProgsInConfig(bpfProgCfgs []models
 			_, ok := c.IngressXDPBpfs[ifaceName]
 			if ok {
 				wg.Add(1)
-				go func() {
+				go func(bpfProg models.L3afBPFPrograms) {
 					defer wg.Done()
 					if err := c.RemoveMissingBPFProgramsInConfig(bpfProg, ifaceName, models.XDPIngressType); err != nil {
 						log.Error().Err(err).Msgf("Failed to stop missing program for network interface %s direction Ingress", ifaceName)
 					}
-				}()
+				}(bpfProg)
 			}
 			_, ok = c.IngressTCBpfs[ifaceName]
 			if ok {
 				wg.Add(1)
-				go func() {
+				go func(bpfProg models.L3afBPFPrograms) {
 					defer wg.Done()
 					if err := c.RemoveMissingBPFProgramsInConfig(bpfProg, ifaceName, models.IngressType); err != nil {
 						log.Error().Err(err).Msgf("Failed to stop missing program for network interface %s direction Ingress", ifaceName)
 					}
-				}()
+				}(bpfProg)
 			}
 			_, ok = c.EgressTCBpfs[ifaceName]
 			if ok {
 				wg.Add(1)
-				go func() {
+				go func(bpfProg models.L3afBPFPrograms) {
 					defer wg.Done()
 					if err := c.RemoveMissingBPFProgramsInConfig(bpfProg, ifaceName, models.EgressType); err != nil {
 						log.Error().Err(err).Msgf("Failed to stop missing program for network interface %s direction Ingress", ifaceName)
 					}
-				}()
+				}(bpfProg)
 			}
 		}
 	}

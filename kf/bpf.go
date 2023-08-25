@@ -67,7 +67,8 @@ type BPF struct {
 	ProgMapCollection *ebpf.Collection          `json:"_"` // eBPF Collection reference
 	ProgMapID         ebpf.MapID
 	hostConfig        *config.Config
-	TCFilter          *tc.Filter
+	TCFilter          *tc.Filter `json:"-"` // handle to tc filter
+	XDPLink           link.Link  `json:"-"` // handle xdp link object
 }
 
 func NewBpfProgram(ctx context.Context, program models.BPFProgram, conf *config.Config) *BPF {
@@ -118,6 +119,7 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 			PrevMapNamePath: "",
 			hostConfig:      conf,
 			MapNamePath:     filepath.Join(conf.BpfMapDefaultPath, conf.XDPRootMapName),
+			XDPLink:         nil,
 		}
 	case models.TCType:
 		rootProgBPF = &BPF{
@@ -254,7 +256,7 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 
 	// First preference to unload/stop from l3afd
 	if b.ProgMapCollection != nil {
-		if err := b.UnLoadProgram(ifaceName, direction); err != nil {
+		if err := b.UnloadProgram(ifaceName, direction); err != nil {
 			return fmt.Errorf("BPFProgram %s unload failed on interface %s with error: %v", b.Program.Name, ifaceName, err)
 		}
 		log.Info().Msgf("%s => %s direction => %s - program is unloaded/detached successfully", ifaceName, b.Program.Name, direction)
@@ -949,8 +951,8 @@ func (b *BPF) GetProgID() (ebpf.ProgramID, error) {
 	key := 0
 
 	if err = ebpfMap.Lookup(unsafe.Pointer(&key), unsafe.Pointer(&value)); err != nil {
-		log.Warn().Err(err).Msgf("unable to lookup prog map %s", b.PrevMapNamePath)
-		return 0, fmt.Errorf("unable to lookup prog map %v", err)
+		log.Warn().Err(err).Msgf("unable to look up prog map %s", b.PrevMapNamePath)
+		return 0, fmt.Errorf("unable to look up prog map %v", err)
 	}
 
 	// verify progID before storing in locally.
@@ -1108,7 +1110,7 @@ func (b *BPF) VerifyMetricsMapsVanish() error {
 func (b *BPF) LoadXDPAttachProgram(ifaceName string, eBPFProgram *BPF) error {
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
-		log.Fatal().Msgf("lookup network iface %q: %s", ifaceName, err)
+		log.Fatal().Msgf("look up network iface %q: %s", ifaceName, err)
 	}
 
 	CollectionRef, err := ebpf.LoadCollection(eBPFProgram.Program.ObjectFile)
@@ -1121,56 +1123,69 @@ func (b *BPF) LoadXDPAttachProgram(ifaceName string, eBPFProgram *BPF) error {
 	bpfRootMap := CollectionRef.Maps[eBPFProgram.Program.MapName]
 
 	// Pinning root map
-	rootArrayMapFileName := filepath.Join(b.hostConfig.BpfMapDefaultPath, eBPFProgram.Program.MapName)
-	if err := bpfRootMap.Pin(rootArrayMapFileName); err != nil {
-		return fmt.Errorf("%s:failed to pin the map", rootArrayMapFileName)
+	if b.hostConfig.BpfChainingEnabled {
+		rootArrayMapFileName := filepath.Join(b.hostConfig.BpfMapDefaultPath, eBPFProgram.Program.MapName)
+		if err := bpfRootMap.Pin(rootArrayMapFileName); err != nil {
+			return fmt.Errorf("%s:failed to pin the map", rootArrayMapFileName)
+		}
 	}
 
-	_, err = link.AttachXDP(link.XDPOptions{
+	b.XDPLink, err = link.AttachXDP(link.XDPOptions{
 		Program:   bpfRootProg,
 		Interface: iface.Index,
 	})
+
 	if err != nil {
-		return fmt.Errorf("could not attach XDP program: %s", err)
+		return fmt.Errorf("could not attach xdp program %s to interface %s : %v", b.Program.Name, ifaceName, err)
 	}
 
 	progInfo, err := bpfRootProg.Info()
 	if err != nil {
-		return fmt.Errorf("could not get program info of xdp root program: %s", err)
+		return fmt.Errorf("could not get program info of %s to interface %s : %v", b.Program.Name, ifaceName, err)
 	}
 
 	ok := false
 	b.ProgID, ok = progInfo.ID()
 	if !ok {
-		return fmt.Errorf("failed to fetch the xdp root Program ID")
+		return fmt.Errorf("failed to fetch the xdp program %s to interface %s : %v", b.Program.Name, ifaceName, err)
 	}
 
 	ebpfInfo, err := bpfRootMap.Info()
 	if err != nil {
-		return fmt.Errorf("fetching map info failed %v", err)
+		return fmt.Errorf("fetching map info failed for xdp program %s to interface %s : %v", b.Program.Name, ifaceName, err)
 	}
 
 	b.ProgMapID, ok = ebpfInfo.ID()
 	if !ok {
-		return fmt.Errorf("fetching map id failed %v", err)
+		return fmt.Errorf("fetching map id failed for xdp program %s to interface %s : %v", b.Program.Name, ifaceName, err)
 	}
 
 	return nil
 }
 
-// UnLoadProgram - Unload the program
-func (b *BPF) UnLoadProgram(ifaceName, direction string) error {
+// UnloadProgram - Unload or detach the program from the interface and close all the program resources
+// TODO: Before unloading make sure user program is stopped to avoid any errors
+func (b *BPF) UnloadProgram(ifaceName, direction string) error {
 	_, err := net.InterfaceByName(ifaceName)
 	if err != nil {
-		log.Fatal().Msgf("lookup network iface %q: %s", ifaceName, err)
+		log.Fatal().Msgf("look up network iface %q: %s", ifaceName, err)
 	}
 
-	if b.Program.ProgType == models.TCType {
-		if err := b.UnLoadTCProgram(ifaceName, direction); err != nil {
-			log.Warn().Msgf("UnloadTC program failed iface %q direction %s error - %v", ifaceName, direction, err)
+	// Verifying program attached to the interface.
+	// SeqID will be 0 for root program or any other program without chaining
+	if b.Program.SeqID == 0 || !b.hostConfig.BpfChainingEnabled {
+		if b.Program.ProgType == models.TCType {
+			if err := b.UnloadTCProgram(ifaceName, direction); err != nil {
+				log.Warn().Msgf("removing tc filter failed iface %q direction %s error - %v", ifaceName, direction, err)
+			}
+		} else if b.Program.ProgType == models.XDPType {
+			if err := b.XDPLink.Close(); err != nil {
+				log.Warn().Msgf("removing xdp attached program failed iface %q direction %s error - %v", ifaceName, direction, err)
+			}
 		}
 	}
 
+	// Release all the resources of the epbf program
 	if b.ProgMapCollection != nil {
 		b.ProgMapCollection.Close()
 	}
