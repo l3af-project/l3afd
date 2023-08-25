@@ -177,10 +177,6 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 		}
 	}
 
-	//if err := rootProgBPF.Start(ifaceName, direction, conf.BpfChainingEnabled); err != nil {
-	//	return nil, fmt.Errorf("failed to start root program on interface %s, err: %v", ifaceName, err)
-	//}
-
 	return rootProgBPF, nil
 }
 
@@ -259,7 +255,7 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	// First preference to unload/stop from l3afd
 	if b.ProgMapCollection != nil {
 		if err := b.UnLoadProgram(ifaceName, direction); err != nil {
-			return fmt.Errorf("BPFProgram %s unload failed with error: %v", b.Program.Name, err)
+			return fmt.Errorf("BPFProgram %s unload failed on interface %s with error: %v", b.Program.Name, ifaceName, err)
 		}
 		log.Info().Msgf("%s => %s direction => %s - program is unloaded/detached successfully", ifaceName, b.Program.Name, direction)
 		return nil
