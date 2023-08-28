@@ -93,11 +93,11 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 
 	// Gauge value update is done through callback
 	for _, gaugeVal := range gaugeValues {
-		gaugeCopy := gaugeVal.Gauge
+		gauge := gaugeVal.Gauge
 		_, err = meter.RegisterCallback(func(_ context.Context, o api.Observer) error {
-			o.ObserveFloat64(*gaugeCopy, gaugeVal.GetValue(), gaugeVal.GetMeasurementOptions())
+			o.ObserveFloat64(*gauge, gaugeVal.GetValue(), gaugeVal.GetMeasurementOptions())
 			return nil
-		}, *gaugeCopy)
+		}, *gauge)
 
 		if err != nil {
 			log.Warn().Err(err).Msgf("Failed to update metric value for %s", gaugeVal.MetricName)
@@ -121,14 +121,13 @@ func Incr(counterVec *CounterValue, ebpfProgram, direction, ifaceName string) {
 		return
 	}
 
-	updatedAttributes := map[string]string {
-		"ebpf_program": ebpfProgram,
-		"direction": direction,
-		"ifaceName": ifaceName,
+	updatedAttributes := []attribute.KeyValue {
+		attribute.String("ebpf_program", ebpfProgram),
+		attribute.String("direction", direction),
+		attribute.String("ifaceName", ifaceName),
 	}
 
-	counterVec.SetAttributes(updatedAttributes)
-	counterVec.Increment()
+	counterVec.Increment(updatedAttributes)
 }
 
 func Set(value float64, gaugeVec *GaugeValue, ebpfProgram, direction, ifaceName string) {
@@ -138,14 +137,13 @@ func Set(value float64, gaugeVec *GaugeValue, ebpfProgram, direction, ifaceName 
 		return
 	}
 
-	updatedAttributes := map[string]string {
-		"ebpf_program":   ebpfProgram,
-		"direction":      direction,
-		"interface_name": ifaceName,
+	updatedAttributes := []attribute.KeyValue {
+		attribute.String("ebpf_program", ebpfProgram),
+		attribute.String("direction", direction),
+		attribute.String("ifaceName", ifaceName),
 	}
 
-	gaugeVec.SetAttributes(updatedAttributes)
-	gaugeVec.SetValue(value)
+	gaugeVec.SetValue(value, updatedAttributes)
 }
 
 func SetValue(value float64, gaugeVec *GaugeValue, ebpfProgram, mapName, ifaceName string) {
@@ -155,14 +153,13 @@ func SetValue(value float64, gaugeVec *GaugeValue, ebpfProgram, mapName, ifaceNa
 		return
 	}
 
-	updatedAttributes := map[string]string {
-		"ebpf_program":   ebpfProgram,
-		"map_name":       mapName,
-		"interface_name": ifaceName,
+	updatedAttributes := []attribute.KeyValue {
+		attribute.String("ebpf_program", ebpfProgram),
+		attribute.String("map_name", mapName),
+		attribute.String("interface_name", ifaceName),
 	}
 
-	gaugeVec.SetAttributes(updatedAttributes)
-	gaugeVec.SetValue(value)
+	gaugeVec.SetValue(value, updatedAttributes)
 }
 
 func SetWithVersion(value float64, gaugeVec *GaugeValue, ebpfProgram, version, direction, ifaceName string) {
@@ -172,13 +169,12 @@ func SetWithVersion(value float64, gaugeVec *GaugeValue, ebpfProgram, version, d
 		return
 	}
 
-	updatedAttributes := map[string]string {
-		"ebpf_program":   ebpfProgram,
-		"version":        version,
-		"direction":      direction,
-		"interface_name": ifaceName,
+	updatedAttributes := []attribute.KeyValue {
+		attribute.String("ebpf_program", ebpfProgram),
+		attribute.String("version", version),
+		attribute.String("direction", direction),
+		attribute.String("interface_name", ifaceName),
 	}
 
-	gaugeVec.SetAttributes(updatedAttributes)
-	gaugeVec.SetValue(value)
+	gaugeVec.SetValue(value, updatedAttributes)
 }
