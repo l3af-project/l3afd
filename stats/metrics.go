@@ -3,13 +3,6 @@
 
 package stats
 
-/*
-	TODO:
-		- Remove dependent modules
-			"github.com/prometheus/client_golang/prometheus"
-			"github.com/prometheus/client_golang/prometheus/promauto"
-			"github.com/prometheus/client_golang/prometheus/promhttp"
-*/
 import (
 	"context"
 	"net/http"
