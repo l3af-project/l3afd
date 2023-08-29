@@ -12,6 +12,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/ebpf"
+	"github.com/l3af-project/l3afd/models"
 	"github.com/rs/zerolog/log"
 )
 
@@ -24,33 +25,43 @@ type BPFMap struct {
 	BPFProg *BPF `json:"-"`
 }
 
+var _ models.BPFMap = &BPFMap{}
+
 // This stores Metrics map details.
 type MetricsBPFMap struct {
-	BPFMap
+	models.BPFMap
 	key        int
 	Values     *ring.Ring
 	aggregator string
 	lastValue  float64
 }
 
-// The update function is used to update eBPF maps, which are used by network functions.
-// Supported types are Array and Hash
-// Multiple values are comma separated
-// Hashmap can be multiple values or single values.
-// If hash map entries then key will be values and value will be set to 1
-// In case of Array then key will be index starting from 0 and values are stored.
-// for e.g.
-//
-//	HashMap scenario 1. --ports="80,443" values are stored in rl_ports_map BPF map
-//		key => 80 value => 1
-//		key => 443 value => 1
-//	HashMap scenario 2. --ports="443" value is stored in rl_ports_map BPF map
-//		key => 443 value => 1
-//	Array scenario 1. --ports="80,443" values are stored in rl_ports_map BPF map
-//		key => 0 value => 80
-//		key => 1 value => 443
-//	Array scenario 2. --rate="10000" value is stored in rl_config_map BPF map
-//		key => 0 value => 10000
+// GetName implements models.BPFMap.GetName
+func (b *BPFMap) GetName() string {
+	return b.Name
+}
+
+// GetMapID implements models.BPFMap.GetMapID
+func (b *BPFMap) GetMapID() ebpf.MapID {
+	return b.MapID
+}
+
+// GetType implements models.BPFMap.GetType
+func (b *BPFMap) GetType() ebpf.MapType {
+	return b.Type
+}
+
+// GetBPFProg implements models.BPFMap.GetBPFProg
+func (b *BPFMap) GetBPFProg() models.BPF {
+	return b.BPFProg
+}
+
+// UpdateMapID implements models.BPFMap.UpdateMapID
+func (b *BPFMap) UpdateMapID(mapID ebpf.MapID) {
+	b.MapID = mapID
+}
+
+// Update implements models.BPFMap.Update
 func (b *BPFMap) Update(value string) error {
 
 	log.Debug().Msgf("update map name %s ID %d", b.Name, b.MapID)
@@ -103,21 +114,21 @@ func (b *BPFMap) Update(value string) error {
 // avg - stores the values in the circular queue
 // We can implement more aggregate function as needed.
 func (b *MetricsBPFMap) GetValue() float64 {
-	ebpfMap, err := ebpf.NewMapFromID(b.MapID)
+	ebpfMap, err := ebpf.NewMapFromID(b.GetMapID())
 	if err != nil {
 		// We have observed in smaller configuration VM's, if we restart KF's
 		// Stale mapID's are reported, in such cases re-checking map id
-		log.Warn().Err(err).Msgf("GetValue : NewMapFromID failed ID %d, re-looking up of map id", b.MapID)
-		tmpBPF, err := b.BPFProg.GetBPFMap(b.Name)
+		log.Warn().Err(err).Msgf("GetValue : NewMapFromID failed ID %d, re-looking up of map id", b.GetMapID())
+		tmpBPF, err := b.GetBPFProg().GetBPFMap(b.GetName())
 		if err != nil {
-			log.Warn().Err(err).Msgf("GetValue: Update new map ID %d", tmpBPF.MapID)
+			log.Warn().Err(err).Msgf("GetValue: Update new map ID %d", tmpBPF.GetMapID())
 			return 0
 		}
-		log.Info().Msgf("GetValue: Update new map ID %d", tmpBPF.MapID)
-		b.MapID = tmpBPF.MapID
-		ebpfMap, err = ebpf.NewMapFromID(b.MapID)
+		log.Info().Msgf("GetValue: Update new map ID %d", tmpBPF.GetMapID())
+		b.UpdateMapID(tmpBPF.GetMapID())
+		ebpfMap, err = ebpf.NewMapFromID(b.GetMapID())
 		if err != nil {
-			log.Warn().Err(err).Msgf("GetValue : retry of NewMapFromID failed ID %d", b.MapID)
+			log.Warn().Err(err).Msgf("GetValue : retry of NewMapFromID failed ID %d", b.GetMapID())
 			return 0
 		}
 	}
@@ -125,7 +136,7 @@ func (b *MetricsBPFMap) GetValue() float64 {
 
 	var value int64
 	if err = ebpfMap.Lookup(unsafe.Pointer(&b.key), unsafe.Pointer(&value)); err != nil {
-		log.Warn().Err(err).Msgf("GetValue Lookup failed : Name %s ID %d", b.Name, b.MapID)
+		log.Warn().Err(err).Msgf("GetValue Lookup failed : Name %s ID %d", b.GetName(), b.GetMapID())
 		return 0
 	}
 

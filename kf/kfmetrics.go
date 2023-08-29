@@ -39,15 +39,15 @@ func (c *kfMetrics) kfMetricsWorker(bpfProgs map[string]*list.List, direction st
 				continue
 			}
 			for e := bpfList.Front(); e != nil; e = e.Next() {
-				bpf := e.Value.(*BPF)
-				if c.Chain && bpf.Program.SeqID == 0 { // do not monitor root program
+				bpf := e.Value.(models.BPF)
+				if c.Chain && bpf.SeqId() == 0 { // do not monitor root program
 					continue
 				}
-				if bpf.Program.AdminStatus == models.Disabled {
+				if bpf.AdminStatus() == models.Disabled {
 					continue
 				}
 				if err := bpf.MonitorMaps(ifaceName, c.Intervals); err != nil {
-					log.Error().Err(err).Msgf("pMonitor monitor maps failed - %s", bpf.Program.Name)
+					log.Error().Err(err).Msgf("pMonitor monitor maps failed - %s", bpf.Name())
 				}
 			}
 		}
