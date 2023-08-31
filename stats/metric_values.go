@@ -9,33 +9,33 @@ import (
 )
 
 type metricAttributes struct {
-	baseAttribCount		int
+	baseAttributeCount	int
 	MetricName			string
-	Attribs 			[]attribute.KeyValue
+	Attributes			[]attribute.KeyValue
 }
 
-func newMetricAttribs(metricName string, baseAttribs []attribute.KeyValue) *metricAttributes {
+func newMetricAttributes(metricName string, baseAttributes []attribute.KeyValue) *metricAttributes {
 	retval := metricAttributes {
 		MetricName: metricName,
-		Attribs: make([]attribute.KeyValue, len(baseAttribs)),
+		Attributes: make([]attribute.KeyValue, len(baseAttributes)),
 	}
 
-	copy(retval.Attribs, baseAttribs)
+	copy(retval.Attributes, baseAttributes)
 	return &retval
 }
 
-func (metricAttribs *metricAttributes) getMeasurementOptions(attribsToInclude []attribute.KeyValue) api.MeasurementOption {
-	if attribsToInclude != nil {
-		updatedAttribs := append(metricAttribs.Attribs, attribsToInclude...)
-		return api.WithAttributes(updatedAttribs...)
+func (metricAttributes *metricAttributes) getMeasurementOptions(attributesToInclude []attribute.KeyValue) api.MeasurementOption {
+	if attributesToInclude != nil {
+		updatedAttributes := append(metricAttributes.Attributes, attributesToInclude...)
+		return api.WithAttributes(updatedAttributes...)
 	}
 
-	return api.WithAttributes(metricAttribs.Attribs...)
+	return api.WithAttributes(metricAttributes.Attributes...)
 }
 
-func (metricAttribs *metricAttributes) setAttributes(newAttribValues []attribute.KeyValue) {
-	metricAttribs.Attribs = metricAttribs.Attribs[:metricAttribs.baseAttribCount]
-	metricAttribs.Attribs = append(metricAttribs.Attribs, newAttribValues...)
+func (metricAttributes *metricAttributes) setAttributes(newAttribValues []attribute.KeyValue) {
+	metricAttributes.Attributes = metricAttributes.Attributes[:metricAttributes.baseAttributeCount]
+	metricAttributes.Attributes = append(metricAttributes.Attributes, newAttribValues...)
 }
 
 // =====================================================
@@ -46,11 +46,11 @@ type GaugeValue struct {
 	*metricAttributes
 }
 
-func NewGaugeValue(gauge *api.Float64ObservableGauge, metricName string, attribs []attribute.KeyValue) *GaugeValue {
+func NewGaugeValue(gauge *api.Float64ObservableGauge, metricName string, attributes []attribute.KeyValue) *GaugeValue {
 	return &GaugeValue {
 		Gauge: gauge,
 		Value: 0,
-		metricAttributes: newMetricAttribs(metricName, attribs),
+		metricAttributes: newMetricAttributes(metricName, attributes),
 	}
 }
 
@@ -61,11 +61,11 @@ func (gaugeValue *GaugeValue) GetMeasurementOptions() api.MeasurementOption {
 	return gaugeValue.getMeasurementOptions(nil)
 }
 
-func (gaugeValue *GaugeValue) SetValue(val float64, attribs []attribute.KeyValue) {
+func (gaugeValue *GaugeValue) SetValue(val float64, attributes []attribute.KeyValue) {
 	gaugeValue.mutex.Lock()
 	defer gaugeValue.mutex.Unlock()
 
-	gaugeValue.metricAttributes.setAttributes(attribs)
+	gaugeValue.metricAttributes.setAttributes(attributes)
 	gaugeValue.Value = val
 }
 
@@ -84,15 +84,15 @@ type CounterValue struct {
 	*metricAttributes
 }
 
-func NewCounterValue(ctx context.Context, counter *api.Int64Counter, metricName string, attribs []attribute.KeyValue) *CounterValue {
+func NewCounterValue(ctx context.Context, counter *api.Int64Counter, metricName string, attributes []attribute.KeyValue) *CounterValue {
 	return &CounterValue{
 		Ctx: ctx,
 		Counter: counter,
 		Value: 0,
-		metricAttributes: newMetricAttribs(metricName, attribs),
+		metricAttributes: newMetricAttributes(metricName, attributes),
 	}
 }
 
-func (counterValue *CounterValue) Increment(attribs []attribute.KeyValue) {
-	(*(counterValue.Counter)).Add(counterValue.Ctx, 1, counterValue.getMeasurementOptions(attribs))
+func (counterValue *CounterValue) Increment(attributes []attribute.KeyValue) {
+	(*(counterValue.Counter)).Add(counterValue.Ctx, 1, counterValue.getMeasurementOptions(attributes))
 }

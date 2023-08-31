@@ -35,53 +35,53 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 	provider := metric.NewMeterProvider(metric.WithReader(exporter))
 	meter := provider.Meter("l3af-project/l3afd")
 
-	baseAttribs := []attribute.KeyValue { attribute.Key("host").String(hostname) }
+	baseAttributes := []attribute.KeyValue { attribute.Key("host").String(hostname) }
 
 	metricName := daemonName + "_NFStartCount"
 	startCount, err := meter.Int64Counter(metricName, api.WithDescription("The count of network functions started"))
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to create NFStartCount")
 	}
-	NFStartCount = NewCounterValue(ctx, &startCount, metricName, baseAttribs)
+	NFStartCount = NewCounterValue(ctx, &startCount, metricName, baseAttributes)
 
 	metricName = daemonName + "_NFStopCount"
 	stopCount, err := meter.Int64Counter(metricName, api.WithDescription("The count of network functions stopped"))
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to create NFStartCount")
 	}
-	NFStopCount = NewCounterValue(ctx, &stopCount, metricName, baseAttribs)
+	NFStopCount = NewCounterValue(ctx, &stopCount, metricName, baseAttributes)
 
 	metricName = daemonName + "_NFUpdateCount"
 	updateCount, err := meter.Int64Counter(metricName, api.WithDescription("The count of network functions updated"))
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to create NFUpdateCount")
 	}
-	NFUpdateCount = NewCounterValue(ctx, &updateCount, metricName, baseAttribs)
+	NFUpdateCount = NewCounterValue(ctx, &updateCount, metricName, baseAttributes)
 
 	gaugeValues := []*GaugeValue{}
 
 	metricName = daemonName + "_NFRunning"
-	runningGugage, err := meter.Float64ObservableGauge(metricName, api.WithDescription("This value indicates network functions is running or not"))
+	runningGauge, err := meter.Float64ObservableGauge(metricName, api.WithDescription("This value indicates network functions is running or not"))
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to create NFRunning")
 	}
-	NFRunning = NewGaugeValue(&runningGugage, metricName, baseAttribs)
+	NFRunning = NewGaugeValue(&runningGauge, metricName, baseAttributes)
 	gaugeValues = append(gaugeValues, NFRunning)
 
 	metricName = daemonName + "_NFStartTime"
-	startTimeGuage, err := meter.Float64ObservableGauge(metricName, api.WithDescription("This value indicates start time of the network function since unix epoch in seconds"))
+	startTimeGauge, err := meter.Float64ObservableGauge(metricName, api.WithDescription("This value indicates start time of the network function since unix epoch in seconds"))
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to create NFStartTime")
 	}
-	NFStartTime = NewGaugeValue(&startTimeGuage, metricName, baseAttribs)
+	NFStartTime = NewGaugeValue(&startTimeGauge, metricName, baseAttributes)
 	gaugeValues = append(gaugeValues, NFStartTime)
 
 	metricName = daemonName + "_NFMonitorMap"
-	monitorMapGuage, err := meter.Float64ObservableGauge(metricName, api.WithDescription("This value indicates network function monitor counters"))
+	monitorMapGauge, err := meter.Float64ObservableGauge(metricName, api.WithDescription("This value indicates network function monitor counters"))
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to create NFMonitorMap")
 	}
-	NFMonitorMap = NewGaugeValue(&monitorMapGuage, metricName, baseAttribs)
+	NFMonitorMap = NewGaugeValue(&monitorMapGauge, metricName, baseAttributes)
 	gaugeValues = append(gaugeValues, NFMonitorMap)
 
 	// Gauge value update is done through callback
