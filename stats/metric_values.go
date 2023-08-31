@@ -9,9 +9,9 @@ import (
 )
 
 type metricAttributes struct {
-	baseAttributeCount	int
-	MetricName			string
-	Attributes			[]attribute.KeyValue
+	baseAttributeCount  int
+	MetricName          string
+	Attributes          []attribute.KeyValue
 }
 
 func newMetricAttributes(metricName string, baseAttributes []attribute.KeyValue) *metricAttributes {
