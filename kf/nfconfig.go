@@ -380,7 +380,7 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 
 			// update if not a last program
 			if e.Next() != nil {
-				data.PutNextProgFDFromID(e.Next().Value.(*BPF).ProgID)
+				data.PutNextProgFDFromID(int(e.Next().Value.(*BPF).ProgID))
 			}
 
 			return nil
@@ -608,7 +608,7 @@ func (c *NFConfigs) StopRootProgram(ifaceName, direction string) error {
 func (c *NFConfigs) LinkBPFPrograms(leftBPF, rightBPF *BPF) error {
 	log.Info().Msgf("LinkBPFPrograms : left BPF Prog %s right BPF Prog %s", leftBPF.Program.Name, rightBPF.Program.Name)
 	rightBPF.PrevMapNamePath = leftBPF.MapNamePath
-	if err := leftBPF.PutNextProgFDFromID(rightBPF.ProgID); err != nil {
+	if err := leftBPF.PutNextProgFDFromID(int(rightBPF.ProgID)); err != nil {
 		log.Error().Err(err).Msgf("LinkBPFPrograms - failed to update program fd in prev prog map before move")
 		return fmt.Errorf("LinkBPFPrograms - failed to update program fd in prev prog prog map before move %v", err)
 	}
@@ -828,32 +828,32 @@ func (c *NFConfigs) RemoveMissingNetIfacesNBPFProgsInConfig(bpfProgCfgs []models
 			_, ok := c.IngressXDPBpfs[ifaceName]
 			if ok {
 				wg.Add(1)
-				go func() {
+				go func(bpfProg models.L3afBPFPrograms) {
 					defer wg.Done()
 					if err := c.RemoveMissingBPFProgramsInConfig(bpfProg, ifaceName, models.XDPIngressType); err != nil {
 						log.Error().Err(err).Msgf("Failed to stop missing program for network interface %s direction Ingress", ifaceName)
 					}
-				}()
+				}(bpfProg)
 			}
 			_, ok = c.IngressTCBpfs[ifaceName]
 			if ok {
 				wg.Add(1)
-				go func() {
+				go func(bpfProg models.L3afBPFPrograms) {
 					defer wg.Done()
 					if err := c.RemoveMissingBPFProgramsInConfig(bpfProg, ifaceName, models.IngressType); err != nil {
 						log.Error().Err(err).Msgf("Failed to stop missing program for network interface %s direction Ingress", ifaceName)
 					}
-				}()
+				}(bpfProg)
 			}
 			_, ok = c.EgressTCBpfs[ifaceName]
 			if ok {
 				wg.Add(1)
-				go func() {
+				go func(bpfProg models.L3afBPFPrograms) {
 					defer wg.Done()
 					if err := c.RemoveMissingBPFProgramsInConfig(bpfProg, ifaceName, models.EgressType); err != nil {
 						log.Error().Err(err).Msgf("Failed to stop missing program for network interface %s direction Ingress", ifaceName)
 					}
-				}()
+				}(bpfProg)
 			}
 		}
 	}

@@ -11,11 +11,18 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"unsafe"
 
+	"github.com/l3af-project/l3afd/models"
+
+	"github.com/cilium/ebpf"
+	"github.com/florianl/go-tc"
+	"github.com/florianl/go-tc/core"
 	"github.com/rs/zerolog/log"
 	"github.com/safchain/ethtool"
 	"golang.org/x/sys/unix"
@@ -192,5 +199,173 @@ func VerifyNCreateTCDirs() error {
 	if err != nil {
 		return fmt.Errorf("unable to create directories to pin tc maps %s : %s", path, err)
 	}
+	return nil
+}
+
+// LoadTCAttachProgram - Load and attach tc root program filters or any tc program when chaining is disabled
+func (b *BPF) LoadTCAttachProgram(ifaceName, direction string, eBPFProgram *BPF) error {
+	iface, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		log.Fatal().Msgf("look up network iface %q: %s", ifaceName, err)
+	}
+
+	// verify and add attribute clsact
+	tcgo, err := tc.Open(&tc.Config{})
+	if err != nil {
+		return fmt.Errorf("could not open rtnetlink socket for interface %s : %v", ifaceName, err)
+	}
+
+	clsactFound := false
+	// get all the qdiscs from all interfaces
+	qdiscs, err := tcgo.Qdisc().Get()
+	if err != nil {
+		return fmt.Errorf("could not get qdiscs for interface %s : %v", ifaceName, err)
+	}
+	for _, qdisc := range qdiscs {
+		iface, err := net.InterfaceByIndex(int(qdisc.Ifindex))
+		if err != nil {
+			return fmt.Errorf("could not get interface %s from id %d: %v", ifaceName, qdisc.Ifindex, err)
+		}
+		if iface.Name == ifaceName && qdisc.Kind == "clsact" {
+			clsactFound = true
+		}
+	}
+
+	if !clsactFound {
+		qdisc := tc.Object{
+			Msg: tc.Msg{
+				Family:  unix.AF_UNSPEC,
+				Ifindex: uint32(iface.Index),
+				Handle:  core.BuildHandle(tc.HandleRoot, 0x0000),
+				Parent:  tc.HandleIngress,
+				Info:    0,
+			},
+			Attribute: tc.Attribute{
+				Kind: "clsact",
+			},
+		}
+
+		if err := tcgo.Qdisc().Add(&qdisc); err != nil {
+			log.Info().Msgf("could not assign clsact to %s : %v, its already exists", ifaceName, err)
+		}
+	}
+
+	CollectionRef, err := ebpf.LoadCollection(eBPFProgram.Program.ObjectFile)
+	if err != nil {
+		log.Error().Msgf("loading of tc program %s object file %s failed direction %s", eBPFProgram.Program.Name, eBPFProgram.Program.ObjectFile, direction)
+		return fmt.Errorf("%s : loading of tc program failed", eBPFProgram.Program.ObjectFile)
+	}
+
+	// Storing collection reference pointer
+	b.ProgMapCollection = CollectionRef
+
+	var bpfRootProg *ebpf.Program
+	var bpfRootMap *ebpf.Map
+	var rootArrayMapFileName string
+
+	bpfRootProg = CollectionRef.Programs[eBPFProgram.Program.EntryFunctionName]
+	ss := strings.Split(eBPFProgram.Program.MapName, "/")
+	bpfRootMap = CollectionRef.Maps[ss[len(ss)-1]]
+	rootArrayMapFileName = filepath.Join(b.hostConfig.BpfMapDefaultPath, eBPFProgram.Program.MapName)
+
+	// Pinning program map
+	if err := bpfRootMap.Pin(rootArrayMapFileName); err != nil {
+		return fmt.Errorf("%s failed to pin the map of program %s", rootArrayMapFileName, eBPFProgram.Program.Name)
+	}
+
+	var parent uint32
+	if direction == models.IngressType {
+		parent = tc.HandleMinIngress
+	} else if direction == models.EgressType {
+		parent = tc.HandleMinEgress
+	}
+
+	progFD := uint32(bpfRootProg.FD())
+	// Netlink attribute used in the Linux kernel
+	bpfFlag := uint32(tc.BpfActDirect)
+
+	filter := tc.Object{
+		Msg: tc.Msg{
+			Family:  unix.AF_UNSPEC,
+			Ifindex: uint32(iface.Index),
+			Handle:  0,
+			Parent:  core.BuildHandle(tc.HandleRoot, parent),
+			Info:    0x300,
+		},
+		Attribute: tc.Attribute{
+			Kind: "bpf",
+			BPF: &tc.Bpf{
+				FD:    &progFD,
+				Flags: &bpfFlag,
+			},
+		},
+	}
+
+	// Storing Filter handle
+	b.TCFilter = tcgo.Filter()
+
+	// Attaching / Adding as filter
+	if err := b.TCFilter.Add(&filter); err != nil {
+		return fmt.Errorf("could not attach filter to interface %s for eBPF program %s : %v", ifaceName, eBPFProgram.Program.Name, err)
+	}
+
+	return nil
+}
+
+// UnloadTCProgram - Remove TC filters
+func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
+
+	iface, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		log.Fatal().Msgf("look up network iface %q: %s", ifaceName, err)
+	}
+
+	bpfRootProg := b.ProgMapCollection.Programs[b.Program.EntryFunctionName]
+
+	var parent uint32
+	if direction == models.IngressType {
+		parent = tc.HandleMinIngress
+	} else if direction == models.EgressType {
+		parent = tc.HandleMinEgress
+	}
+
+	tcfilts, err := b.TCFilter.Get(&tc.Msg{
+		Family:  unix.AF_UNSPEC,
+		Ifindex: uint32(iface.Index),
+		Handle:  0x0,
+		Parent:  core.BuildHandle(tc.HandleRoot, tc.HandleMinIngress),
+	})
+
+	if err != nil {
+		log.Warn().Msgf("Could not get filters for interface \"%s\" direction %s ", ifaceName, direction)
+		return fmt.Errorf("could not get filters for interface %s : %v", ifaceName, err)
+	}
+
+	progFD := uint32(bpfRootProg.FD())
+	// Netlink attribute used in the Linux kernel
+	bpfFlag := uint32(tc.BpfActDirect)
+
+	filter := tc.Object{
+		Msg: tc.Msg{
+			Family:  unix.AF_UNSPEC,
+			Ifindex: uint32(iface.Index),
+			Handle:  0,
+			Parent:  core.BuildHandle(tc.HandleRoot, parent),
+			Info:    tcfilts[0].Msg.Info,
+		},
+		Attribute: tc.Attribute{
+			Kind: "bpf",
+			BPF: &tc.Bpf{
+				FD:    &progFD,
+				Flags: &bpfFlag,
+			},
+		},
+	}
+
+	// Detaching / Deleting filter
+	if err := b.TCFilter.Delete(&filter); err != nil {
+		return fmt.Errorf("could not dettach tc filter for interface %s : %v", ifaceName, err)
+	}
+
 	return nil
 }

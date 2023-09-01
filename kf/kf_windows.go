@@ -55,3 +55,14 @@ func (b *BPF) ProcessTerminate() error {
 func VerifyNCreateTCDirs() error {
 	return nil
 }
+
+// LoadTCAttachProgram - not implemented in windows
+func (b *BPF) LoadTCAttachProgram(ifaceName, direction string, eBPFProgram *BPF) error {
+	// not implement nothing todo
+	return fmt.Errorf("LoadTCAttachProgram - TC programs Unsupported on windows")
+}
+
+// UnloadTCProgram - Remove TC filters
+func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
+	return fmt.Errorf("UnloadTCProgram - TC programs Unsupported on windows")
+}
