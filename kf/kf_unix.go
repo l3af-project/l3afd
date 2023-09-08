@@ -309,7 +309,7 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string, eBPFProgram *BPF)
 		return fmt.Errorf("could not attach filter to interface %s for eBPF program %s : %v", ifaceName, eBPFProgram.Program.Name, err)
 	}
 
- 	progInfo, err := bpfRootProg.Info()
+	progInfo, err := bpfRootProg.Info()
 	if err != nil {
 		return fmt.Errorf("could not get program info of %s to interface %s : %v", b.Program.Name, ifaceName, err)
 	}
