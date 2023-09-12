@@ -264,13 +264,33 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string, eBPFProgram *BPF)
 	var rootArrayMapFileName string
 
 	bpfRootProg = CollectionRef.Programs[eBPFProgram.Program.EntryFunctionName]
-	ss := strings.Split(eBPFProgram.Program.MapName, "/")
-	bpfRootMap = CollectionRef.Maps[ss[len(ss)-1]]
-	rootArrayMapFileName = filepath.Join(b.hostConfig.BpfMapDefaultPath, eBPFProgram.Program.MapName)
 
-	// Pinning program map
-	if err := bpfRootMap.Pin(rootArrayMapFileName); err != nil {
-		return fmt.Errorf("%s failed to pin the map of program %s", rootArrayMapFileName, eBPFProgram.Program.Name)
+	// Pinning map
+	if b.hostConfig.BpfChainingEnabled {
+		// Verify chaining map is provided
+		if len(eBPFProgram.Program.MapName) == 0 {
+			return fmt.Errorf("program map name is missing for tc program %s", eBPFProgram.Program.Name)
+		}
+
+		ss := strings.Split(eBPFProgram.Program.MapName, "/")
+		bpfRootMap = CollectionRef.Maps[ss[len(ss)-1]]
+		rootArrayMapFileName = filepath.Join(b.hostConfig.BpfMapDefaultPath, eBPFProgram.Program.MapName)
+
+		// Pinning program map
+		if err := bpfRootMap.Pin(rootArrayMapFileName); err != nil {
+			return fmt.Errorf("%s failed to pin the map of tc program %s", rootArrayMapFileName, eBPFProgram.Program.Name)
+		}
+
+		ebpfInfo, err := bpfRootMap.Info()
+		if err != nil {
+			return fmt.Errorf("fetching map info failed for tc program %s to interface %s : %v", b.Program.Name, ifaceName, err)
+		}
+
+		var ok bool
+		b.ProgMapID, ok = ebpfInfo.ID()
+		if !ok {
+			return fmt.Errorf("fetching map id failed for tc program %s to interface %s : %v", b.Program.Name, ifaceName, err)
+		}
 	}
 
 	var parent uint32
