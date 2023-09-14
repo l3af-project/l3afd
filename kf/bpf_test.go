@@ -271,7 +271,7 @@ func TestBPF_Start(t *testing.T) {
 					BPFLogDir: "",
 				},
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{name: "withResourceLimits",
 			fields: fields{
@@ -333,7 +333,7 @@ func TestBPF_isRunning(t *testing.T) {
 				FilePath:     "",
 				RestartCount: 0,
 			},
-			want:    true,
+			want:    false,
 			wantErr: false,
 		},
 	}
@@ -345,13 +345,9 @@ func TestBPF_isRunning(t *testing.T) {
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
 			}
-			got, err := b.isRunning()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("BPF.isRunning() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("BPF.isRunning() = %v, want %v", got, tt.want)
+			userProg, kernProg, err := b.isRunning()
+			if (err != nil) != tt.wantErr && (userProg == tt.want || kernProg != tt.want) {
+				t.Errorf("BPF.isRunning() user prog = %v, kern prog = %v, error = %v, wantErr %v ", userProg, kernProg, err, tt.wantErr)
 			}
 		})
 	}

@@ -49,8 +49,8 @@ func (c *pCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string
 				if bpf.Program.AdminStatus == models.Disabled {
 					continue
 				}
-				isRunning, _ := bpf.isRunning()
-				if isRunning {
+				userProgram, kernelProgram, _ := bpf.isRunning()
+				if userProgram && kernelProgram {
 					stats.SetWithVersion(1.0, stats.NFRunning, bpf.Program.Name, bpf.Program.Version, direction, ifaceName)
 					continue
 				}
@@ -59,8 +59,25 @@ func (c *pCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string
 					bpf.RestartCount++
 					log.Warn().Msgf("pMonitor BPF Program is not running. Restart attempt: %d, program name: %s, iface: %s",
 						bpf.RestartCount, bpf.Program.Name, ifaceName)
-					if err := bpf.Start(ifaceName, direction, c.Chain); err != nil {
-						log.Error().Err(err).Msgf("pMonitor BPF Program start failed for program %s", bpf.Program.Name)
+					//  User program is a daemon and not running, but kernel program is loaded
+					if !userProgram && kernelProgram {
+						if err := bpf.StartUserProgram(ifaceName, direction, c.Chain); err != nil {
+							log.Error().Err(err).Msgf("pMonitor BPF Program start user program failed for program %s", bpf.Program.Name)
+						}
+					}
+					// Kernel program is not loaded.
+					// if user program is daemon then stop it and restart both the programs
+					if !kernelProgram {
+						log.Warn().Msgf("%s kernel program is not loaded, %s program reloading ...", bpf.Program.EntryFunctionName, bpf.Program.Name)
+						// User program is a daemon and running, stop before reloading the kernel program
+						if bpf.Program.UserProgramDaemon && userProgram {
+							if err := bpf.Stop(ifaceName, direction, c.Chain); err != nil {
+								log.Error().Err(err).Msgf("pMonitor BPF Program stop failed for program %s", bpf.Program.Name)
+							}
+						}
+						if err := bpf.Start(ifaceName, direction, c.Chain); err != nil {
+							log.Error().Err(err).Msgf("pMonitor BPF Program start failed for program %s", bpf.Program.Name)
+						}
 					}
 				} else {
 					stats.SetWithVersion(0.0, stats.NFRunning, bpf.Program.Name, bpf.Program.Version, direction, ifaceName)

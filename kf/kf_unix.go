@@ -353,7 +353,7 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 		Family:  unix.AF_UNSPEC,
 		Ifindex: uint32(iface.Index),
 		Handle:  0x0,
-		Parent:  core.BuildHandle(tc.HandleRoot, tc.HandleMinIngress),
+		Parent:  core.BuildHandle(tc.HandleRoot, parent),
 	})
 
 	if err != nil {
