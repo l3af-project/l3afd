@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"unsafe"
@@ -261,7 +260,6 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string, eBPFProgram *BPF)
 
 	var bpfRootProg *ebpf.Program
 	var bpfRootMap *ebpf.Map
-	var rootArrayMapFileName string
 
 	bpfRootProg = CollectionRef.Programs[eBPFProgram.Program.EntryFunctionName]
 
@@ -274,13 +272,15 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string, eBPFProgram *BPF)
 
 		ss := strings.Split(eBPFProgram.Program.MapName, "/")
 		bpfRootMap = CollectionRef.Maps[ss[len(ss)-1]]
-		rootArrayMapFileName = filepath.Join(b.hostConfig.BpfMapDefaultPath, eBPFProgram.Program.MapName)
 
-		// Pinning program map
-		if err := bpfRootMap.Pin(rootArrayMapFileName); err != nil {
-			return fmt.Errorf("%s failed to pin the map of tc program %s", rootArrayMapFileName, eBPFProgram.Program.Name)
+		if err := b.CreateMapPinDirectory(ifaceName); err != nil {
+			return fmt.Errorf("%s - failed to create directory for iface %s to pin the map - %s err %v", b.Program.Name, ifaceName, b.MapNamePath, err)
 		}
 
+		// Pinning program map
+		if err := bpfRootMap.Pin(b.MapNamePath); err != nil {
+			return fmt.Errorf("%s failed to pin the map of tc program %s err - %#v", b.MapNamePath, eBPFProgram.Program.Name, err)
+		}
 		ebpfInfo, err := bpfRootMap.Info()
 		if err != nil {
 			return fmt.Errorf("fetching map info failed for tc program %s to interface %s : %v", b.Program.Name, ifaceName, err)

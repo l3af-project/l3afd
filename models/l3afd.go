@@ -18,6 +18,7 @@ const (
 	IngressType    = "ingress"
 	EgressType     = "egress"
 	XDPIngressType = "xdpingress"
+	TCMapPinPath   = "tc/globals"
 )
 
 type L3afDNFArgs map[string]interface{}

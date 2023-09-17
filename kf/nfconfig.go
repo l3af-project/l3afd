@@ -200,7 +200,7 @@ func (c *NFConfigs) VerifyAndStartTCRootProgram(ifaceName, direction string) err
 func (c *NFConfigs) PushBackAndStartBPF(bpfProg *models.BPFProgram, ifaceName, direction string) error {
 
 	log.Info().Msgf("PushBackAndStartBPF : iface %s, direction %s", ifaceName, direction)
-	bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig)
+	bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig, ifaceName)
 	var bpfList *list.List
 
 	switch direction {
@@ -518,7 +518,7 @@ func (c *NFConfigs) InsertAndStartBPFProgram(bpfProg *models.BPFProgram, ifaceNa
 		return nil
 	}
 
-	bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig)
+	bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig, ifaceName)
 
 	switch direction {
 	case models.XDPIngressType:
@@ -997,7 +997,7 @@ func (c *NFConfigs) AddAndStartBPF(bpfProg *models.BPFProgram, ifaceName string,
 	for e := bpfList.Front(); e != nil; e = e.Next() {
 		data := e.Value.(*BPF)
 		if data.Program.SeqID > bpfProg.SeqID {
-			bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig)
+			bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig, ifaceName)
 			tmpBPF := bpfList.InsertBefore(bpf, e)
 			if err := c.DownloadAndStartBPFProgram(tmpBPF, ifaceName, direction); err != nil {
 				return fmt.Errorf("failed to download and start eBPF program %s version %s iface %s direction %s", bpfProg.Name, bpfProg.Version, ifaceName, direction)
