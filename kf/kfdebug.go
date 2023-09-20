@@ -16,19 +16,19 @@ var kfcfgs *NFConfigs
 func SetupKFDebug(ebpfChainDebugAddr string, kfConfigs *NFConfigs) {
 	kfcfgs = kfConfigs
 	go func() {
-		http.HandleFunc("/kfs/", ViewHandler)
+		http.HandleFunc("/bpfs/", ViewHandler)
 
 		// We just need to start a server.
-		log.Info().Msg("Starting KF debug server")
+		log.Info().Msg("Starting BPF debug server")
 		if err := http.ListenAndServe(ebpfChainDebugAddr, nil); err != nil {
-			log.Fatal().Err(err).Msg("failed to start KF chain debug server")
+			log.Fatal().Err(err).Msg("failed to start BPF chain debug server")
 		}
 	}()
 }
 
 func ViewHandler(w http.ResponseWriter, r *http.Request) {
 
-	iface := strings.TrimPrefix(r.URL.Path, "/kfs/")
+	iface := strings.TrimPrefix(r.URL.Path, "/bpfs/")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(kfcfgs.KFDetails(iface)); err != nil {
