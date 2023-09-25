@@ -517,11 +517,13 @@ func (b *BPF) UpdateArgs(ifaceName, direction string) error {
 	log.Info().Msgf("BPF Program update command : %s %v", cmd, args)
 	UpdateCmd := execCommand(cmd, args...)
 	if err := UpdateCmd.Start(); err != nil {
+		stats.Incr(stats.NFUpdateFailedCount, b.Program.Name, direction, ifaceName)
 		log.Info().Err(err).Msgf("user mode BPF program failed - %s", b.Program.Name)
 		return fmt.Errorf("failed to start : %s %v", cmd, args)
 	}
 
 	if err := UpdateCmd.Wait(); err != nil {
+		stats.Incr(stats.NFUpdateFailedCount, b.Program.Name, direction, ifaceName)
 		return fmt.Errorf("cmd wait at starting of bpf program returned with error %v", err)
 	}
 

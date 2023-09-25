@@ -13,12 +13,13 @@ import (
 )
 
 var (
-	NFStartCount  *prometheus.CounterVec
-	NFStopCount   *prometheus.CounterVec
-	NFUpdateCount *prometheus.CounterVec
-	NFRunning     *prometheus.GaugeVec
-	NFStartTime   *prometheus.GaugeVec
-	NFMonitorMap  *prometheus.GaugeVec
+	NFStartCount        *prometheus.CounterVec
+	NFStopCount         *prometheus.CounterVec
+	NFUpdateCount       *prometheus.CounterVec
+	NFUpdateFailedCount *prometheus.CounterVec
+	NFRunning           *prometheus.GaugeVec
+	NFStartTime         *prometheus.GaugeVec
+	NFMonitorMap        *prometheus.GaugeVec
 )
 
 func SetupMetrics(hostname, daemonName, metricsAddr string) {
@@ -55,6 +56,17 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 	)
 
 	NFUpdateCount = nfUpdateCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
+
+	nfUpdateFailedCountVec := promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: daemonName,
+			Name:      "NFUpdateFailedCount",
+			Help:      "The count of Failed network functions updates",
+		},
+		[]string{"host", "ebpf_program", "direction", "interface_name"},
+	)
+
+	NFUpdateFailedCount = nfUpdateFailedCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
 
 	nfRunningVec := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
