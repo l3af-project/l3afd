@@ -18,7 +18,7 @@ jobs:
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
       
       - name: lima install
-        uses: nick-fields/retry@v2
+        uses: nick-fields/retry@14672906e672a08bd6eeb15720e9ed3ce869cdd4
         with:
           timeout_minutes: 10
           max_attempts: 3
@@ -51,4 +51,4 @@ jobs:
       - name: run tests
         run: |
           cd l3af-arch/dev_environment/e2e_test
-          ./test2.sh
+          ./test_suite.sh
