@@ -1,4 +1,3 @@
-
 name: CI-E2E
 on:
   pull_request:
@@ -12,7 +11,7 @@ permissions:
 jobs:
   build:
     runs-on: macos-latest
-    timeout-minutes: 120
+    timeout-minutes: 150
     steps:
       - name: brew
         run: |
