@@ -8,7 +8,7 @@ require (
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/prometheus/client_golang v1.16.0
 	github.com/robfig/config v0.0.0-20141207224736-0f78529c8c7e
-	github.com/rs/zerolog v1.30.0
+	github.com/rs/zerolog v1.31.0
 	github.com/safchain/ethtool v0.3.0
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/swaggo/swag v1.16.2
@@ -33,8 +33,8 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/josharian/native v1.1.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/mattn/go-colorable v0.1.12 // indirect
-	github.com/mattn/go-isatty v0.0.14 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/mdlayher/netlink v1.6.0 // indirect
 	github.com/mdlayher/socket v0.1.1 // indirect
