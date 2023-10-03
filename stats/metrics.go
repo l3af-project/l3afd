@@ -61,9 +61,9 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 		prometheus.CounterOpts{
 			Namespace: daemonName,
 			Name:      "NFUpdateFailedCount",
-			Help:      "The count of Failed network functions updates",
+			Help:      "The count of Failed eBPF programs updates",
 		},
-		[]string{"host", "ebpf_program", "direction", "interface_name"},
+		[]string{"host", "bpf_program", "direction", "interface_name"},
 	)
 
 	NFUpdateFailedCount = nfUpdateFailedCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
