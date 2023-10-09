@@ -19,17 +19,19 @@ The payload will look more like this standard JSON:
           "artifact": "l3af_ratelimiting.tar.gz",
           "ebpf_package_repo_url": "https://l3af.io"
           "map_name": "xdp_rl_ingress_next_prog",
-          "cmd_start": "ratelimiting",
+          "cmd_start": "",
           "version": "latest",
           "user_program_daemon": true,
           "admin_status": "enabled",
           "prog_type": "xdp",
           "cfg_version": 1,
-          "start_args": { "ports": "8080,8081", "rate": "2" },
+          "map_args": { "rl_ports_map": "8080,8081", "rl_config_map": "2" },
           "monitor_maps": [
             { "name": "rl_drop_count_map", "key": 0, "aggregator": "scalar"},
             { "name": "rl_recv_count_map", "key": 0, "aggregator": "max-rate"}
-          ]
+          ],
+          "object_file": "ratelimiting_kern.o",
+          "entry_function_name": "_xdp_ratelimiting"
         }
         ],
       "tc_ingress":[
@@ -45,26 +47,29 @@ The payload will look more like this standard JSON:
 
 ### Below is the detailed documentation for each field
 
-| Key                 | Type                                           | Example                                                        | Description                                                                                                                      |
-|---------------------|------------------------------------------------|----------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------|
-| name                | string                                         | ratelimiting                                                   | Name of the eBPF Program                                                                                                         |
-| seq_id              | number                                         | `1`                                                            | Position of the eBPF program in the chain. Count starts at 1.                                                                    |
-| artifact            | string                                         | `"l3af_ratelimiting.tar.gz"`                                   | Userspace eBPF program binary and kernel eBPF byte code in tar.gz format     |
-| ebpf_package_repo_url | string         | `"https://l3af.io/"`     | eBPF package repository URL.  If it is not provided default URL is used.|                                                  |
-| map_name            | string                                         | `"ep1_next_prog_array"`                            | Chaining program map to pin to. This should match the eBPF program code.                                     |
-| cmd_start           | string                                         | `"ratelimiting"`                                               | The command used to start the eBPF program. Usually the userspace eBPF program binary name.                                      |
-| cmd_stop            | string                                         |                                                                | The command used stop the eBPF program                                                                                           |
-| cmd_status          | string                                         |                                                                | The command used to get the status of the eBPF program                                                                           |
-| version             | string                                         | `"latest"`                                                     | The version of the eBPF Program                                                                                                  |
-| user_program_daemon | boolean                                        | `true` or `false`                                              | Whether the userspace eBPF program continues running after the eBPF program is started                                           |
-| admin_status        | string                                         | `"enabled"` or `"disabled"`                                    | This represents the program status. `"enabled"` means to be started if not running.  `"disabled"` means to be stopped if running |
-| prog_type           | string                                         | `"xdp"` or `"tc"`                                              | Type of eBPF program. Currently only XDP and TC network programs are supported.                                                  |
-| cfg_version         | number                                         | `1`                                                            | Payload version number                                                                                                           |
-| start_args          | map                                            | `{"collector_ip": "10.10.10.2", "verbose":"2"}`                | Argument list passed while starting the eBPF Program                                                                             |
-| stop_args           | map                                            |                                                                | Argument list passed while stopping the eBPF Program                                                                             |
-| status_args         | map                                            |                                                                | Argument list passed while checking the running status of the eBPF Program                                                       |
-| map_args            | map                                            | `{"rl_config_map": "2", "rl_ports_map":"80,443"}`              | eBPF map to be updated with the value passed in the config                                                                       |
-| monitor_maps        | array of [monitor_maps](#monitor_maps) objects | `[{"name":"cl_drop_count_map","key":0,"aggregator":"scalar"}]` | The eBPF maps to monitor for metrics and how to aggregate metrics information at each interval metrics are sampled               |
+| Key                   | Type                                           | Example                                   | Description                                                                                                                      |
+|-----------------------|------------------------------------------------|-------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------|
+| name                  | string                                         | ratelimiting                              | Name of the eBPF Program                                                                                                         |
+| seq_id                | number                                         | `1`                                       | Position of the eBPF program in the chain. Count starts at 1.                                                                    |
+| artifact              | string                                         | `"l3af_ratelimiting.tar.gz"`              | Userspace eBPF program binary and kernel eBPF byte code in tar.gz format                                                         |
+| ebpf_package_repo_url | string                                         | `"https://l3af.io/"`                      | eBPF package repository URL.  If it is not provided default URL is used.                                                         |
+| map_name              | string                                         | `"ep1_next_prog_array"`                   | Chaining program map to pin to. This should match the eBPF program code.                                                         |
+| cmd_start             | string                                         | `"ratelimiting"`                          | The command used to start the eBPF program. Usually the userspace eBPF program binary name.                                      |
+| cmd_stop              | string                                         |                                           | The command used stop the eBPF program                                                                                           |
+| cmd_status            | string                                         |                                           | The command used to get the status of the eBPF program                                                                           |
+| cmd_update            | string                                         |                                           | The version of the eBPF Program                                                                                                  |
+| version               | string                                         | `"latest"`                                | The version of the eBPF Program                                                                                                  |
+| user_program_daemon   | boolean                                        | `true` or `false`                         | Whether the userspace eBPF program continues running after the eBPF program is started                                           |
+| admin_status          | string                                         | `"enabled"` or `"disabled"`               | This represents the program status. `"enabled"` means to be started if not running.  `"disabled"` means to be stopped if running |
+| prog_type             | string                                         | `"xdp"` or `"tc"`                         | Type of eBPF program. Currently only XDP and TC network programs are supported.                                                  |
+| cfg_version           | number                                         | `1`                                       | Payload version number                                                                                                           |
+| start_args            | map                                            | `{"collector_ip": "10.10.10.2", "verbose":"2"}` | Argument list passed while starting the eBPF Program                                                                             |
+| stop_args             | map                                            |                                           | Argument list passed while stopping the eBPF Program                                                                             |
+| status_args           | map                                            |                                           | Argument list passed while checking the running status of the eBPF Program                                                       |
+| map_args              | map                                            | `{"rl_config_map": "2", "rl_ports_map":"80,443"}` | eBPF map to be updated with the value passed in the config                                                                       |
+| monitor_maps          | array of [monitor_maps](#monitor_maps) objects | `[{"name":"cl_drop_count_map","key":0,"aggregator":"scalar"}]` | The eBPF maps to monitor for metrics and how to aggregate metrics information at each interval metrics are sampled               |
+| object_file           | string                                         | `ratelimiting_kern.o`                     | The Object file containing eBPF programs and maps                                                                                |
+| entry_function_name   | string                                         | `_xdp_ratelimiting`                       | The eBPF prgram entry function                                                                                                   |
 
 Note: `name`, `version`, the Linux distribution name, and `artifact` are
 combined with the configured KF repo URL into the path that is used to download
