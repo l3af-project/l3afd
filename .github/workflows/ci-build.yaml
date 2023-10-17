@@ -21,10 +21,10 @@ jobs:
   build:
     runs-on: ubuntu-20.04
     steps:
-      - name: Setup Go 1.21.3
+      - name: Setup Go 1.21
         uses: actions/setup-go@bfd2fb341f32be7281829126376a12a780ca79fc # pin@bfd2fb341f32be7281829126376a12a780ca79fc
         with:
-          go-version: '1.21.3'
+          go-version: '1.21'
 
       - name: Harden Runner
         uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # pin@1b05615854632b887b69ae1be8cbefe72d3ae423
