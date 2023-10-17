@@ -22,7 +22,7 @@ jobs:
     
     steps:
       - name: Setup Go 1.21.3
-        uses: actions/setup-go@latest
+        uses: actions/setup-go@3d65fa57fcbfe4a359b6b71a6c65e6eec12984eb
         with:
           go-version: '1.21.3'
 
