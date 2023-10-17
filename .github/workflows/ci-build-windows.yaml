@@ -22,12 +22,12 @@ jobs:
 
     steps:
       - name: Setup Go 1.21.3
-        uses: actions/setup-go@bfd2fb341f32be7281829126376a12a780ca79fc 
+        uses: actions/setup-go@bfd2fb341f32be7281829126376a12a780ca79fc # pin@bfd2fb341f32be7281829126376a12a780ca79fc
         with:
           go-version: '1.21.3'
 
       - name: Harden Runner
-        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # pin@1b05615854632b887b69ae1be8cbefe72d3ae423
         with:
           egress-policy: audit # TODO: change to 'egress-policy: block' after couple of runs
 
@@ -38,7 +38,7 @@ jobs:
           echo "GOPATH=$gopath" >> $env:GITHUB_ENV
 
       - name: Checkout repository
-        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # pin@8ade135a41bc03ea155e62e844d188df1ea18608
 
       - name: Format
         run: |
@@ -59,7 +59,7 @@ jobs:
         run: |
           go test -tags WINDOWS ./...
 
-      - uses: dominikh/staticcheck-action@v1.3.0
+      - uses: dominikh/staticcheck-action@ba605356b4b29a60e87ab9404b712f3461e566dc # pin@v1.3.0
         with:
           version: "2022.1.3"
           install-go: false
