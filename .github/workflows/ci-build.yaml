@@ -22,20 +22,20 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Setup Go 1.21.3
-        uses: actions/setup-go@3d65fa57fcbfe4a359b6b71a6c65e6eec12984eb
+        uses: actions/setup-go@bfd2fb341f32be7281829126376a12a780ca79fc 
         with:
           go-version: '1.21.3'
 
       - name: Harden Runner
-        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 
         with:
           egress-policy: audit # TODO: change to 'egress-policy: block' after couple of runs
 
       - name: Set up environment
-        run : |
+        run: |
           sudo apt-get update
           sudo apt-get install gcc libc-dev bash perl curl make
-          
+
       - name: Checkout repository
         uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608
 
