@@ -56,6 +56,7 @@ jobs:
       - name: Test
         run: |
           go test ./...
+          go clean -modcache
 
       - uses: dominikh/staticcheck-action@ba605356b4b29a60e87ab9404b712f3461e566dc # pin@v1.3.0
         with:
