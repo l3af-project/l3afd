@@ -63,6 +63,7 @@ jobs:
         with:
           version: "2023.1.1"
           install-go: false
+          cache-key: "1.21.x"
           build-tags: WINDOWS
 
       - name: Build
