@@ -202,7 +202,7 @@ func VerifyNCreateTCDirs() error {
 }
 
 // LoadTCAttachProgram - Load and attach tc root program filters or any tc program when chaining is disabled
-func (b *BPF) LoadTCAttachProgram(ifaceName, direction string, eBPFProgram *BPF) error {
+func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
 		log.Fatal().Msgf("look up network iface %q: %s", ifaceName, err)
@@ -249,10 +249,10 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string, eBPFProgram *BPF)
 		}
 	}
 
-	CollectionRef, err := ebpf.LoadCollection(eBPFProgram.Program.ObjectFile)
+	CollectionRef, err := ebpf.LoadCollection(b.Program.ObjectFile)
 	if err != nil {
-		log.Error().Msgf("loading of tc program %s object file %s failed direction %s", eBPFProgram.Program.Name, eBPFProgram.Program.ObjectFile, direction)
-		return fmt.Errorf("%s : loading of tc program failed", eBPFProgram.Program.ObjectFile)
+		log.Error().Msgf("loading of tc program %s object file %s failed direction %s", b.Program.Name, b.Program.ObjectFile, direction)
+		return fmt.Errorf("%s : loading of tc program failed", b.Program.ObjectFile)
 	}
 
 	// Storing collection reference pointer
@@ -261,17 +261,17 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string, eBPFProgram *BPF)
 	var bpfRootProg *ebpf.Program
 	var bpfRootMap *ebpf.Map
 
-	bpfRootProg = CollectionRef.Programs[eBPFProgram.Program.EntryFunctionName]
+	bpfRootProg = CollectionRef.Programs[b.Program.EntryFunctionName]
 
 	// Pinning map
 	if b.hostConfig.BpfChainingEnabled {
 		// Verify chaining map is provided
-		if len(eBPFProgram.Program.MapName) == 0 {
-			return fmt.Errorf("program map name is missing for tc program %s", eBPFProgram.Program.Name)
+		if len(b.Program.MapName) == 0 {
+			log.Error().Msgf("no program map name for tc program %s", b.Program.Name)
+			return fmt.Errorf("program map name is missing for tc program %s", b.Program.Name)
 		}
 
-		ss := strings.Split(eBPFProgram.Program.MapName, "/")
-		bpfRootMap = CollectionRef.Maps[ss[len(ss)-1]]
+		bpfRootMap = CollectionRef.Maps[b.Program.MapName]
 
 		if err := b.CreateMapPinDirectory(ifaceName); err != nil {
 			return fmt.Errorf("%s - failed to create directory for iface %s to pin the map - %s err %v", b.Program.Name, ifaceName, b.MapNamePath, err)
@@ -279,7 +279,7 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string, eBPFProgram *BPF)
 
 		// Pinning program map
 		if err := bpfRootMap.Pin(b.MapNamePath); err != nil {
-			return fmt.Errorf("%s failed to pin the map of tc program %s err - %#v", b.MapNamePath, eBPFProgram.Program.Name, err)
+			return fmt.Errorf("%s failed to pin the map of tc program %s err - %#v", b.MapNamePath, b.Program.Name, err)
 		}
 		ebpfInfo, err := bpfRootMap.Info()
 		if err != nil {
@@ -326,7 +326,7 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string, eBPFProgram *BPF)
 
 	// Attaching / Adding as filter
 	if err := b.TCFilter.Add(&filter); err != nil {
-		return fmt.Errorf("could not attach filter to interface %s for eBPF program %s : %v", ifaceName, eBPFProgram.Program.Name, err)
+		return fmt.Errorf("could not attach filter to interface %s for eBPF program %s : %v", ifaceName, b.Program.Name, err)
 	}
 
 	progInfo, err := bpfRootProg.Info()

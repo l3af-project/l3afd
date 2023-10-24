@@ -79,8 +79,7 @@ func NewBpfProgram(ctx context.Context, program models.BPFProgram, conf *config.
 		if program.ProgType == models.XDPType {
 			progMapFilePath = filepath.Join(conf.BpfMapDefaultPath, ifaceName, program.MapName)
 		} else if program.ProgType == models.TCType {
-			ss := strings.Split(program.MapName, "/")
-			progMapFilePath = filepath.Join(conf.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, ss[len(ss)-1])
+			progMapFilePath = filepath.Join(conf.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, program.MapName)
 		} else {
 			log.Error().Msgf("unsupported program type - %s", program.ProgType)
 			return nil
@@ -159,17 +158,14 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 		}
 		if direction == models.IngressType {
 			rootProgBPF.Program.MapName = conf.TCRootIngressMapName
-			ss := strings.Split(conf.TCRootIngressMapName, "/")
-			rootProgBPF.MapNamePath = filepath.Join(conf.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, ss[len(ss)-1])
 			rootProgBPF.Program.ObjectFile = filepath.Join(conf.BPFDir, conf.TCRootPackageName, conf.TCRootVersion, strings.Split(conf.TCRootArtifact, ".")[0], conf.TCRootIngressObjectFile)
 			rootProgBPF.Program.EntryFunctionName = conf.TCRootIngressEntryFunctionName
 		} else if direction == models.EgressType {
 			rootProgBPF.Program.MapName = conf.TCRootEgressMapName
-			ss := strings.Split(conf.TCRootEgressMapName, "/")
-			rootProgBPF.MapNamePath = filepath.Join(conf.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, ss[len(ss)-1])
 			rootProgBPF.Program.ObjectFile = filepath.Join(conf.BPFDir, conf.TCRootPackageName, conf.TCRootVersion, strings.Split(conf.TCRootArtifact, ".")[0], conf.TCRootEgressObjectFile)
 			rootProgBPF.Program.EntryFunctionName = conf.TCRootEgressEntryFunctionName
 		}
+		rootProgBPF.MapNamePath = filepath.Join(conf.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, rootProgBPF.Program.MapName)
 	default:
 		return nil, fmt.Errorf("unknown direction %s for root program in iface %s", direction, ifaceName)
 	}
@@ -190,12 +186,12 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 
 	if progType == models.XDPType {
 		rlimit.RemoveMemlock()
-		if err := rootProgBPF.LoadXDPAttachProgram(ifaceName, rootProgBPF); err != nil {
-			return nil, fmt.Errorf("failed to load root program on iface \"%s\" name %s direction %s", ifaceName, rootProgBPF.Program.Name, direction)
+		if err := rootProgBPF.LoadXDPAttachProgram(ifaceName); err != nil {
+			return nil, fmt.Errorf("failed to load xdp root program on iface \"%s\" name %s direction %s", ifaceName, rootProgBPF.Program.Name, direction)
 		}
 	} else if progType == models.TCType {
-		if err := rootProgBPF.LoadTCAttachProgram(ifaceName, direction, rootProgBPF); err != nil {
-			return nil, fmt.Errorf("failed to load root program on iface \"%s\" name %s direction %s", ifaceName, rootProgBPF.Program.Name, direction)
+		if err := rootProgBPF.LoadTCAttachProgram(ifaceName, direction); err != nil {
+			return nil, fmt.Errorf("failed to load tc root program on iface \"%s\" name %s direction %s", ifaceName, rootProgBPF.Program.Name, direction)
 		}
 	}
 
@@ -357,9 +353,17 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 
 	// Both xdp and tc are loaded using the same mechanism.
 	if len(b.Program.ObjectFile) > 0 {
-		if err := b.LoadBPFProgram(ifaceName, direction); err != nil {
-			return fmt.Errorf("loading bpf program %s - error %v", b.Program.Name, err)
+		if chain {
+			if err := b.LoadBPFProgram(ifaceName, direction); err != nil {
+				return fmt.Errorf("loading bpf program %s - error %v", b.Program.Name, err)
+			}
+		} else {
+			if err := b.AttachBPFProgram(ifaceName, direction); err != nil {
+				return fmt.Errorf("attaching bpf program %s - error %v", b.Program.Name, err)
+			}
 		}
+	} else {
+		log.Info().Msgf("bpf program object file is not defined - %s", b.Program.Name)
 	}
 
 	// Start user program before loading
@@ -1028,34 +1032,34 @@ func (b *BPF) VerifyMetricsMapsVanish() error {
 }
 
 // LoadXDPAttachProgram - Load and attach xdp root program or any xdp program when chaining is disabled
-func (b *BPF) LoadXDPAttachProgram(ifaceName string, eBPFProgram *BPF) error {
+func (b *BPF) LoadXDPAttachProgram(ifaceName string) error {
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
 		log.Fatal().Msgf("look up network iface %q: %s", ifaceName, err)
 	}
 
-	CollectionRef, err := ebpf.LoadCollection(eBPFProgram.Program.ObjectFile)
+	CollectionRef, err := ebpf.LoadCollection(b.Program.ObjectFile)
 	if err != nil {
-		return fmt.Errorf("%s: loading of xdp root failed", eBPFProgram.Program.ObjectFile)
+		return fmt.Errorf("%s: loading of xdp root failed", b.Program.ObjectFile)
 	}
 
 	b.ProgMapCollection = CollectionRef
-	bpfRootProg := CollectionRef.Programs[eBPFProgram.Program.EntryFunctionName]
+	bpfRootProg := CollectionRef.Programs[b.Program.EntryFunctionName]
 
 	// Pinning map
 	if b.hostConfig.BpfChainingEnabled {
 		// Verify chaining map is provided
-		if len(eBPFProgram.Program.MapName) == 0 {
-			return fmt.Errorf("program map name is missing for xdp program %s", eBPFProgram.Program.Name)
+		if len(b.Program.MapName) == 0 {
+			return fmt.Errorf("program map name is missing for xdp program %s", b.Program.Name)
 		}
 
-		bpfRootMap := CollectionRef.Maps[eBPFProgram.Program.MapName]
+		bpfRootMap := CollectionRef.Maps[b.Program.MapName]
 		if err := b.CreateMapPinDirectory(ifaceName); err != nil {
-			return fmt.Errorf("%s failed to create map dir path for xdp program %s", b.MapNamePath, eBPFProgram.Program.Name)
+			return fmt.Errorf("%s failed to create map dir path for xdp program %s", b.MapNamePath, b.Program.Name)
 		}
 
 		if err := bpfRootMap.Pin(b.MapNamePath); err != nil {
-			return fmt.Errorf("%s failed to pin the map of xdp program %s", b.MapNamePath, eBPFProgram.Program.Name)
+			return fmt.Errorf("%s failed to pin the map of xdp program %s", b.MapNamePath, b.Program.Name)
 		}
 
 		ebpfInfo, err := bpfRootMap.Info()
@@ -1171,8 +1175,11 @@ func (b *BPF) RemoveRootProgMapFile(ifacename string) error {
 		return fmt.Errorf("%s contains relative path is not supported - %s", mapFilename, b.Program.Name)
 	}
 
-	if err := os.RemoveAll(mapFilename); os.IsNotExist(err) {
-		log.Info().Msgf("RemoveRootProgMapFile: %s program type %s map file removed successfully - %s ", b.Program.ProgType, b.Program.Name, mapFilename)
+	if err := os.Remove(mapFilename); err != nil {
+		if !os.IsNotExist(err) {
+			log.Warn().Msgf("RemoveRootProgMapFile: %s program type %s map file remove unsuccessfully - %s err - %#v", b.Program.ProgType, b.Program.Name, mapFilename, err)
+			return fmt.Errorf("%s - remove failed with error %#v", mapFilename, err)
+		}
 	}
 	return nil
 }
@@ -1248,12 +1255,12 @@ func (b *BPF) LoadBPFProgram(ifaceName, direction string) error {
 	}
 
 	// Update program map id
-	ss := strings.Split(b.Program.MapName, "/")
-	progMapName := ss[len(ss)-1]
-	progMap := prg.Maps[progMapName]
+	//ss := strings.Split(b.Program.MapName, "/")
+	//progMapName := ss[len(ss)-1]
+	progMap := prg.Maps[b.Program.MapName]
 	if progMap == nil {
-		log.Error().Msgf("program map fetch failed: %s", progMapName)
-		return fmt.Errorf("program map fetch failed: %s", progMapName)
+		log.Error().Msgf("program map fetch failed: %s", b.Program.MapName)
+		return fmt.Errorf("program map fetch failed: %s", b.Program.MapName)
 	}
 
 	progMapInfo, err := progMap.Info()
@@ -1417,6 +1424,7 @@ func (b *BPF) StartUserProgram(ifaceName, direction string, chain bool) error {
 	args = append(args, "--direction="+direction) // direction xdpingress or ingress or egress
 
 	if chain && b.ProgMapCollection == nil {
+		// chaining from user program
 		if len(b.PrevMapNamePath) > 1 {
 			args = append(args, "--map-name="+b.PrevMapNamePath)
 		}
@@ -1481,6 +1489,20 @@ func (b *BPF) CreateMapPinDirectory(ifaceName string) error {
 	}
 	if err := os.MkdirAll(mapPathDir, 0750); err != nil {
 		return fmt.Errorf("%s failed to create map dir path of %s program %s", mapPathDir, b.Program.ProgType, b.Program.Name)
+	}
+	return nil
+}
+
+// AttachBPFProgram - method to attach bpf program to interface
+func (b *BPF) AttachBPFProgram(ifaceName, direction string) error {
+	if b.Program.ProgType == models.XDPType {
+		if err := b.LoadXDPAttachProgram(ifaceName); err != nil {
+			return fmt.Errorf("failed to attach xdp program %s to inferface %s", b.Program.Name, ifaceName)
+		}
+	} else if b.Program.ProgType == models.TCType {
+		if err := b.LoadTCAttachProgram(ifaceName, direction); err != nil {
+			return fmt.Errorf("failed to attach tc program %s to inferface %s direction %s", b.Program.Name, ifaceName, direction)
+		}
 	}
 	return nil
 }
