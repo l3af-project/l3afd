@@ -1429,6 +1429,11 @@ func (b *BPF) AttachBPFProgram(ifaceName, direction string) error {
 
 // PinBpfMaps - Pinning tc and xdp maps
 func (b *BPF) PinBpfMaps(ifaceName string) error {
+	// create map path directory
+	if err := b.CreateMapPinDirectory(ifaceName); err != nil {
+		return err
+	}
+
 	for k, v := range b.ProgMapCollection.Maps {
 		var mapFilename string
 		if b.Program.ProgType == models.TCType {
