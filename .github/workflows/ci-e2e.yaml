@@ -15,6 +15,7 @@ jobs:
     steps:
       - name: brew
         run: |
+          cat /home/runner/.bashrc
           sudo apt update
           sudo apt install build-essential git
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" < /dev/null
