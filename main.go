@@ -103,7 +103,7 @@ func main() {
 
 	if t != nil {
 		if err := ebpfConfigs.DeployeBPFPrograms(t); err != nil {
-			log.Error().Err(err).Msg("L3afd filed to deploy persistent configs from store")
+			log.Error().Err(err).Msg("L3afd failed to deploy persistent configs from store")
 		}
 	}
 

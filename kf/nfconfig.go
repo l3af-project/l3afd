@@ -200,7 +200,7 @@ func (c *NFConfigs) VerifyAndStartTCRootProgram(ifaceName, direction string) err
 func (c *NFConfigs) PushBackAndStartBPF(bpfProg *models.BPFProgram, ifaceName, direction string) error {
 
 	log.Info().Msgf("PushBackAndStartBPF : iface %s, direction %s", ifaceName, direction)
-	bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig)
+	bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig, ifaceName)
 	var bpfList *list.List
 
 	switch direction {
@@ -222,7 +222,6 @@ func (c *NFConfigs) PushBackAndStartBPF(bpfProg *models.BPFProgram, ifaceName, d
 }
 
 func (c *NFConfigs) DownloadAndStartBPFProgram(element *list.Element, ifaceName, direction string) error {
-
 	if element == nil {
 		return fmt.Errorf("element is nil pointer")
 	}
@@ -232,7 +231,8 @@ func (c *NFConfigs) DownloadAndStartBPFProgram(element *list.Element, ifaceName,
 	if element.Prev() != nil {
 		prevBPF := element.Prev().Value.(*BPF)
 		bpf.PrevMapNamePath = prevBPF.MapNamePath
-		log.Info().Msgf("DownloadAndStartBPFProgram : program name %s previous prorgam map name: %s", bpf.Program.Name, bpf.PrevMapNamePath)
+		bpf.PrevProgMapID = prevBPF.ProgMapID
+		log.Info().Msgf("DownloadAndStartBPFProgram : program name %s previous program map name: %s", bpf.Program.Name, bpf.PrevMapNamePath)
 	}
 
 	if err := bpf.VerifyAndGetArtifacts(c.HostConfig); err != nil {
@@ -518,7 +518,7 @@ func (c *NFConfigs) InsertAndStartBPFProgram(bpfProg *models.BPFProgram, ifaceNa
 		return nil
 	}
 
-	bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig)
+	bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig, ifaceName)
 
 	switch direction {
 	case models.XDPIngressType:
@@ -608,6 +608,7 @@ func (c *NFConfigs) StopRootProgram(ifaceName, direction string) error {
 func (c *NFConfigs) LinkBPFPrograms(leftBPF, rightBPF *BPF) error {
 	log.Info().Msgf("LinkBPFPrograms : left BPF Prog %s right BPF Prog %s", leftBPF.Program.Name, rightBPF.Program.Name)
 	rightBPF.PrevMapNamePath = leftBPF.MapNamePath
+	rightBPF.PrevProgMapID = leftBPF.PrevProgMapID
 	if err := leftBPF.PutNextProgFDFromID(int(rightBPF.ProgID)); err != nil {
 		log.Error().Err(err).Msgf("LinkBPFPrograms - failed to update program fd in prev prog map before move")
 		return fmt.Errorf("LinkBPFPrograms - failed to update program fd in prev prog prog map before move %v", err)
@@ -996,7 +997,7 @@ func (c *NFConfigs) AddAndStartBPF(bpfProg *models.BPFProgram, ifaceName string,
 	for e := bpfList.Front(); e != nil; e = e.Next() {
 		data := e.Value.(*BPF)
 		if data.Program.SeqID > bpfProg.SeqID {
-			bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig)
+			bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig, ifaceName)
 			tmpBPF := bpfList.InsertBefore(bpf, e)
 			if err := c.DownloadAndStartBPFProgram(tmpBPF, ifaceName, direction); err != nil {
 				return fmt.Errorf("failed to download and start eBPF program %s version %s iface %s direction %s", bpfProg.Name, bpfProg.Version, ifaceName, direction)

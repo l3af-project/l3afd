@@ -221,7 +221,7 @@ func loadTCRootArtifact(cfgRdr *config.Config) string {
 func loadTCRootIngressMapName(cfgRdr *config.Config) string {
 	tcRootIngressMapName := LoadOptionalConfigString(cfgRdr, "tc-root-program", "ingress-map-name", "")
 	if tcRootIngressMapName == "" {
-		tcRootIngressMapName = LoadOptionalConfigString(cfgRdr, "tc-root", "ingress-map-name", "tc/globals/tc_ingress_root_array")
+		tcRootIngressMapName = LoadOptionalConfigString(cfgRdr, "tc-root", "ingress-map-name", "tc_ingress_root_array")
 	}
 	return tcRootIngressMapName
 }
@@ -229,7 +229,7 @@ func loadTCRootIngressMapName(cfgRdr *config.Config) string {
 func loadTCRootEgressMapName(cfgRdr *config.Config) string {
 	tcRootEgressMapName := LoadOptionalConfigString(cfgRdr, "tc-root-program", "egress-map-name", "")
 	if tcRootEgressMapName == "" {
-		tcRootEgressMapName = LoadOptionalConfigString(cfgRdr, "tc-root", "egress-map-name", "tc/globals/tc_egress_root_array")
+		tcRootEgressMapName = LoadOptionalConfigString(cfgRdr, "tc-root", "egress-map-name", "tc_egress_root_array")
 	}
 	return tcRootEgressMapName
 }
