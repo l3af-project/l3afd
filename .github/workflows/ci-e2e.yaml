@@ -16,8 +16,7 @@ jobs:
       run: |
         sudo apt-get install build-essential curl file git
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        (echo; echo 'export PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"') >> /home/$USER/.bashrc
-        source /home/$USER/.bashrc
+        (echo; echo 'export PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"') >> $GITHUB_PATH
 
     - name: check
       run: |
