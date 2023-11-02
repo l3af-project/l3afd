@@ -22,4 +22,4 @@ jobs:
 
     - name: check
       run: |
-        brew -v 
+        /home/linuxbrew/.linuxbrew/bin/brew -v 
