@@ -18,11 +18,9 @@ jobs:
           sudo apt update
           sudo apt install build-essential git
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-          /bin/bash install.sh
           (echo; echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"') >> /home/runner/.bashrc
           eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-          source /home/runner/.bashrc
-      
+
       - name: lima install
         uses: nick-fields/retry@14672906e672a08bd6eeb15720e9ed3ce869cdd4
         with:
