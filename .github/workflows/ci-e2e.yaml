@@ -16,10 +16,9 @@ jobs:
       run: |
         sudo apt-get install build-essential curl file git
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        (echo; echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"') >> /home/$USER/.bashrc
-        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+        (echo; echo 'export PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"') >> /home/$USER/.bashrc
         source /home/$USER/.bashrc
 
     - name: check
       run: |
-        /home/linuxbrew/.linuxbrew/bin/brew -v 
+        brew -v 
