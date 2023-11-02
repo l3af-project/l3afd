@@ -11,7 +11,7 @@ permissions:
 jobs:
   build:
     runs-on: macos-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - name: brew
         run: |
@@ -20,7 +20,7 @@ jobs:
       - name: lima install
         uses: nick-fields/retry@14672906e672a08bd6eeb15720e9ed3ce869cdd4
         with:
-          timeout_minutes: 10
+          timeout_minutes: 30
           max_attempts: 3
           retry_on: error
           command: |
