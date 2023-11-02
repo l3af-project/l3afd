@@ -7,19 +7,23 @@ on:
 
 permissions:
   contents: read
+
 jobs:
   build:
-    runs-on: ubuntu-latest
-
+    runs-on: macos-latest
+    timeout-minutes: 240
     steps:
-    - name: Install Homebrew
-      run: |
-        sudo apt-get install build-essential curl file git
-        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        echo "/home/linuxbrew/.linuxbrew/bin" >> $GITHUB_PATH
-
-    - name: check
-      run: |
-        brew install lima
-        limactl start --tty=false
-        limactl shell default uname -a
+      - name: brew
+        run: |
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+      
+      - name: lima install
+        uses: nick-fields/retry@14672906e672a08bd6eeb15720e9ed3ce869cdd4
+        with:
+          timeout_minutes: 30
+          max_attempts: 3
+          retry_on: error
+          command: |
+            brew install lima
+            limactl start --name=default --cpus=4 --memory=8 --vm-type=vz --rosetta --mount-writable --network=vzNAT template://ubuntu-lts
+            lima uname -a
