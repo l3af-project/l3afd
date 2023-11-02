@@ -20,4 +20,6 @@ jobs:
 
     - name: check
       run: |
-        brew -v 
+        brew install lima
+        limactl start --tty=false
+        limactl shell default uname -a
