@@ -72,6 +72,7 @@ func TestNewBpfProgram(t *testing.T) {
 					UserProgramDaemon: true,
 					IsPlugin:          false,
 					AdminStatus:       "enabled",
+					ProgType:          "tc",
 				},
 				logDir:     "",
 				chain:      false,
@@ -89,10 +90,12 @@ func TestNewBpfProgram(t *testing.T) {
 					CmdStart:          "foo",
 					CmdStop:           "",
 					CmdConfig:         "",
+					CmdUpdate:         "",
 					Version:           "1.0",
 					UserProgramDaemon: true,
 					IsPlugin:          false,
 					AdminStatus:       "enabled",
+					ProgType:          "tc",
 				},
 				Cmd:            nil,
 				FilePath:       "",
@@ -123,7 +126,7 @@ func TestNewBpfProgram(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewBpfProgram(tt.args.ctx, tt.args.program, tt.args.hostConfig); !reflect.DeepEqual(got, tt.want) {
+			if got := NewBpfProgram(tt.args.ctx, tt.args.program, tt.args.hostConfig, ifaceName); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewBpfProgram() = %#v, want %#v", got, tt.want)
 			}
 		})
@@ -271,7 +274,7 @@ func TestBPF_Start(t *testing.T) {
 					BPFLogDir: "",
 				},
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{name: "withResourceLimits",
 			fields: fields{
@@ -333,7 +336,7 @@ func TestBPF_isRunning(t *testing.T) {
 				FilePath:     "",
 				RestartCount: 0,
 			},
-			want:    true,
+			want:    false,
 			wantErr: false,
 		},
 	}
@@ -345,13 +348,9 @@ func TestBPF_isRunning(t *testing.T) {
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
 			}
-			got, err := b.isRunning()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("BPF.isRunning() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("BPF.isRunning() = %v, want %v", got, tt.want)
+			userProg, bpfProg, err := b.isRunning()
+			if (err != nil) != tt.wantErr && (userProg == tt.want || bpfProg != tt.want) {
+				t.Errorf("BPF.isRunning() user prog = %v, bpf prog = %v, error = %v, wantErr %v ", userProg, bpfProg, err, tt.wantErr)
 			}
 		})
 	}
@@ -728,9 +727,8 @@ func Test_createUpdateRulesFile(t *testing.T) {
 
 func Test_PutNextProgFDFromID(t *testing.T) {
 	type fields struct {
-		Program models.BPFProgram
-		Cmd     *exec.Cmd
-		//		Pid          int
+		Program      models.BPFProgram
+		Cmd          *exec.Cmd
 		FilePath     string
 		RestartCount int
 		hostConfig   *config.Config
@@ -808,11 +806,10 @@ func Test_PutNextProgFDFromID(t *testing.T) {
 	}
 }
 
-func Test_VerifyPinnedMapExists(t *testing.T) {
+func Test_VerifyPinnedProgMapExists(t *testing.T) {
 	type fields struct {
-		Program models.BPFProgram
-		Cmd     *exec.Cmd
-		//		Pid          int
+		Program      models.BPFProgram
+		Cmd          *exec.Cmd
 		FilePath     string
 		RestartCount int
 		hostConfig   *config.Config
@@ -844,7 +841,7 @@ func Test_VerifyPinnedMapExists(t *testing.T) {
 				RestartCount: tt.fields.RestartCount,
 				hostConfig:   tt.fields.hostConfig,
 			}
-			err := b.VerifyPinnedMapExists(true)
+			err := b.VerifyPinnedProgMap(true, true)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("VerifyPinnedMapExists() error : %v", err)
 			}
@@ -902,7 +899,7 @@ func Test_VerifyProcessObject(t *testing.T) {
 	}
 }
 
-func Test_VerifyPinnedMapVanish(t *testing.T) {
+func Test_VerifyPinnedProgMapVanish(t *testing.T) {
 	type fields struct {
 		Program      models.BPFProgram
 		Cmd          *exec.Cmd
@@ -952,7 +949,7 @@ func Test_VerifyPinnedMapVanish(t *testing.T) {
 					BpfMapDefaultPath: tt.fields.hostConfig.BpfMapDefaultPath,
 				},
 			}
-			err := b.VerifyPinnedMapVanish(true)
+			err := b.VerifyPinnedProgMap(true, false)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("VerifyPinnedMapVanish() error : %v", err)
 			}

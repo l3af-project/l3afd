@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -80,8 +81,10 @@ func main() {
 		log.Fatal().Err(err).Msgf("The PID file: %s, could not be created", conf.PIDFilename)
 	}
 
-	if err = checkKernelVersion(conf); err != nil {
-		log.Fatal().Err(err).Msg("The unsupported kernel version please upgrade")
+	if runtime.GOOS == "linux" {
+		if err = checkKernelVersion(conf); err != nil {
+			log.Fatal().Err(err).Msg("The unsupported kernel version please upgrade")
+		}
 	}
 
 	if err = registerL3afD(conf); err != nil {
@@ -100,7 +103,7 @@ func main() {
 
 	if t != nil {
 		if err := ebpfConfigs.DeployeBPFPrograms(t); err != nil {
-			log.Error().Err(err).Msg("L3afd filed to deploy persistent configs from store")
+			log.Error().Err(err).Msg("L3afd failed to deploy persistent configs from store")
 		}
 	}
 
