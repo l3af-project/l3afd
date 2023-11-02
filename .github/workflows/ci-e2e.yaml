@@ -27,8 +27,8 @@ jobs:
             brew install lima socket_vmnet hey
             limactl sudoers >etc_sudoers.d_lima
             sudo install -o root etc_sudoers.d_lima /etc/sudoers.d/lima
-            limactl start --tty=false --name=bpfdev --mount-writable=true --arch="aarch64" --network="lima:shared" template://ubuntu-lts
-            limactl start --tty=false --name=collector --mount-writable=true --arch="aarch64" --network="lima:shared" template://ubuntu-lts
+            limactl start --tty=false --name=bpfdev --mount-writable=true --network="lima:shared" template://ubuntu-lts
+            limactl start --tty=false --name=collector --mount-writable=true --network="lima:shared" template://ubuntu-lts
       
       - name: Checkout repository
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744
