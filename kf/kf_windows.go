@@ -57,7 +57,7 @@ func VerifyNCreateTCDirs() error {
 }
 
 // LoadTCAttachProgram - not implemented in windows
-func (b *BPF) LoadTCAttachProgram(ifaceName, direction string, eBPFProgram *BPF) error {
+func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 	// not implement nothing todo
 	return fmt.Errorf("LoadTCAttachProgram - TC programs Unsupported on windows")
 }

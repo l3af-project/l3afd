@@ -13,14 +13,12 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"unsafe"
 
 	"github.com/l3af-project/l3afd/models"
 
-	"github.com/cilium/ebpf"
 	"github.com/florianl/go-tc"
 	"github.com/florianl/go-tc/core"
 	"github.com/rs/zerolog/log"
@@ -203,10 +201,15 @@ func VerifyNCreateTCDirs() error {
 }
 
 // LoadTCAttachProgram - Load and attach tc root program filters or any tc program when chaining is disabled
-func (b *BPF) LoadTCAttachProgram(ifaceName, direction string, eBPFProgram *BPF) error {
+func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
-		log.Fatal().Msgf("look up network iface %q: %s", ifaceName, err)
+		log.Error().Err(err).Msgf("LoadTCAttachProgram - look up network iface %q", ifaceName)
+		return err
+	}
+
+	if err := b.LoadBPFProgram(ifaceName); err != nil {
+		return err
 	}
 
 	// verify and add attribute clsact
@@ -250,28 +253,7 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string, eBPFProgram *BPF)
 		}
 	}
 
-	CollectionRef, err := ebpf.LoadCollection(eBPFProgram.Program.ObjectFile)
-	if err != nil {
-		log.Error().Msgf("loading of tc program %s object file %s failed direction %s", eBPFProgram.Program.Name, eBPFProgram.Program.ObjectFile, direction)
-		return fmt.Errorf("%s : loading of tc program failed", eBPFProgram.Program.ObjectFile)
-	}
-
-	// Storing collection reference pointer
-	b.ProgMapCollection = CollectionRef
-
-	var bpfRootProg *ebpf.Program
-	var bpfRootMap *ebpf.Map
-	var rootArrayMapFileName string
-
-	bpfRootProg = CollectionRef.Programs[eBPFProgram.Program.EntryFunctionName]
-	ss := strings.Split(eBPFProgram.Program.MapName, "/")
-	bpfRootMap = CollectionRef.Maps[ss[len(ss)-1]]
-	rootArrayMapFileName = filepath.Join(b.hostConfig.BpfMapDefaultPath, eBPFProgram.Program.MapName)
-
-	// Pinning program map
-	if err := bpfRootMap.Pin(rootArrayMapFileName); err != nil {
-		return fmt.Errorf("%s failed to pin the map of program %s", rootArrayMapFileName, eBPFProgram.Program.Name)
-	}
+	bpfRootProg := b.ProgMapCollection.Programs[b.Program.EntryFunctionName]
 
 	var parent uint32
 	if direction == models.IngressType {
@@ -306,18 +288,13 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string, eBPFProgram *BPF)
 
 	// Attaching / Adding as filter
 	if err := b.TCFilter.Add(&filter); err != nil {
-		return fmt.Errorf("could not attach filter to interface %s for eBPF program %s : %v", ifaceName, eBPFProgram.Program.Name, err)
+		return fmt.Errorf("could not attach filter to interface %s for eBPF program %s : %v", ifaceName, b.Program.Name, err)
 	}
 
-	progInfo, err := bpfRootProg.Info()
-	if err != nil {
-		return fmt.Errorf("could not get program info of %s to interface %s : %v", b.Program.Name, ifaceName, err)
-	}
-
-	ok := false
-	b.ProgID, ok = progInfo.ID()
-	if !ok {
-		return fmt.Errorf("failed to fetch the tc program %s to interface %s : %v", b.Program.Name, ifaceName, err)
+	if b.hostConfig.BpfChainingEnabled {
+		if err = b.UpdateProgramMap(ifaceName); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -327,7 +304,8 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
-		log.Fatal().Msgf("look up network iface %q: %s", ifaceName, err)
+		log.Error().Err(err).Msgf("UnloadTCProgram - look up network iface %q", ifaceName)
+		return err
 	}
 
 	bpfRootProg := b.ProgMapCollection.Programs[b.Program.EntryFunctionName]
@@ -343,7 +321,7 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 		Family:  unix.AF_UNSPEC,
 		Ifindex: uint32(iface.Index),
 		Handle:  0x0,
-		Parent:  core.BuildHandle(tc.HandleRoot, tc.HandleMinIngress),
+		Parent:  core.BuildHandle(tc.HandleRoot, parent),
 	})
 
 	if err != nil {
