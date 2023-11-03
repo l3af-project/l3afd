@@ -29,7 +29,10 @@ jobs:
             sudo install -o root etc_sudoers.d_lima /etc/sudoers.d/lima
             limactl start --tty=false --name=bpfdev --mount-writable=true --network="lima:shared" template://ubuntu-lts
             limactl start --tty=false --name=collector --mount-writable=true --network="lima:shared" template://ubuntu-lts
-      
+          on_retry_command: |
+            rm -rf /Users/runner/.lima/bpfdev
+            rm -rf /Users/runner/.lima/collector
+
       - name: Checkout repository
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744
       
