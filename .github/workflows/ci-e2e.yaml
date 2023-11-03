@@ -24,7 +24,7 @@ jobs:
           max_attempts: 3
           retry_on: error
           command: |
-            brew install lima socket_vmnet hey
+            brew install lima socket_vmnet hey curl
             limactl sudoers >etc_sudoers.d_lima
             sudo install -o root etc_sudoers.d_lima /etc/sudoers.d/lima
             limactl start --tty=false --name=bpfdev --mount-writable=true --network="lima:shared" template://ubuntu-lts
