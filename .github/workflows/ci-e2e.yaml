@@ -11,7 +11,7 @@ permissions:
 jobs:
   build:
     runs-on: macos-latest
-    timeout-minutes: 240
+    timeout-minutes: 200
     steps:
       - name: brew
         run: |
