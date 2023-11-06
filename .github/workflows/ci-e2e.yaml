@@ -24,14 +24,12 @@ jobs:
           max_attempts: 3
           retry_on: error
           command: |
-            brew install lima socket_vmnet hey curl openssl
+            brew install lima socket_vmnet hey curl
             limactl sudoers >etc_sudoers.d_lima
             sudo install -o root etc_sudoers.d_lima /etc/sudoers.d/lima
             limactl start --tty=false --name=bpfdev --mount-writable=true --network="lima:shared" template://ubuntu-lts
-            limactl start --tty=false --name=collector --mount-writable=true --network="lima:shared" template://ubuntu-lts
           on_retry_command: |
             rm -rf /Users/runner/.lima/bpfdev
-            rm -rf /Users/runner/.lima/collector
 
       - name: Checkout repository
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744
@@ -40,12 +38,10 @@ jobs:
         run: |
           limactl shell bpfdev exec -- sudo cp -r /Users/runner/work/l3afd/l3afd /root
           limactl shell bpfdev exec -- sudo apt-get install git
-          limactl shell bpfdev exec -- sudo git clone -b E2E https://github.com/Atul-source/l3af-arch.git
+          limactl shell bpfdev exec -- sudo git clone -b basic-e2e https://github.com/Atul-source/l3af-arch.git
       
       - name: run l3afd
         run: |
-          limactl shell collector exec -- /bin/bash -c "cd l3af-arch/dev_environment/e2e_test && sudo ./tm2.sh"
-          limactl shell bpfdev exec -- /bin/bash -c "cd l3af-arch/dev_environment/e2e_test && sudo ./tm1.sh"
           limactl shell bpfdev exec -- /bin/bash -c "cd l3af-arch/dev_environment/e2e_test && sudo ./setup_linux_dev_env.sh"
           /usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate
           sudo defaults write /Library/Preferences/com.apple.alf globalstate -int 0
