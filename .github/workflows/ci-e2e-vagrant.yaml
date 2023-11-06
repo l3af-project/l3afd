@@ -25,7 +25,7 @@ jobs:
       - name: dir
         run: |
           mkdir ~/vagrant && cd ~/vagrant
-          vagrant init ubuntu/jammy64 --provider=virtualbox
-          vagrant up
+          vagrant init ubuntu/jammy64
+          vagrant up --provider=virtualbox
           vagrant ssh -c "ls"
           vagrant ssh -c "uname -r"
