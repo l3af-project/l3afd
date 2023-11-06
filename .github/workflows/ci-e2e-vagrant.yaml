@@ -1,0 +1,31 @@
+name: CI-E2E
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 240
+    steps:
+      - name: brew
+        run: |
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+      - name: install virtualbox 
+        run: |
+          brew install --cask virtualbox
+          brew install hashicorp/tap/hashicorp-vagrant
+
+      - name: dir
+        run: |
+          mkdir ~/vagrant && cd ~/vagrant
+          vagrant init ubuntu/jammy64 --provider=virtualbox
+          vagrant up
+          vagrant ssh -c "ls"
+          vagrant ssh -c "uname -r"
