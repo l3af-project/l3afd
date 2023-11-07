@@ -1,7 +1,7 @@
 // Copyright Contributors to the L3AF Project.
 // SPDX-License-Identifier: Apache-2.0
 
-// Package kf provides primitives for NF process monitoring.
+// Package kf provides primitives for BPF process monitoring.
 package kf
 
 import (
@@ -51,7 +51,7 @@ func (c *pCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string
 				}
 				userProgram, bpfProgram, _ := bpf.isRunning()
 				if userProgram && bpfProgram {
-					stats.SetWithVersion(1.0, stats.NFRunning, bpf.Program.Name, bpf.Program.Version, direction, ifaceName)
+					stats.SetWithVersion(1.0, stats.BPFRunning, bpf.Program.Name, bpf.Program.Version, direction, ifaceName)
 					continue
 				}
 				// Not running trying to restart
@@ -80,7 +80,7 @@ func (c *pCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string
 						}
 					}
 				} else {
-					stats.SetWithVersion(0.0, stats.NFRunning, bpf.Program.Name, bpf.Program.Version, direction, ifaceName)
+					stats.SetWithVersion(0.0, stats.BPFRunning, bpf.Program.Name, bpf.Program.Version, direction, ifaceName)
 				}
 			}
 		}
