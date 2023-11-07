@@ -13,105 +13,105 @@ import (
 )
 
 var (
-	NFStartCount        *prometheus.CounterVec
-	NFStopCount         *prometheus.CounterVec
-	NFUpdateCount       *prometheus.CounterVec
-	NFUpdateFailedCount *prometheus.CounterVec
-	NFRunning           *prometheus.GaugeVec
-	NFStartTime         *prometheus.GaugeVec
-	NFMonitorMap        *prometheus.GaugeVec
+	BPFStartCount        *prometheus.CounterVec
+	BPFStopCount         *prometheus.CounterVec
+	BPFUpdateCount       *prometheus.CounterVec
+	BPFUpdateFailedCount *prometheus.CounterVec
+	BPFRunning           *prometheus.GaugeVec
+	BPFStartTime         *prometheus.GaugeVec
+	BPFMonitorMap        *prometheus.GaugeVec
 )
 
 func SetupMetrics(hostname, daemonName, metricsAddr string) {
 
-	nfStartCountVec := promauto.NewCounterVec(
+	bpfStartCountVec := promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: daemonName,
-			Name:      "NFStartCount",
+			Name:      "BPFStartCount",
 			Help:      "The count of network functions started",
 		},
 		[]string{"host", "ebpf_program", "direction", "interface_name"},
 	)
 
-	NFStartCount = nfStartCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
+	BPFStartCount = bpfStartCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
 
-	nfStopCountVec := promauto.NewCounterVec(
+	bpfStopCountVec := promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: daemonName,
-			Name:      "NFStopCount",
+			Name:      "BPFStopCount",
 			Help:      "The count of network functions stopped",
 		},
 		[]string{"host", "ebpf_program", "direction", "interface_name"},
 	)
 
-	NFStopCount = nfStopCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
+	BPFStopCount = bpfStopCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
 
-	nfUpdateCountVec := promauto.NewCounterVec(
+	bpfUpdateCountVec := promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: daemonName,
-			Name:      "NFUpdateCount",
+			Name:      "BPFUpdateCount",
 			Help:      "The count of network functions updated",
 		},
 		[]string{"host", "ebpf_program", "direction", "interface_name"},
 	)
 
-	NFUpdateCount = nfUpdateCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
+	BPFUpdateCount = bpfUpdateCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
 
-	nfUpdateFailedCountVec := promauto.NewCounterVec(
+	bpfUpdateFailedCountVec := promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: daemonName,
-			Name:      "NFUpdateFailedCount",
+			Name:      "BPFUpdateFailedCount",
 			Help:      "The count of Failed eBPF programs updates",
 		},
 		[]string{"host", "bpf_program", "direction", "interface_name"},
 	)
 
-	NFUpdateFailedCount = nfUpdateFailedCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
+	BPFUpdateFailedCount = bpfUpdateFailedCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
 
-	nfRunningVec := prometheus.NewGaugeVec(
+	bpfRunningVec := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: daemonName,
-			Name:      "NFRunning",
+			Name:      "BPFRunning",
 			Help:      "This value indicates network functions is running or not",
 		},
 		[]string{"host", "ebpf_program", "version", "direction", "interface_name"},
 	)
 
-	if err := prometheus.Register(nfRunningVec); err != nil {
-		log.Warn().Err(err).Msg("Failed to register NFRunning metrics")
+	if err := prometheus.Register(bpfRunningVec); err != nil {
+		log.Warn().Err(err).Msg("Failed to register BPFRunning metrics")
 	}
 
-	NFRunning = nfRunningVec.MustCurryWith(prometheus.Labels{"host": hostname})
+	BPFRunning = bpfRunningVec.MustCurryWith(prometheus.Labels{"host": hostname})
 
-	nfStartTimeVec := prometheus.NewGaugeVec(
+	bpfStartTimeVec := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: daemonName,
-			Name:      "NFStartTime",
+			Name:      "BPFStartTime",
 			Help:      "This value indicates start time of the network function since unix epoch in seconds",
 		},
 		[]string{"host", "ebpf_program", "direction", "interface_name"},
 	)
 
-	if err := prometheus.Register(nfStartTimeVec); err != nil {
-		log.Warn().Err(err).Msg("Failed to register NFStartTime metrics")
+	if err := prometheus.Register(bpfStartTimeVec); err != nil {
+		log.Warn().Err(err).Msg("Failed to register BPFStartTime metrics")
 	}
 
-	NFStartTime = nfStartTimeVec.MustCurryWith(prometheus.Labels{"host": hostname})
+	BPFStartTime = bpfStartTimeVec.MustCurryWith(prometheus.Labels{"host": hostname})
 
-	nfMonitorMapVec := prometheus.NewGaugeVec(
+	bpfMonitorMapVec := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: daemonName,
-			Name:      "NFMonitorMap",
+			Name:      "BPFMonitorMap",
 			Help:      "This value indicates network function monitor counters",
 		},
 		[]string{"host", "ebpf_program", "map_name", "interface_name"},
 	)
 
-	if err := prometheus.Register(nfMonitorMapVec); err != nil {
-		log.Warn().Err(err).Msg("Failed to register NFMonitorMap metrics")
+	if err := prometheus.Register(bpfMonitorMapVec); err != nil {
+		log.Warn().Err(err).Msg("Failed to register BPFMonitorMap metrics")
 	}
 
-	NFMonitorMap = nfMonitorMapVec.MustCurryWith(prometheus.Labels{"host": hostname})
+	BPFMonitorMap = bpfMonitorMapVec.MustCurryWith(prometheus.Labels{"host": hostname})
 
 	// Prometheus handler
 	metricsHandler := promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{})
@@ -132,7 +132,7 @@ func Incr(counterVec *prometheus.CounterVec, ebpfProgram, direction, ifaceName s
 		log.Warn().Msg("Metrics: counter vector is nil and needs to be initialized before Incr")
 		return
 	}
-	nfCounter, err := counterVec.GetMetricWith(
+	bpfCounter, err := counterVec.GetMetricWith(
 		prometheus.Labels(map[string]string{
 			"ebpf_program":   ebpfProgram,
 			"direction":      direction,
@@ -144,7 +144,7 @@ func Incr(counterVec *prometheus.CounterVec, ebpfProgram, direction, ifaceName s
 			ebpfProgram, direction, ifaceName)
 		return
 	}
-	nfCounter.Inc()
+	bpfCounter.Inc()
 }
 
 func Set(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, direction, ifaceName string) {
@@ -153,7 +153,7 @@ func Set(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, direction, i
 		log.Warn().Msg("Metrics: gauge vector is nil and needs to be initialized before Set")
 		return
 	}
-	nfGauge, err := gaugeVec.GetMetricWith(
+	bpfGauge, err := gaugeVec.GetMetricWith(
 		prometheus.Labels(map[string]string{
 			"ebpf_program":   ebpfProgram,
 			"direction":      direction,
@@ -165,7 +165,7 @@ func Set(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, direction, i
 			ebpfProgram, direction, ifaceName)
 		return
 	}
-	nfGauge.Set(value)
+	bpfGauge.Set(value)
 }
 
 func SetValue(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, mapName, ifaceName string) {
@@ -174,7 +174,7 @@ func SetValue(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, mapName
 		log.Warn().Msg("Metrics: gauge vector is nil and needs to be initialized before SetValue")
 		return
 	}
-	nfGauge, err := gaugeVec.GetMetricWith(
+	bpfGauge, err := gaugeVec.GetMetricWith(
 		prometheus.Labels(map[string]string{
 			"ebpf_program":   ebpfProgram,
 			"map_name":       mapName,
@@ -186,7 +186,7 @@ func SetValue(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, mapName
 			ebpfProgram, mapName, ifaceName)
 		return
 	}
-	nfGauge.Set(value)
+	bpfGauge.Set(value)
 }
 
 func SetWithVersion(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, version, direction, ifaceName string) {
@@ -195,7 +195,7 @@ func SetWithVersion(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, v
 		log.Warn().Msg("Metrics: gauge vector is nil and needs to be initialized before Set")
 		return
 	}
-	nfGauge, err := gaugeVec.GetMetricWith(
+	bpfGauge, err := gaugeVec.GetMetricWith(
 		prometheus.Labels(map[string]string{
 			"ebpf_program":   ebpfProgram,
 			"version":        version,
@@ -208,5 +208,5 @@ func SetWithVersion(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, v
 			ebpfProgram, version, direction, ifaceName)
 		return
 	}
-	nfGauge.Set(value)
+	bpfGauge.Set(value)
 }
