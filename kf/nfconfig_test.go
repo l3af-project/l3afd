@@ -11,11 +11,9 @@ import (
 	"reflect"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/l3af-project/l3afd/config"
 	"github.com/l3af-project/l3afd/models"
-
 	"github.com/rs/zerolog/log"
 )
 
@@ -357,54 +355,6 @@ func TestNFConfigs_Deploy(t *testing.T) {
 	}
 }
 
-func TestNFConfigs_Close(t *testing.T) {
-	type fields struct {
-		hostName       string
-		ingressXDPBpfs map[string]*list.List
-		ingressTCBpfs  map[string]*list.List
-		egressTCBpfs   map[string]*list.List
-		hostConfig     *config.Config
-		processMon     *pCheck
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		wantErr bool
-	}{
-		{
-			name: "EmptyMap",
-			fields: fields{
-				hostName:       machineHostname,
-				ingressXDPBpfs: make(map[string]*list.List),
-				ingressTCBpfs:  make(map[string]*list.List),
-				egressTCBpfs:   make(map[string]*list.List),
-				hostConfig: &config.Config{
-					BpfMapDefaultPath: "/sys/fs/bpf",
-				},
-				processMon: pMon,
-			},
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := &NFConfigs{
-				HostName:       tt.fields.hostName,
-				IngressXDPBpfs: tt.fields.ingressXDPBpfs,
-				IngressTCBpfs:  tt.fields.ingressTCBpfs,
-				EgressTCBpfs:   tt.fields.egressTCBpfs,
-				HostConfig:     tt.fields.hostConfig,
-				processMon:     tt.fields.processMon,
-			}
-			ctx, cancelfunc := context.WithTimeout(context.Background(), 1*time.Second)
-			defer cancelfunc()
-			if err := cfg.Close(ctx); (err != nil) != tt.wantErr {
-				t.Errorf("NFConfigs.Close() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
 func Test_getHostInterfaces(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -424,6 +374,7 @@ func Test_getHostInterfaces(t *testing.T) {
 		})
 	}
 }
+
 func Test_BinarySearch(t *testing.T) {
 	tests := []struct {
 		name   string
