@@ -1108,15 +1108,7 @@ func (b *BPF) RemoveMapFiles(ifaceName string) error {
 			return fmt.Errorf("BPF program %s prog type %s ifacename %s map %s:failed to pin the map err - %#v",
 				b.Program.Name, b.Program.ProgType, ifaceName, mapFilename, err)
 		}
-		if strings.Contains(mapFilename, "..") {
-			return fmt.Errorf("BPF program %s prog type %s ifacename %s map %s:contains relative path",
-				b.Program.Name, b.Program.ProgType, ifaceName, mapFilename)
-		}
-		if err := os.RemoveAll(mapFilename); os.IsNotExist(err) {
-			log.Info().Msgf("RemoveMapFiles: BPF program %s map file removed successfully - %s err - %#v", b.Program.Name, mapFilename, err)
-		}
 	}
-
 	return nil
 }
 
@@ -1189,9 +1181,31 @@ func (b *BPF) LoadBPFProgram(ifaceName string) error {
 		return fmt.Errorf("%s: remove rlimit lock failed", b.Program.Name)
 	}
 
-	prg, err := ebpf.LoadCollection(ObjectFile)
+	objSpec, err := ebpf.LoadCollectionSpec(ObjectFile)
 	if err != nil {
-		return fmt.Errorf("%s: loading of bpf program failed - %#v", ObjectFile, err)
+		return fmt.Errorf("%s: loading collection spec failed - %#v", ObjectFile, err)
+	}
+
+	if err := b.CreateMapPinDirectory(ifaceName); err != nil {
+		return err
+	}
+
+	var mapPinPath string
+	if b.Program.ProgType == models.TCType {
+		mapPinPath = filepath.Join(b.hostConfig.BpfMapDefaultPath, models.TCMapPinPath, ifaceName)
+	} else {
+		mapPinPath = filepath.Join(b.hostConfig.BpfMapDefaultPath, ifaceName)
+	}
+	collOptions := ebpf.CollectionOptions{
+		Maps: ebpf.MapOptions{
+			PinPath: mapPinPath,
+		},
+	}
+
+	// Load the BPF program with the updated map options
+	prg, err := ebpf.NewCollectionWithOptions(objSpec, collOptions)
+	if err != nil {
+		return fmt.Errorf("%s: loading of bpf program failed - %#v", b.Program.Name, err)
 	}
 
 	// Persist program handle
