@@ -22,7 +22,6 @@ jobs:
           brew install --cask virtualbox
           brew install --cask vagrant
           vagrant plugin install vagrant-reload
-          git clone https://github.com/l3af-project/l3af-arch.git
-          cd l3af-arch/dev_environment
+          vagrant init ubuntu/jammy64
           vagrant up
-          vagrant ssh l3af -c "lsb_release -a"
+          vagrant ssh -c "lsb_release -a"
