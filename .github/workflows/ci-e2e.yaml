@@ -19,8 +19,8 @@ jobs:
 
       - name: clone
         run: |
-          brew --cask install virtualbox
-          brew --cask install vagrant
+          brew install --cask virtualbox
+          brew install --cask vagrant
           vagrant plugin install vagrant-vbguest
           vagrant init ubuntu/focal64
           vagrant up
