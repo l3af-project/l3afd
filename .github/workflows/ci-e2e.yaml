@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 280
     steps:
       - name: brew
@@ -21,8 +21,8 @@ jobs:
         run: |
           brew install --cask virtualbox
           brew install --cask vagrant
-          vagrant plugin install vagrant-vbguest
-          vagrant init ubuntu/focal64
+          vagrant plugin install vagrant-reload
+          git clone https://github.com/l3af-project/l3af-arch.git
+          cd l3af-arch/dev_environment
           vagrant up
-          vagrant ssh -c 'lsb_release -a'
-
+          vagrant ssh l3af -c "lsb_release -a"
