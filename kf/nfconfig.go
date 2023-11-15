@@ -45,8 +45,6 @@ type NFConfigs struct {
 	mu *sync.Mutex
 }
 
-var shutdownInterval = 900 * time.Millisecond
-
 func NewNFConfigs(ctx context.Context, host string, hostConf *config.Config, pMon *pCheck, metricsMon *kfMetrics) (*NFConfigs, error) {
 	nfConfigs := &NFConfigs{
 		ctx:            ctx,
@@ -74,7 +72,7 @@ func NewNFConfigs(ctx context.Context, host string, hostConf *config.Config, pMo
 
 // Close stop all the eBPF Programs and delete elements in the list
 func (c *NFConfigs) Close(ctx context.Context) error {
-	ticker := time.NewTicker(shutdownInterval)
+	ticker := time.NewTicker(c.HostConfig.ShutdownTimeout)
 	defer ticker.Stop()
 	doneCh := make(chan struct{})
 	var wg sync.WaitGroup
@@ -123,7 +121,7 @@ func (c *NFConfigs) Close(ctx context.Context) error {
 		return ctx.Err()
 	case <-ticker.C:
 		// didn't close successfully
-		return fmt.Errorf("nfconfig close didn't got processed in shutdownInterval ms %v", shutdownInterval)
+		return fmt.Errorf("nfconfig close didn't got processed in shutdownInterval ms %v", c.HostConfig.ShutdownTimeout)
 	case <-doneCh:
 		// we deleted successfully
 	}
