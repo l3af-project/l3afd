@@ -1,6 +1,15 @@
-name: CI-E2E
+# Copyright Contributors to the L3AF Project.
+# SPDX-License-Identifier: Apache-2.0
+#
+# For documentation on the github environment, see
+# https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners
+#
+# For documentation on the syntax of this file, see
+# https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions
+
+name: CI Ubuntu build
 on:
-  pull_request:
+  pull_request: {}
   push:
     branches:
       - main
@@ -10,18 +19,10 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-latest
-    timeout-minutes: 280
+    runs-on: ubuntu-20.04
     steps:
-      - name: brew
+      - name: prep
         run: |
-          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-      - name: clone
-        run: |
-          brew install --cask virtualbox
-          brew install --cask vagrant
-          vagrant plugin install vagrant-reload
-          vagrant init ubuntu/jammy64
-          vagrant up
-          vagrant ssh -c "lsb_release -a"
+          sudo apt update
+          sudo apt install net-tools
+          ifconfig -a
