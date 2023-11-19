@@ -50,8 +50,7 @@ jobs:
           sudo cp -r /home/runner/work/l3afd/l3afd /root
           sudo apt-get install git
           sudo git clone -b E2E https://github.com/Atul-source/l3af-arch.git /root/l3af-arch
-          cd /root/l3af-arch/dev_environment/e2e_test
-          sudo ./setup_linux_dev_env.sh
+          sudo bash /root/l3af-arch/dev_environment/e2e_test/setup_linux_dev_env.sh
           ps -ef | grep -i l3af
 
           
