@@ -30,7 +30,6 @@ jobs:
           sudo ip tuntap add dev eth1 mode tun
           sudo ip addr add 10.1.10.1/24 dev eth1
           sudo ip link set dev eth1 up
-          sudo ip route add default via 10.1.10.1 dev eth1
 
       - name: tf-prep
         run: |
