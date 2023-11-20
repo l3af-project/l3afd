@@ -54,6 +54,8 @@ jobs:
           sudo apt-get install git
           sudo git clone -b vm-test https://github.com/Atul-source/l3af-arch.git /root/l3af-arch
           sudo bash /root/l3af-arch/dev_environment/e2e_test/setup_linux_dev_env.sh
+          hm=$(hostname)
+          sudo sed -i "s/runner/$hm/g" /root/l3af-arch/dev_environment/e2e_test/*.json
           sudo bash /root/l3af-arch/dev_environment/e2e_test/test_suite.sh
           
 
