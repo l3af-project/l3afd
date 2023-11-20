@@ -54,8 +54,13 @@ jobs:
           sudo apt-get install git
           ifconfig -a
           sudo git clone -b vm-test https://github.com/Atul-source/l3af-arch.git /root/l3af-arch
-          sudo bash /root/l3af-arch/dev_environment/e2e_test/setup_linux_dev_env.sh
-          hm=$(hostname)
-          sudo find /root/l3af-arch/dev_environment/e2e_test -type f -name "*.json" -exec sed -i "s/runner/$hm/g" {} +
-          sudo bash /root/l3af-arch/dev_environment/e2e_test/test_suite.sh
-          
+          #sudo bash /root/l3af-arch/dev_environment/e2e_test/setup_linux_dev_env.sh
+          #hm=$(hostname)
+          #sudo find /root/l3af-arch/dev_environment/e2e_test -type f -name "*.json" -exec sed -i "s/runner/$hm/g" {} +
+          #sudo bash /root/l3af-arch/dev_environment/e2e_test/test_suite.sh
+          touch pck
+          sudo tcpdump -i eth0 src 10.1.0.100 -c 5 > pck 2>&1 &
+          IP=$(ip -4 addr show eth0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
+          sudo python3 /root/l3af-arch/dev_environment/e2e_test/tf.py $IP
+          cat pck
+
