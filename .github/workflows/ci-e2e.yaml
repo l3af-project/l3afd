@@ -52,7 +52,7 @@ jobs:
         run: |
           sudo cp -r /home/runner/work/l3afd/l3afd /root
           sudo apt-get install git
-          ifconfig -a
+          ifconfig
           sudo git clone -b vm-test https://github.com/Atul-source/l3af-arch.git /root/l3af-arch
           sudo bash /root/l3af-arch/dev_environment/e2e_test/setup_linux_dev_env.sh
           hm=$(hostname)
