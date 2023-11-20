@@ -55,6 +55,5 @@ jobs:
           sudo git clone -b vm-test https://github.com/Atul-source/l3af-arch.git /root/l3af-arch
           sudo bash /root/l3af-arch/dev_environment/e2e_test/setup_linux_dev_env.sh
           sudo bash /root/l3af-arch/dev_environment/e2e_test/test_suite.sh
-          ifconfig -a
           
 
