@@ -3,7 +3,7 @@ module github.com/l3af-project/l3afd
 go 1.21
 
 require (
-	github.com/cilium/ebpf v0.12.2
+	github.com/cilium/ebpf v0.12.3
 	github.com/go-chi/chi/v5 v5.0.10
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/prometheus/client_golang v1.17.0
@@ -12,7 +12,7 @@ require (
 	github.com/safchain/ethtool v0.3.0
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/swaggo/swag v1.16.2
-	golang.org/x/sys v0.13.0 // exclude
+	golang.org/x/sys v0.14.1-0.20231108175955-e4099bfacb8c // exclude
 )
 
 require (
