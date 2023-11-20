@@ -25,6 +25,9 @@ jobs:
         run: |
           sudo apt update
           sudo systemctl stop ufw
+          sudo apt-get install python3-pip
+          sudo pip3 install scapy
+          hostname
           sudo apt install net-tools
           sudo apt-get install uml-utilities
           sudo ip tuntap add dev eth1 mode tun
@@ -49,11 +52,9 @@ jobs:
         run: |
           sudo cp -r /home/runner/work/l3afd/l3afd /root
           sudo apt-get install git
-          sudo git clone -b E2E https://github.com/Atul-source/l3af-arch.git /root/l3af-arch
-          sudo su
-          cd /root/l3af-arch/dev_environment/e2e_test
-          ./setup_linux_dev_env.sh
-          ps -ef | grep -i l3af
+          sudo git clone -b vm-test https://github.com/Atul-source/l3af-arch.git /root/l3af-arch
+          sudo bash /root/l3af-arch/dev_environment/e2e_test/setup_linux_dev_env.sh
+          sudo bash /root/l3af-arch/dev_environment/e2e_test/test_suite.sh
 
           
 
