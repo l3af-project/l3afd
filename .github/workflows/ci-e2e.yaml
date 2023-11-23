@@ -42,3 +42,4 @@ jobs:
       - name: run tests
         run : |
           sudo bash /root/l3af-arch/dev_environment/e2e_test/test_suite.sh
+          ip a
