@@ -37,6 +37,7 @@ jobs:
           sudo bash /root/l3af-arch/dev_environment/e2e_test/prep.sh
           sudo bash /root/l3af-arch/dev_environment/e2e_test/setup_linux_dev_env.sh
           hm=$(hostname)
+          ip a
           sudo find /root/l3af-arch/dev_environment/e2e_test -type f -name "*.json" -exec sed -i "s/lima-bpfdev/$hm/g" {} +
           
       - name: run tests
