@@ -27,10 +27,6 @@ jobs:
           sudo systemctl stop ufw
           sudo apt install -y iproute2
           sudo apt install git curl hey
-          ip a
-          ping 127.0.0.1 -c 2
-          sudo apt install net-tools
-          sudo lsof -i :49280
       - name: Checkout repository
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744
       
