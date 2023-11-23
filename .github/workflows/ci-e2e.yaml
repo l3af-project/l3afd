@@ -21,41 +21,24 @@ jobs:
   build:
     runs-on: ubuntu-20.04
     steps:
-      - name: prep
+      - name: Update and firewall stop
         run: |
           sudo apt update
           sudo systemctl stop ufw
-          sudo apt-get install python3-pip
-          sudo pip3 install scapy
-          hostname
-          sudo apt install net-tools
-          sudo apt-get install uml-utilities
-          sudo ip tuntap add dev eth1 mode tun
-          sudo ip addr add 10.1.10.1/24 dev eth1
-          sudo ip link set dev eth1 up
-
-      - name: tf-prep
-        run: |
-          IP=$(ip -4 addr show eth0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
-          sudo modprobe fou
-          sudo ip fou add port 6080 gue
-          sudo ip link add name gue1 type ipip remote 10.1.10.1 local $IP ttl 255 encap gue encap-sport 6080 encap-dport 6081 encap-csum encap-remcsum
-          sudo ip link set dev gue1 up
-          sudo ip fou add port 6081 gue
-          sudo ip link add name gue2 type ipip remote $IP local 10.1.10.1  ttl 255 encap gue encap-sport 6081 encap-dport 6080 encap-csum encap-remcsum
-          sudo ip link set dev gue2 up
-
+          sudo apt install -y iproute2
+          sudo apt install git curl 
       - name: Checkout repository
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744
       
-      - name: clone
+      - name: Prep
         run: |
           sudo cp -r /home/runner/work/l3afd/l3afd /root
-          sudo apt-get install git
-          ifconfig
           sudo git clone -b vm-test https://github.com/Atul-source/l3af-arch.git /root/l3af-arch
+          sudo bash /root/l3af-arch/dev_environment/e2e_test/prep.sh
           sudo bash /root/l3af-arch/dev_environment/e2e_test/setup_linux_dev_env.sh
           hm=$(hostname)
           sudo find /root/l3af-arch/dev_environment/e2e_test -type f -name "*.json" -exec sed -i "s/runner/$hm/g" {} +
+          
+      - name: run tests
+        run : |
           sudo bash /root/l3af-arch/dev_environment/e2e_test/test_suite.sh
-          uname -r
