@@ -26,21 +26,20 @@ jobs:
           sudo apt update
           sudo systemctl stop ufw
           sudo apt install -y iproute2
-          sudo apt install git curl hey 
+          sudo apt install git curl hey
+          ip a
+          ping 127.0.0.1 -c 2
+          sudo apt install net-tools
+          netstat -anpe | grep 49280
       - name: Checkout repository
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744
       
-      - name: Prep
+      - name: Tests
         run: |
           sudo cp -r /home/runner/work/l3afd/l3afd /root
           sudo git clone -b vm-test https://github.com/Atul-source/l3af-arch.git /root/l3af-arch
           sudo bash /root/l3af-arch/dev_environment/e2e_test/prep.sh
           sudo bash /root/l3af-arch/dev_environment/e2e_test/setup_linux_dev_env.sh
           hm=$(hostname)
-          ip a
           sudo find /root/l3af-arch/dev_environment/e2e_test -type f -name "*.json" -exec sed -i "s/lima-bpfdev/$hm/g" {} +
-          
-      - name: run tests
-        run : |
           sudo bash /root/l3af-arch/dev_environment/e2e_test/test_suite.sh
-          ip a
