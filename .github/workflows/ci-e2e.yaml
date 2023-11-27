@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Update and firewall stop
         run: |
@@ -37,7 +37,7 @@ jobs:
           sudo bash /root/l3af-arch/dev_environment/e2e_test/prep_env.sh
           sudo bash /root/l3af-arch/dev_environment/e2e_test/setup_linux_dev_env.sh
           hm=$(hostname)
-          sudo find /root/l3af-arch/dev_environment/e2e_test -type f -name "*.json" -exec sed -i "s/lima-bpfdev/$hm/g" {} +
+          sudo find /root/l3af-arch/dev_environment/e2e_test -type f -name "*.json" -exec sed -i "s/l3af-test-host/$hm/g" {} +
           
       - name: Run Tests
         run: |
