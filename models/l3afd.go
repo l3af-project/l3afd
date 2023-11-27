@@ -54,7 +54,7 @@ type BPFProgram struct {
 	ConfigArgs        L3afDNFArgs         `json:"config_args"`           // Map of arguments to config command
 	MonitorMaps       []L3afDNFMetricsMap `json:"monitor_maps"`          // Metrics BPF maps
 	EPRURL            string              `json:"ebpf_package_repo_url"` // Download url for Program
-	ObjectFile        string              `json:"object_file"`           // Object file contains kernel code
+	ObjectFile        string              `json:"object_file"`           // Object file contains BPF code
 	EntryFunctionName string              `json:"entry_function_name"`   // BPF entry function name to load
 }
 
