@@ -39,6 +39,9 @@ definitions:
       ebpf_package_repo_url:
         description: Download url for Program
         type: string
+      entry_function_name:
+        description: BPF entry function name to load
+        type: string
       id:
         description: Program id
         type: integer
@@ -61,7 +64,10 @@ definitions:
           $ref: '#/definitions/models.L3afDNFMetricsMap'
         type: array
       name:
-        description: Name of the BPF program
+        description: Name of the BPF program package
+        type: string
+      object_file:
+        description: Object file contains BPF code
         type: string
       prog_type:
         description: Program type XDP or TC
