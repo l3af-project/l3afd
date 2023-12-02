@@ -12,7 +12,7 @@ require (
 	github.com/safchain/ethtool v0.3.0
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/swaggo/swag v1.16.2
-	golang.org/x/sys v0.14.1-0.20231108175955-e4099bfacb8c // exclude
+	golang.org/x/sys v0.15.0 // exclude
 )
 
 require (
