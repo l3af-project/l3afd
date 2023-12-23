@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/cilium/ebpf v0.12.3
-	github.com/go-chi/chi/v5 v5.0.10
+	github.com/go-chi/chi/v5 v5.0.11
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/prometheus/client_golang v1.17.0
 	github.com/robfig/config v0.0.0-20141207224736-0f78529c8c7e
