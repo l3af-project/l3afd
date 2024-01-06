@@ -16,7 +16,7 @@ require (
 )
 
 require (
-	github.com/florianl/go-tc v0.4.2
+	github.com/florianl/go-tc v0.4.3
 	github.com/golang/mock v1.6.0
 )
 
