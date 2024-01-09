@@ -1337,6 +1337,9 @@ func (b *BPF) InitialiseMetricMaps() error {
 // IsLoaded - Method verifies whether bpf program is loaded or not
 // Here it checks whether prog ID is valid and active
 func (b *BPF) IsLoaded() bool {
+	if b.ProgID == 0 {
+		return true
+	}
 	ebpfProg, err := ebpf.NewProgramFromID(b.ProgID)
 	if err != nil && errors.Is(err, os.ErrNotExist) {
 		log.Debug().Msgf("IsLoaded - %s is not loaded or invalid program id %d", b.Program.Name, uint32(b.ProgID))
