@@ -1111,7 +1111,7 @@ func (b *BPF) RemoveMapFiles(ifaceName string) error {
 		if _, err := os.Stat(mapFilename); !os.IsNotExist(err) {
 			log.Warn().Msgf("Unpinning not able to remove map file : %v", mapFilename)
 			if err := os.RemoveAll(mapFilename); err != nil {
-				fmt.Errorf("Removal of %v failed", mapFilename)
+				return fmt.Errorf("Removal of %v failed", mapFilename)
 			}
 		}
 	}
