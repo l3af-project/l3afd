@@ -1108,6 +1108,12 @@ func (b *BPF) RemoveMapFiles(ifaceName string) error {
 			return fmt.Errorf("BPF program %s prog type %s ifacename %s map %s:failed to pin the map err - %#v",
 				b.Program.Name, b.Program.ProgType, ifaceName, mapFilename, err)
 		}
+		if _, err := os.Stat(mapFilename); !os.IsNotExist(err) {
+			log.Warn().Msgf("Unpinning not able to remove map file : %v", mapFilename)
+			if err := os.RemoveAll(mapFilename); err != nil {
+				fmt.Errorf("Removal of %v failed", mapFilename)
+			}
+		}
 	}
 	return nil
 }
