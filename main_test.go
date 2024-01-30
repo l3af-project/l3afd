@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/l3af-project/l3afd/config"
+	"github.com/l3af-project/l3afd/v2/config"
 )
 
 func TestTestConfigValid(t *testing.T) {

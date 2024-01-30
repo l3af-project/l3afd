@@ -19,9 +19,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/l3af-project/l3afd/config"
-	"github.com/l3af-project/l3afd/mocks"
-	"github.com/l3af-project/l3afd/models"
+	"github.com/l3af-project/l3afd/v2/config"
+	"github.com/l3af-project/l3afd/v2/mocks"
+	"github.com/l3af-project/l3afd/v2/models"
 )
 
 var mockedExitStatus = 1
