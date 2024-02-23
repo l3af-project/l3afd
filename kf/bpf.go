@@ -1101,14 +1101,11 @@ func (b *BPF) RemoveMapFiles(ifaceName string) error {
 		var mapFilename string
 		if b.Program.ProgType == models.TCType {
 			mapFilename = filepath.Join(b.hostConfig.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, k)
-			if !strings.HasPrefix(mapFilename, b.hostConfig.BpfMapDefaultPath) {
-				return fmt.Errorf("malicious mapFilename path")
-			}
 		} else {
 			mapFilename = filepath.Join(b.hostConfig.BpfMapDefaultPath, ifaceName, k)
-			if !strings.HasPrefix(mapFilename, b.hostConfig.BpfMapDefaultPath) {
-				return fmt.Errorf("malicious mapFilename path")
-			}
+		}
+		if !strings.HasPrefix(mapFilename, b.hostConfig.BpfMapDefaultPath) {
+			return fmt.Errorf("malicious mapFilename path")
 		}
 		if err := v.Unpin(); err != nil {
 			return fmt.Errorf("bpf program %s prog type %s ifacename %s map %s:failed to pin the map err - %#v",
