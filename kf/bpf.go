@@ -1100,9 +1100,9 @@ func (b *BPF) RemoveMapFiles(ifaceName string) error {
 	for k, v := range b.ProgMapCollection.Maps {
 		var mapFilename string
 		if b.Program.ProgType == models.TCType {
-			mapFilename = filepath.Join(b.hostConfig.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, k)
+			mapFilename, _ = ValidatePath(b.hostConfig.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, k)
 		} else {
-			mapFilename = filepath.Join(b.hostConfig.BpfMapDefaultPath, ifaceName, k)
+			mapFilename, _ = ValidatePath(b.hostConfig.BpfMapDefaultPath, ifaceName, k)
 		}
 		if err := v.Unpin(); err != nil {
 			return fmt.Errorf("bpf program %s prog type %s ifacename %s map %s:failed to pin the map err - %#v",
@@ -1163,13 +1163,13 @@ func (b *BPF) VerifyCleanupMaps(chain bool) error {
 	return nil
 }
 
-func ValidatePath(filePath string, destination string) (string, error) {
-	destpath := filepath.Join(destination, filePath)
-	if strings.Contains(filePath, "..") {
-		return "", fmt.Errorf(" file contains filepath (%s) that includes (..)", filePath)
+func ValidatePath(filePath ...string) (string, error) {
+	destpath := ""
+	for _, x := range filePath {
+		destpath = filepath.Join(destpath, x)
 	}
-	if !strings.HasPrefix(destpath, filepath.Clean(destination)+string(os.PathSeparator)) {
-		return "", fmt.Errorf("%s: illegal file path", filePath)
+	if strings.Contains(destpath, "..") {
+		return "", fmt.Errorf(" file contains filepath (%s) that includes (..)", filePath)
 	}
 	return destpath, nil
 }
