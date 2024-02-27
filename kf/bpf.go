@@ -27,9 +27,9 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/l3af-project/l3afd/config"
-	"github.com/l3af-project/l3afd/models"
-	"github.com/l3af-project/l3afd/stats"
+	"github.com/l3af-project/l3afd/v2/config"
+	"github.com/l3af-project/l3afd/v2/models"
+	"github.com/l3af-project/l3afd/v2/stats"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"

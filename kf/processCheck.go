@@ -8,8 +8,8 @@ import (
 	"container/list"
 	"time"
 
-	"github.com/l3af-project/l3afd/models"
-	"github.com/l3af-project/l3afd/stats"
+	"github.com/l3af-project/l3afd/v2/models"
+	"github.com/l3af-project/l3afd/v2/stats"
 
 	"github.com/rs/zerolog/log"
 )

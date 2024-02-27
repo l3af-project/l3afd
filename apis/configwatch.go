@@ -24,12 +24,12 @@ import (
 
 	httpSwagger "github.com/swaggo/http-swagger"
 
-	"github.com/l3af-project/l3afd/config"
-	"github.com/l3af-project/l3afd/kf"
-	"github.com/l3af-project/l3afd/routes"
-	"github.com/l3af-project/l3afd/signals"
+	"github.com/l3af-project/l3afd/v2/config"
+	"github.com/l3af-project/l3afd/v2/kf"
+	"github.com/l3af-project/l3afd/v2/routes"
+	"github.com/l3af-project/l3afd/v2/signals"
 
-	_ "github.com/l3af-project/l3afd/docs"
+	_ "github.com/l3af-project/l3afd/v2/docs"
 
 	"github.com/rs/zerolog/log"
 )

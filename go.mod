@@ -1,4 +1,4 @@
-module github.com/l3af-project/l3afd
+module github.com/l3af-project/l3afd/v2
 
 go 1.21
 

@@ -8,7 +8,7 @@ import (
 	"net/http"
 
 	chi "github.com/go-chi/chi/v5"
-	"github.com/l3af-project/l3afd/kf"
+	"github.com/l3af-project/l3afd/v2/kf"
 	"github.com/rs/zerolog/log"
 )
 
