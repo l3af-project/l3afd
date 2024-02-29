@@ -1108,7 +1108,7 @@ func (b *BPF) RemoveMapFiles(ifaceName string) error {
 			return fmt.Errorf("malicious mapFilename path")
 		}
 		if err := v.Unpin(); err != nil {
-			return fmt.Errorf("BPF program %s prog type %s ifacename %s map %s:failed to pin the map err - %#v",
+			return fmt.Errorf("BPF program %s prog type %s ifacename %s map %s:failed to unpin the map: %v",
 				b.Program.Name, b.Program.ProgType, ifaceName, mapFilename, err)
 		}
 		if fileExists(mapFilename) {
