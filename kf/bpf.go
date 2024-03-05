@@ -492,6 +492,8 @@ func (b *BPF) UpdateArgs(ifaceName, direction string) error {
 
 	log.Info().Msgf("BPF Program update command : %s %v", cmd, args)
 	UpdateCmd := execCommand(cmd, args...)
+	UpdateCmd.Stdout = os.Stdout
+	UpdateCmd.Stderr = os.Stderr
 	if err := UpdateCmd.Start(); err != nil {
 		stats.Incr(stats.BPFUpdateFailedCount, b.Program.Name, direction, ifaceName)
 		log.Info().Err(err).Msgf("user mode BPF program failed - %s", b.Program.Name)
@@ -1390,6 +1392,8 @@ func (b *BPF) StartUserProgram(ifaceName, direction string, chain bool) error {
 
 	log.Info().Msgf("BPF Program start command : %s %v", cmd, args)
 	b.Cmd = execCommand(cmd, args...)
+	b.Cmd.Stdout = os.Stdout
+	b.Cmd.Stderr = os.Stderr
 	if err := b.Cmd.Start(); err != nil {
 		log.Info().Err(err).Msgf("user program failed - %s", b.Program.Name)
 		return fmt.Errorf("failed to start : %s %v", cmd, args)
