@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/l3af-project/l3afd/config"
-	"github.com/l3af-project/l3afd/kf"
+	"github.com/l3af-project/l3afd/v2/config"
+	"github.com/l3af-project/l3afd/v2/kf"
 )
 
 func Test_UpdateConfig(t *testing.T) {

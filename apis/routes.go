@@ -6,9 +6,9 @@ package apis
 import (
 	"context"
 
-	"github.com/l3af-project/l3afd/apis/handlers"
-	"github.com/l3af-project/l3afd/kf"
-	"github.com/l3af-project/l3afd/routes"
+	"github.com/l3af-project/l3afd/v2/apis/handlers"
+	"github.com/l3af-project/l3afd/v2/kf"
+	"github.com/l3af-project/l3afd/v2/routes"
 )
 
 func apiRoutes(ctx context.Context, kfcfg *kf.NFConfigs) []routes.Route {

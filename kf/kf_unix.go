@@ -17,7 +17,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/l3af-project/l3afd/models"
+	"github.com/l3af-project/l3afd/v2/models"
 
 	"github.com/florianl/go-tc"
 	"github.com/florianl/go-tc/core"

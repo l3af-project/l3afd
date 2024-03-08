@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/l3af-project/l3afd/config"
-	"github.com/l3af-project/l3afd/models"
+	"github.com/l3af-project/l3afd/v2/config"
+	"github.com/l3af-project/l3afd/v2/models"
 
 	"github.com/rs/zerolog/log"
 )

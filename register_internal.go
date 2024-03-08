@@ -10,7 +10,7 @@
 package main
 
 import (
-	"github.com/l3af-project/l3afd/config"
+	"github.com/l3af-project/l3afd/v2/config"
 
 	"github.com/rs/zerolog/log"
 )

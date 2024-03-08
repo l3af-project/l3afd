@@ -13,8 +13,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/l3af-project/l3afd/kf"
-	"github.com/l3af-project/l3afd/models"
+	"github.com/l3af-project/l3afd/v2/kf"
+	"github.com/l3af-project/l3afd/v2/models"
 )
 
 // DeleteEbpfPrograms   remove eBPF programs on node
