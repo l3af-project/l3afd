@@ -1105,6 +1105,8 @@ func (b *BPF) RemoveMapFiles(ifaceName string) error {
 		} else {
 			mapFilename = filepath.Join(b.hostConfig.BpfMapDefaultPath, ifaceName, k)
 		}
+		var m sync.Mutex
+		m.Lock()
 		BPFMapsUsedCount[mapFilename] -= 1
 		if BPFMapsUsedCount[mapFilename] == 0 {
 			if err := v.Unpin(); err != nil {
@@ -1112,6 +1114,7 @@ func (b *BPF) RemoveMapFiles(ifaceName string) error {
 					b.Program.Name, b.Program.ProgType, ifaceName, mapFilename, err)
 			}
 		}
+		m.Unlock()
 	}
 	return nil
 }
