@@ -1076,3 +1076,80 @@ func TestAddProgramWithoutChaining(t *testing.T) {
 		})
 	}
 }
+
+func TestCalculateShutDownTimeOut(t *testing.T) {
+	progList := list.New()
+	progList.PushBack(&BPF{
+		Program: models.BPFProgram{
+			Name: "dummyProgram1",
+		},
+	})
+	progList.PushBack(&BPF{
+		Program: models.BPFProgram{
+			Name: "dummyProgram2",
+		},
+	})
+	progList.PushBack(&BPF{
+		Program: models.BPFProgram{
+			Name: "dummyProgram3",
+		},
+	})
+	type fields struct {
+		ingressXDPBpfs map[string]*list.List
+		ingressTCBpfs  map[string]*list.List
+		egressTCBpfs   map[string]*list.List
+		hostConfig     *config.Config
+	}
+	type args struct {
+		iface string
+	}
+	tests := []struct {
+		name   string
+		field  fields
+		arg    args
+		output time.Duration
+	}{
+		{
+			name: "manualTimeOut",
+			field: fields{
+				hostConfig: &config.Config{
+					ShutdownTimeout: time.Duration(10) * time.Second,
+				},
+				ingressXDPBpfs: map[string]*list.List{"fakeif0": progList},
+				egressTCBpfs:   map[string]*list.List{"fakeif0": progList},
+				ingressTCBpfs:  map[string]*list.List{"fakeif0": progList},
+			},
+			arg: args{
+				iface: "fakeif0",
+			},
+			output: time.Duration(10) * time.Second,
+		},
+		{
+			name: "ComputeTimeOut",
+			field: fields{
+				hostConfig:     &config.Config{},
+				ingressXDPBpfs: map[string]*list.List{"fakeif0": progList},
+				egressTCBpfs:   map[string]*list.List{"fakeif0": progList},
+				ingressTCBpfs:  map[string]*list.List{"fakeif0": progList},
+			},
+			arg: args{
+				iface: "fakeif0",
+			},
+			output: time.Duration(225) * time.Second,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &NFConfigs{
+				HostConfig:     tt.field.hostConfig,
+				IngressXDPBpfs: tt.field.ingressXDPBpfs,
+				EgressTCBpfs:   tt.field.egressTCBpfs,
+				IngressTCBpfs:  tt.field.ingressTCBpfs,
+			}
+			e := cfg.CalculateShutDownTimeOut()
+			if e != tt.output {
+				t.Errorf(" CalculateShutDownTimeOut test failed : %v", e)
+			}
+		})
+	}
+}
