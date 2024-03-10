@@ -40,8 +40,9 @@ import (
 )
 
 var (
-	execCommand           = exec.Command
-	copyBufPool sync.Pool = sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
+	execCommand                = exec.Command
+	copyBufPool      sync.Pool = sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
+	BPFMapsUsedCount           = make(map[string]int) // This is map used to count the number of times a ebpf program tries to pin bpf map
 )
 
 //lint:ignore U1000 avoid false linter error on windows, since this variable is only used in linux code
@@ -1104,17 +1105,11 @@ func (b *BPF) RemoveMapFiles(ifaceName string) error {
 		} else {
 			mapFilename = filepath.Join(b.hostConfig.BpfMapDefaultPath, ifaceName, k)
 		}
-		if !strings.HasPrefix(mapFilename, b.hostConfig.BpfMapDefaultPath) {
-			return fmt.Errorf("malicious mapFilename path")
-		}
-		if err := v.Unpin(); err != nil {
-			return fmt.Errorf("BPF program %s prog type %s ifacename %s map %s:failed to unpin the map: %v",
-				b.Program.Name, b.Program.ProgType, ifaceName, mapFilename, err)
-		}
-		if fileExists(mapFilename) {
-			log.Warn().Msgf("Removing the Map file, as unpinning not able to remove map file: %v", mapFilename)
-			if err := os.RemoveAll(mapFilename); err != nil {
-				return fmt.Errorf("removal of %v failed", mapFilename)
+		BPFMapsUsedCount[mapFilename] -= 1
+		if BPFMapsUsedCount[mapFilename] == 0 {
+			if err := v.Unpin(); err != nil {
+				return fmt.Errorf("BPF program %s prog type %s ifacename %s map %s:failed to unpin the map: %v",
+					b.Program.Name, b.Program.ProgType, ifaceName, mapFilename, err)
 			}
 		}
 	}
@@ -1467,12 +1462,16 @@ func (b *BPF) PinBpfMaps(ifaceName string) error {
 		} else {
 			mapFilename = filepath.Join(b.hostConfig.BpfMapDefaultPath, ifaceName, k)
 		}
+		if !strings.HasPrefix(mapFilename, b.hostConfig.BpfMapDefaultPath) {
+			return fmt.Errorf("malicious mapFilename path")
+		}
 		// In case one of the program pins the map then other program will skip
-		if !fileExists(mapFilename) {
+		if BPFMapsUsedCount[mapFilename] == 0 {
 			if err := v.Pin(mapFilename); err != nil {
 				return fmt.Errorf("eBPF program %s map %s:failed to pin the map err - %#v", b.Program.Name, mapFilename, err)
 			}
 		}
+		BPFMapsUsedCount[mapFilename] += 1
 	}
 	return nil
 }

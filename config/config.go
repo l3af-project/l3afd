@@ -112,7 +112,7 @@ func ReadConfig(configPath string) (*Config, error) {
 		MetricsAddr:                    LoadConfigString(confReader, "web", "metrics-addr"),
 		EBPFPollInterval:               LoadOptionalConfigDuration(confReader, "web", "ebpf-poll-interval", 30*time.Second),
 		NMetricSamples:                 LoadOptionalConfigInt(confReader, "web", "n-metric-samples", 20),
-		ShutdownTimeout:                LoadOptionalConfigDuration(confReader, "l3afd", "shutdown-timeout", 25*time.Second),
+		ShutdownTimeout:                LoadOptionalConfigDuration(confReader, "l3afd", "shutdown-timeout", 0),
 		SwaggerApiEnabled:              LoadOptionalConfigBool(confReader, "l3afd", "swagger-api-enabled", false),
 		Environment:                    LoadOptionalConfigString(confReader, "l3afd", "environment", ENV_PROD),
 		BpfMapDefaultPath:              LoadConfigString(confReader, "l3afd", "BpfMapDefaultPath"),

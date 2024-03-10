@@ -72,7 +72,7 @@ func NewNFConfigs(ctx context.Context, host string, hostConf *config.Config, pMo
 
 // Close stop all the eBPF Programs and delete elements in the list
 func (c *NFConfigs) Close(ctx context.Context) error {
-	ticker := time.NewTicker(c.HostConfig.ShutdownTimeout)
+	ticker := time.NewTicker(c.CalculateShutDownTimeOut())
 	defer ticker.Stop()
 	doneCh := make(chan struct{})
 	var wg sync.WaitGroup
@@ -121,12 +121,29 @@ func (c *NFConfigs) Close(ctx context.Context) error {
 		return ctx.Err()
 	case <-ticker.C:
 		// didn't close successfully
-		return fmt.Errorf("nfconfig close didn't got processed in shutdownInterval ms %v", c.HostConfig.ShutdownTimeout)
+		return fmt.Errorf("nfconfig close didn't got processed in shutdownInterval ms %v \n please do cleanup manually", c.HostConfig.ShutdownTimeout)
 	case <-doneCh:
 		// we deleted successfully
 	}
 
 	return nil
+}
+
+func (c *NFConfigs) CalculateShutDownTimeOut() time.Duration {
+	if c.HostConfig.ShutdownTimeout != 0 {
+		return c.HostConfig.ShutdownTimeout
+	}
+	ProgCount := 0
+	for ifaceName := range c.IngressXDPBpfs {
+		ProgCount += c.IngressXDPBpfs[ifaceName].Len()
+	}
+	for ifaceName := range c.IngressTCBpfs {
+		ProgCount += c.IngressTCBpfs[ifaceName].Len()
+	}
+	for ifaceName := range c.EgressTCBpfs {
+		ProgCount += c.EgressTCBpfs[ifaceName].Len()
+	}
+	return time.Duration(25*ProgCount) * time.Second
 }
 
 // Check for XDP programs are not loaded then initialise the array

@@ -11,4 +11,8 @@ import (
 	"syscall"
 )
 
-var ShutdownSignals = []os.Signal{os.Interrupt, syscall.SIGTERM}
+var ShutdownSignals = []os.Signal{os.Interrupt,
+	syscall.SIGHUP,
+	syscall.SIGINT,
+	syscall.SIGTERM,
+	syscall.SIGQUIT}

@@ -63,7 +63,7 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 	signal.Notify(term, signals.ShutdownSignals...)
 	go func() {
 		<-term
-		s.GracefulStop(conf.ShutdownTimeout)
+		s.GracefulStop(kfrtconfg.CalculateShutDownTimeOut())
 		ctx.Done()
 		log.Info().Msg("L3afd gracefulStop completed")
 	}()
