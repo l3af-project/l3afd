@@ -6,6 +6,7 @@
 [![GoDoc](https://godoc.org/github.com/l3af-project/l3afd?status.svg)](https://pkg.go.dev/github.com/l3af-project/l3afd)
 [![Apache licensed](https://img.shields.io/badge/license-Apache-blue.svg)](LICENSE)
 [![L3AF Slack](https://img.shields.io/badge/slack-L3AF-brightgreen.svg?logo=slack)](http://l3afworkspace.slack.com/)
+
 L3AFD is a crucial part of the L3AF ecosystem. For more information on L3AF see
 https://l3af.io/
 
