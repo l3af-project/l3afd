@@ -501,7 +501,7 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 				iface:    "dummyinterface",
 				bpfProgs: &models.BPFPrograms{
 					XDPIngress: []*models.BPFProgram{
-						&models.BPFProgram{
+						{
 							Name:              "dummy_name",
 							SeqID:             1,
 							Artifact:          "dummy_artifact.tar.gz",
@@ -639,7 +639,7 @@ func TestAddeBPFPrograms(t *testing.T) {
 					Iface:    "dummyinterface",
 					BpfPrograms: &models.BPFPrograms{
 						XDPIngress: []*models.BPFProgram{
-							&models.BPFProgram{
+							{
 								Name:              "dummy_name",
 								SeqID:             1,
 								Artifact:          "dummy_artifact_name",
