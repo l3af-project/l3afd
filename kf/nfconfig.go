@@ -401,7 +401,7 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 			data.Program.SeqID = bpfProg.SeqID
 
 			if err := c.MoveToLocation(e, bpfList); err != nil {
-				return fmt.Errorf("failed to move to new position in the chain BPF %s version %s iface %s direction % w ith err: %v", bpfProg.Name, bpfProg.Version, ifaceName, direction, err)
+				return fmt.Errorf("failed to move to new position in the chain BPF %s version %s iface %s direction %s with err: %v", bpfProg.Name, bpfProg.Version, ifaceName, direction, err)
 			}
 		}
 

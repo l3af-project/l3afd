@@ -191,7 +191,7 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 		}
 	} else if progType == models.TCType {
 		if err := rootProgBPF.LoadTCAttachProgram(ifaceName, direction); err != nil {
-			return nil, fmt.Errorf("failed to load tc root program on iface \"%s\" name %s direction %s with err %v", err, ifaceName, rootProgBPF.Program.Name, direction, err)
+			return nil, fmt.Errorf("failed to load tc root program on iface \"%s\" name %s direction %s with err %v", ifaceName, rootProgBPF.Program.Name, direction, err)
 		}
 	}
 
