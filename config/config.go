@@ -104,7 +104,7 @@ func ReadConfig(configPath string) (*Config, error) {
 		BPFDir:                         LoadConfigString(confReader, "l3afd", "bpf-dir"),
 		BPFLogDir:                      LoadOptionalConfigString(confReader, "l3afd", "bpf-log-dir", ""),
 		MinKernelMajorVer:              LoadOptionalConfigInt(confReader, "l3afd", "kernel-major-version", 5),
-		MinKernelMinorVer:              LoadOptionalConfigInt(confReader, "l3afd", "kernel-minor-version", 1),
+		MinKernelMinorVer:              LoadOptionalConfigInt(confReader, "l3afd", "kernel-minor-version", 15),
 		EBPFRepoURL:                    LoadConfigString(confReader, "ebpf-repo", "url"),
 		HttpClientTimeout:              LoadOptionalConfigDuration(confReader, "l3afd", "http-client-timeout", 30*time.Second),
 		MaxEBPFReStartCount:            LoadOptionalConfigInt(confReader, "l3afd", "max-ebpf-restart-count", 3),
