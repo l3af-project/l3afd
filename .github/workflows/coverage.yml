@@ -1,0 +1,46 @@
+# Copyright Contributors to the L3AF Project.
+# SPDX-License-Identifier: Apache-2.0
+
+# Runs tests and computes the code coverage
+
+name: Coverage
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+# Declare default permissions as read only.
+permissions: read-all
+
+jobs:
+  measure_coverage:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab
+
+      - name: Get GOVERSION content
+        id: goversion
+        run: echo ::set-output name=version::$(cat GOVERSION)
+      
+      - uses: magnetikonline/action-golang-cache@777394c89f8ed6fcf1649505277c46c1cd06494d
+        with:
+          go-version: "${{ steps.goversion.outputs.version }}"
+          cache-key-suffix: "-coverage-${{ steps.goversion.outputs.version }}"
+
+      - run: go test -short -tags shaping -coverprofile=l3afd.cov ./...
+
+      - uses: shogo82148/actions-goveralls@df920a6a2468668dfcf71a0b43817f89eaa5ea04
+        with:
+          path-to-profile: l3afd.cov
+          parallel: true
+
+  finish_measuring_coverage:
+    needs: measure_coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: shogo82148/actions-goveralls@df920a6a2468668dfcf71a0b43817f89eaa5ea04
+        with:
+          parallel-finished: true
