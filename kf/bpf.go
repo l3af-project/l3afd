@@ -180,7 +180,7 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 	if fileExists(rootProgBPF.MapNamePath) {
 		log.Warn().Msgf("previous instance of root program %s persisted map %s file exists", rootProgBPF.Program.Name, rootProgBPF.MapNamePath)
 		if err := rootProgBPF.RemoveRootProgMapFile(ifaceName); err != nil {
-			log.Error().Err(err).Msgf("previous instance of root program %s map file removed unsuccessfully - %s ", rootProgBPF.Program.Name, rootProgBPF.MapNamePath)
+			log.Warn().Msgf("previous instance of root program %s map file removed unsuccessfully - %s ", rootProgBPF.Program.Name, rootProgBPF.MapNamePath)
 		}
 	}
 

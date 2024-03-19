@@ -304,7 +304,7 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
-		log.Error().Err(err).Msgf("UnloadTCProgram - look up network iface %q with err %v", ifaceName, err)
+		log.Error().Err(err).Msgf("UnloadTCProgram - look up network iface %q", ifaceName)
 		return err
 	}
 
