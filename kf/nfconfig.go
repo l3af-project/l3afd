@@ -213,7 +213,7 @@ func (c *NFConfigs) PushBackAndStartBPF(bpfProg *models.BPFProgram, ifaceName, d
 	}
 
 	if err := c.DownloadAndStartBPFProgram(bpfList.PushBack(bpf), ifaceName, direction); err != nil {
-		return fmt.Errorf("failed to download and start the BPF %s iface %s direction %s", bpfProg.Name, ifaceName, direction)
+		return fmt.Errorf("failed to download and start the BPF %s iface %s direction %s..... error: %v", bpfProg.Name, ifaceName, direction, err)
 	}
 
 	return nil

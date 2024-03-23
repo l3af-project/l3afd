@@ -207,16 +207,20 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 		log.Error().Err(err).Msgf("LoadTCAttachProgram - look up network iface %q", ifaceName)
 		return err
 	}
+	fmt.Println(".....10")
 
 	if err := b.LoadBPFProgram(ifaceName); err != nil {
+		fmt.Println(".....10.5 %v",err)
 		return err
 	}
 
+	fmt.Println(".....11")
 	// verify and add attribute clsact
 	tcgo, err := tc.Open(&tc.Config{})
 	if err != nil {
 		return fmt.Errorf("could not open rtnetlink socket for interface %s : %v", ifaceName, err)
 	}
+	fmt.Println(".....12")
 
 	clsactFound := false
 	// get all the qdiscs from all interfaces
@@ -224,6 +228,7 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 	if err != nil {
 		return fmt.Errorf("could not get qdiscs for interface %s : %v", ifaceName, err)
 	}
+	fmt.Println(".....14")
 	for _, qdisc := range qdiscs {
 		iface, err := net.InterfaceByIndex(int(qdisc.Ifindex))
 		if err != nil {
@@ -233,6 +238,7 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 			clsactFound = true
 		}
 	}
+	fmt.Println(".....15")
 
 	if !clsactFound {
 		qdisc := tc.Object{
@@ -255,23 +261,33 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 
 	bpfRootProg := b.ProgMapCollection.Programs[b.Program.EntryFunctionName]
 
-	var parent uint32
+	var parentNew uint32
+	fmt.Println(".....16")
+	// var parent uint32
 	if direction == models.IngressType {
-		parent = tc.HandleMinIngress
+		// parent = tc.HandleMinIngress
+		parentNew = core.BuildHandle(0x0001, 0x0000)
+		_ = parentNew
+		fmt.Println("parentNew...1 ", parentNew)
 	} else if direction == models.EgressType {
-		parent = tc.HandleMinEgress
+		// parent = tc.HandleMinEgress
+		parentNew = core.BuildHandle(0xFFFF, 0x0000)
+		_ = parentNew
+		fmt.Println("parentNew...2 ", parentNew)
 	}
 
+	fmt.Println("parentNew .. 3", parentNew)
 	progFD := uint32(bpfRootProg.FD())
 	// Netlink attribute used in the Linux kernel
 	bpfFlag := uint32(tc.BpfActDirect)
 
+	fmt.Println(".....17")
 	filter := tc.Object{
 		Msg: tc.Msg{
 			Family:  unix.AF_UNSPEC,
 			Ifindex: uint32(iface.Index),
 			Handle:  0,
-			Parent:  core.BuildHandle(tc.HandleRoot, parent),
+			Parent:  parentNew,
 			Info:    0x300,
 		},
 		Attribute: tc.Attribute{
@@ -282,6 +298,7 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 			},
 		},
 	}
+	fmt.Println(".....18")
 
 	// Storing Filter handle
 	b.TCFilter = tcgo.Filter()
@@ -296,6 +313,7 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 			return err
 		}
 	}
+	fmt.Println(".....19")
 	return nil
 }
 
