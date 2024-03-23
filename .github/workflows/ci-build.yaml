@@ -58,7 +58,7 @@ jobs:
           go test ./...
           go clean -modcache
 
-      - uses: dominikh/staticcheck-action@ba605356b4b29a60e87ab9404b712f3461e566dc 
+      - uses: dominikh/staticcheck-action@fe1dd0c3658873b46f8c9bb3291096a617310ca6 
         with:
           version: "2023.1.1"
           install-go: false
