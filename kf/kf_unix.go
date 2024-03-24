@@ -223,6 +223,11 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 	fmt.Println(".....12")
 
 	clsactFound := false
+	htbFound := false
+	ingressFound := false
+	var htbHandle uint32
+	var ingressHandle uint32
+	var parentHandle uint32
 	// get all the qdiscs from all interfaces
 	qdiscs, err := tcgo.Qdisc().Get()
 	if err != nil {
@@ -237,57 +242,44 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 		if iface.Name == ifaceName && qdisc.Kind == "clsact" {
 			clsactFound = true
 		}
+		if iface.Name == ifaceName && qdisc.Kind == "htb" {
+			htbFound = true
+			htbHandle = qdisc.Msg.Handle
+		}
+		if iface.Name == ifaceName && qdisc.Kind == "ingress" {
+			ingressFound = true
+			ingressHandle = qdisc.Msg.Handle
+		}
+		if iface.Name == ifaceName {
+			fmt.Println(".....14.5 ..... Interface: %v", iface.Name , "Qdisc Kind: ", qdisc.Kind)
+			fmt.Println(".....14.6 .....", qdisc)
+			fmt.Println(".....14.7 ..............................\n\n")
+		}
 	}
 	fmt.Println(".....15")
 
-	if !clsactFound {
-		qdisc := tc.Object{
-			Msg: tc.Msg{
-				Family:  unix.AF_UNSPEC,
-				Ifindex: uint32(iface.Index),
-				Handle:  core.BuildHandle(tc.HandleRoot, 0x0000),
-				Parent:  tc.HandleIngress,
-				Info:    0,
-			},
-			Attribute: tc.Attribute{
-				Kind: "clsact",
-			},
-		}
-
-		if err := tcgo.Qdisc().Add(&qdisc); err != nil {
-			log.Info().Msgf("could not assign clsact to %s : %v, its already exists", ifaceName, err)
-		}
-	}
-
 	bpfRootProg := b.ProgMapCollection.Programs[b.Program.EntryFunctionName]
 
-	var parentNew uint32
-	fmt.Println(".....16")
-	// var parent uint32
-	if direction == models.IngressType {
-		// parent = tc.HandleMinIngress
-		parentNew = core.BuildHandle(0x0001, 0x0000)
-		_ = parentNew
-		fmt.Println("parentNew...1 ", parentNew)
+	var parent uint32
+	var filter tc.Object
+
+	if !clsactFound && !ingressFound && !htbFound{
+		if direction == models.IngressType {
+		parent = tc.HandleMinIngress
 	} else if direction == models.EgressType {
-		// parent = tc.HandleMinEgress
-		parentNew = core.BuildHandle(0xFFFF, 0x0000)
-		_ = parentNew
-		fmt.Println("parentNew...2 ", parentNew)
+		parent = tc.HandleMinEgress
 	}
 
-	fmt.Println("parentNew .. 3", parentNew)
 	progFD := uint32(bpfRootProg.FD())
 	// Netlink attribute used in the Linux kernel
 	bpfFlag := uint32(tc.BpfActDirect)
 
-	fmt.Println(".....17")
-	filter := tc.Object{
+	filter = tc.Object{
 		Msg: tc.Msg{
 			Family:  unix.AF_UNSPEC,
 			Ifindex: uint32(iface.Index),
 			Handle:  0,
-			Parent:  parentNew,
+			Parent:  core.BuildHandle(tc.HandleRoot, parent),
 			Info:    0x300,
 		},
 		Attribute: tc.Attribute{
@@ -298,6 +290,44 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 			},
 		},
 	}
+		
+	} else if !clsactFound && ingressFound && htbFound {
+		fmt.Println(".....16.1, ingressHandle", ingressHandle)
+		fmt.Println(".....16.2, htbHandle", htbHandle)
+		if direction == models.IngressType {
+			parentHandle = htbHandle
+			// _ = pa("parentNew...1 ", parentNew)
+		} else if direction == models.EgressType {
+			parentHandle = ingressHandle
+		}
+
+		fmt.Println("parentNew .. 3", parentHandle)
+		progFD := uint32(bpfRootProg.FD())
+		// Netlink attribute used in the Linux kernel
+		bpfFlag := uint32(tc.BpfActDirect)
+
+		fmt.Println(".....17")
+		// parentNew needs to handle of HTB and ingress 1:, and ffff:
+		filter = tc.Object{
+			Msg: tc.Msg{
+				Family:  unix.AF_UNSPEC,
+				Ifindex: uint32(iface.Index),
+				Handle:  0,
+				Parent:  parentHandle,
+				Info:    0x300,
+			},
+			Attribute: tc.Attribute{
+				Kind: "bpf",
+				BPF: &tc.Bpf{
+					FD:    &progFD,
+					Flags: &bpfFlag,
+				},
+			},
+		}
+	}
+
+	
+	
 	fmt.Println(".....18")
 
 	// Storing Filter handle
