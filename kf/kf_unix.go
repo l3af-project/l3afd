@@ -264,33 +264,32 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 	var filter tc.Object
 
 	if !clsactFound && !ingressFound && !htbFound{
-		if direction == models.IngressType {
-		parent = tc.HandleMinIngress
-	} else if direction == models.EgressType {
-		parent = tc.HandleMinEgress
-	}
+			if direction == models.IngressType {
+			parent = tc.HandleMinIngress
+		} else if direction == models.EgressType {
+			parent = tc.HandleMinEgress
+		}
 
-	progFD := uint32(bpfRootProg.FD())
-	// Netlink attribute used in the Linux kernel
-	bpfFlag := uint32(tc.BpfActDirect)
+		progFD := uint32(bpfRootProg.FD())
+		// Netlink attribute used in the Linux kernel
+		bpfFlag := uint32(tc.BpfActDirect)
 
-	filter = tc.Object{
-		Msg: tc.Msg{
-			Family:  unix.AF_UNSPEC,
-			Ifindex: uint32(iface.Index),
-			Handle:  0,
-			Parent:  core.BuildHandle(tc.HandleRoot, parent),
-			Info:    0x300,
-		},
-		Attribute: tc.Attribute{
-			Kind: "bpf",
-			BPF: &tc.Bpf{
-				FD:    &progFD,
-				Flags: &bpfFlag,
+		filter = tc.Object{
+			Msg: tc.Msg{
+				Family:  unix.AF_UNSPEC,
+				Ifindex: uint32(iface.Index),
+				Handle:  0,
+				Parent:  core.BuildHandle(tc.HandleRoot, parent),
+				Info:    0x300,
 			},
-		},
-	}
-		
+			Attribute: tc.Attribute{
+				Kind: "bpf",
+				BPF: &tc.Bpf{
+					FD:    &progFD,
+					Flags: &bpfFlag,
+				},
+			},
+		}
 	} else if !clsactFound && ingressFound && htbFound {
 		fmt.Println(".....16.1, ingressHandle", ingressHandle)
 		fmt.Println(".....16.2, htbHandle", htbHandle)
@@ -349,58 +348,157 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 
 // UnloadTCProgram - Remove TC filters
 func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
-
+	fmt.Println(".....UnloadTCProgram START .....")
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
 		log.Error().Err(err).Msgf("UnloadTCProgram - look up network iface %q", ifaceName)
 		return err
 	}
 
+	tcgo, err := tc.Open(&tc.Config{})
+	if err != nil {
+		log.Error().Err(err).Msgf("UnloadTCProgram - Unable to tc.Open(&tc.Config{}):  %q", ifaceName)
+		return err
+	}
+
+	clsactFound := false
+	htbFound := false
+	ingressFound := false
+	var htbHandle uint32
+	var ingressHandle uint32
+	var parentHandle uint32
+	// get all the qdiscs from all interfaces
+	qdiscs, err := tcgo.Qdisc().Get()
+	if err != nil {
+		return fmt.Errorf("could not get qdiscs for interface %s : %v", ifaceName, err)
+	}
+	fmt.Println(".....14")
+	for _, qdisc := range qdiscs {
+		iface, err := net.InterfaceByIndex(int(qdisc.Ifindex))
+		if err != nil {
+			return fmt.Errorf("could not get interface %s from id %d: %v", ifaceName, qdisc.Ifindex, err)
+		}
+		if iface.Name == ifaceName && qdisc.Kind == "clsact" {
+			clsactFound = true
+		}
+		if iface.Name == ifaceName && qdisc.Kind == "htb" {
+			htbFound = true
+			htbHandle = qdisc.Msg.Handle
+		}
+		if iface.Name == ifaceName && qdisc.Kind == "ingress" {
+			ingressFound = true
+			ingressHandle = qdisc.Msg.Handle
+		}
+		if iface.Name == ifaceName {
+			fmt.Println(".....14.5 ..... Interface: %v", iface.Name , "Qdisc Kind: ", qdisc.Kind)
+			fmt.Println(".....14.6 .....", qdisc)
+			fmt.Println(".....14.7 ..............................\n\n")
+		}
+	}
+
 	bpfRootProg := b.ProgMapCollection.Programs[b.Program.EntryFunctionName]
 
 	var parent uint32
-	if direction == models.IngressType {
-		parent = tc.HandleMinIngress
-	} else if direction == models.EgressType {
-		parent = tc.HandleMinEgress
-	}
+	var filter tc.Object
 
-	tcfilts, err := b.TCFilter.Get(&tc.Msg{
-		Family:  unix.AF_UNSPEC,
-		Ifindex: uint32(iface.Index),
-		Handle:  0x0,
-		Parent:  core.BuildHandle(tc.HandleRoot, parent),
-	})
+	if clsactFound && !ingressFound && !htbFound{
+		if direction == models.IngressType {
+			parent = tc.HandleMinIngress
+		} else if direction == models.EgressType {
+			parent = tc.HandleMinEgress
+		}
 
-	if err != nil {
-		log.Warn().Msgf("Could not get filters for interface \"%s\" direction %s ", ifaceName, direction)
-		return fmt.Errorf("could not get filters for interface %s : %v", ifaceName, err)
-	}
-
-	progFD := uint32(bpfRootProg.FD())
-	// Netlink attribute used in the Linux kernel
-	bpfFlag := uint32(tc.BpfActDirect)
-
-	filter := tc.Object{
-		Msg: tc.Msg{
+		tcfilts, err := b.TCFilter.Get(&tc.Msg{
 			Family:  unix.AF_UNSPEC,
 			Ifindex: uint32(iface.Index),
-			Handle:  0,
+			Handle:  0x0,
 			Parent:  core.BuildHandle(tc.HandleRoot, parent),
-			Info:    tcfilts[0].Msg.Info,
-		},
-		Attribute: tc.Attribute{
-			Kind: "bpf",
-			BPF: &tc.Bpf{
-				FD:    &progFD,
-				Flags: &bpfFlag,
+		})
+
+		if err != nil {
+			log.Warn().Msgf("Could not get filters for interface \"%s\" direction %s ", ifaceName, direction)
+			return fmt.Errorf("could not get filters for interface %s : %v", ifaceName, err)
+		}
+
+		progFD := uint32(bpfRootProg.FD())
+		// Netlink attribute used in the Linux kernel
+		bpfFlag := uint32(tc.BpfActDirect)
+
+		filter = tc.Object{
+			Msg: tc.Msg{
+				Family:  unix.AF_UNSPEC,
+				Ifindex: uint32(iface.Index),
+				Handle:  0,
+				Parent:  core.BuildHandle(tc.HandleRoot, parent),
+				Info:    tcfilts[0].Msg.Info,
 			},
-		},
+			Attribute: tc.Attribute{
+				Kind: "bpf",
+				BPF: &tc.Bpf{
+					FD:    &progFD,
+					Flags: &bpfFlag,
+				},
+			},
+		}
+	} else if !clsactFound && ingressFound && htbFound {
+		fmt.Println(".....16.1, ingressHandle", ingressHandle)
+		fmt.Println(".....16.2, htbHandle", htbHandle)
+		if direction == models.IngressType {
+			parentHandle = htbHandle
+			// _ = pa("parentNew...1 ", parentNew)
+		} else if direction == models.EgressType {
+			parentHandle = ingressHandle
+		}
+		tcfilts, err := b.TCFilter.Get(&tc.Msg{
+			Family:  unix.AF_UNSPEC,
+			Ifindex: uint32(iface.Index),
+			Handle:  0x0,
+			Parent:  parentHandle,
+		})
+
+		fmt.Println("Direction:", direction, "tcfilts: ", tcfilts)
+		if err != nil {
+			log.Warn().Msgf("Could not get filters for interface \"%s\" direction %s ", ifaceName, direction)
+			return fmt.Errorf("could not get filters for interface %s : %v", ifaceName, err)
+		}
+
+		progFD := uint32(bpfRootProg.FD())
+		// Netlink attribute used in the Linux kernel
+		bpfFlag := uint32(tc.BpfActDirect)
+
+		var tcFilterIndex int
+		for i, tcfilt := range tcfilts {
+			// finding the Info field of the relevant BPF filter among all set filters for that qdisc
+			if tcfilt.Attribute.Kind == "bpf" {
+				tcFilterIndex = i
+			}
+			fmt.Println("Direction:", direction, tcfilt.Attribute.Kind)
+			fmt.Println("Direction:", direction, tcfilt.Kind)
+			fmt.Println("Direction:", direction, tcfilt.Kind, tcfilts[tcFilterIndex].Msg.Info)
+		}
+		// Add a check for if tcFilterIndex out of bounds
+		filter = tc.Object{
+			Msg: tc.Msg{
+				Family:  unix.AF_UNSPEC,
+				Ifindex: uint32(iface.Index),
+				Handle:  0,
+				Parent:  parentHandle,
+				Info:    tcfilts[tcFilterIndex].Msg.Info,
+			},
+			Attribute: tc.Attribute{
+				Kind: "bpf",
+				BPF: &tc.Bpf{
+					FD:    &progFD,
+					Flags: &bpfFlag,
+				},
+			},
+		}
 	}
+
 
 	// Detaching / Deleting filter
 	if err := b.TCFilter.Delete(&filter); err != nil {
-		return fmt.Errorf("could not dettach tc filter for interface %s : %v", ifaceName, err)
+		return fmt.Errorf("could not dettach tc filter for interface %s : Direction: %v, parentHandle: %v, Error:%v", ifaceName, direction, parentHandle, err)
 	}
 
 	return nil
