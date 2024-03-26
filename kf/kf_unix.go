@@ -254,8 +254,8 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 	var parent uint32
 	var filter tc.Object
 
-	if !clsactFound && !ingressFound && !htbFound{
-			if direction == models.EgressType {
+	if !clsactFound && !ingressFound && !htbFound {
+		if direction == models.EgressType {
 			parent = tc.HandleMinIngress
 		} else if direction == models.IngressType {
 			parent = tc.HandleMinEgress
@@ -311,9 +311,6 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 			},
 		}
 	}
-
-	
-	
 
 	// Storing Filter handle
 	b.TCFilter = tcgo.Filter()
@@ -381,7 +378,7 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 	var parent uint32
 	var filter tc.Object
 
-	if clsactFound && !ingressFound && !htbFound{
+	if clsactFound && !ingressFound && !htbFound {
 		if direction == models.IngressType {
 			parent = tc.HandleMinIngress
 		} else if direction == models.EgressType {
@@ -468,7 +465,6 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 			},
 		}
 	}
-
 
 	// Detaching / Deleting filter
 	if err := b.TCFilter.Delete(&filter); err != nil {
