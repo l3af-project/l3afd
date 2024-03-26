@@ -495,7 +495,7 @@ func (b *BPF) UpdateArgs(ifaceName, direction string) error {
 	if err := UpdateCmd.Start(); err != nil {
 		stats.Incr(stats.BPFUpdateFailedCount, b.Program.Name, direction, ifaceName)
 		log.Warn().Err(err).Msgf("user mode BPF program failed - %s", b.Program.Name)
-		return fmt.Errorf("%v : failed to start : %s %v", err, cmd, args)
+		return fmt.Errorf("failed to start : %s %v %v", cmd, args, err)
 	}
 
 	if err := UpdateCmd.Wait(); err != nil {
