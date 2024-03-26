@@ -207,20 +207,16 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 		log.Error().Err(err).Msgf("LoadTCAttachProgram - look up network iface %q", ifaceName)
 		return err
 	}
-	fmt.Println(".....10")
 
 	if err := b.LoadBPFProgram(ifaceName); err != nil {
-		fmt.Println(".....10.5 %v",err)
 		return err
 	}
 
-	fmt.Println(".....11")
 	// verify and add attribute clsact
 	tcgo, err := tc.Open(&tc.Config{})
 	if err != nil {
 		return fmt.Errorf("could not open rtnetlink socket for interface %s : %v", ifaceName, err)
 	}
-	fmt.Println(".....12")
 
 	clsactFound := false
 	htbFound := false
@@ -233,7 +229,6 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 	if err != nil {
 		return fmt.Errorf("could not get qdiscs for interface %s : %v", ifaceName, err)
 	}
-	fmt.Println(".....14")
 	for _, qdisc := range qdiscs {
 		iface, err := net.InterfaceByIndex(int(qdisc.Ifindex))
 		if err != nil {
@@ -251,12 +246,8 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 			ingressHandle = qdisc.Msg.Handle
 		}
 		if iface.Name == ifaceName {
-			fmt.Println(".....14.5 ..... Interface: %v", iface.Name , "Qdisc Kind: ", qdisc.Kind)
-			fmt.Println(".....14.6 .....", qdisc)
-			fmt.Println(".....14.7 ..............................\n\n")
 		}
 	}
-	fmt.Println(".....15")
 
 	bpfRootProg := b.ProgMapCollection.Programs[b.Program.EntryFunctionName]
 
@@ -264,9 +255,9 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 	var filter tc.Object
 
 	if !clsactFound && !ingressFound && !htbFound{
-			if direction == models.IngressType {
+			if direction == models.EgressType {
 			parent = tc.HandleMinIngress
-		} else if direction == models.EgressType {
+		} else if direction == models.IngressType {
 			parent = tc.HandleMinEgress
 		}
 
@@ -291,8 +282,6 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 			},
 		}
 	} else if !clsactFound && ingressFound && htbFound {
-		fmt.Println(".....16.1, ingressHandle", ingressHandle)
-		fmt.Println(".....16.2, htbHandle", htbHandle)
 		if direction == models.IngressType {
 			parentHandle = htbHandle
 			// _ = pa("parentNew...1 ", parentNew)
@@ -300,12 +289,10 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 			parentHandle = ingressHandle
 		}
 
-		fmt.Println("parentNew .. 3", parentHandle)
 		progFD := uint32(bpfRootProg.FD())
 		// Netlink attribute used in the Linux kernel
 		bpfFlag := uint32(tc.BpfActDirect)
 
-		fmt.Println(".....17")
 		// parentNew needs to handle of HTB and ingress 1:, and ffff:
 		filter = tc.Object{
 			Msg: tc.Msg{
@@ -327,7 +314,6 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 
 	
 	
-	fmt.Println(".....18")
 
 	// Storing Filter handle
 	b.TCFilter = tcgo.Filter()
@@ -342,13 +328,11 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 			return err
 		}
 	}
-	fmt.Println(".....19")
 	return nil
 }
 
 // UnloadTCProgram - Remove TC filters
 func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
-	fmt.Println(".....UnloadTCProgram START .....")
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
 		log.Error().Err(err).Msgf("UnloadTCProgram - look up network iface %q", ifaceName)
@@ -372,7 +356,6 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 	if err != nil {
 		return fmt.Errorf("could not get qdiscs for interface %s : %v", ifaceName, err)
 	}
-	fmt.Println(".....14")
 	for _, qdisc := range qdiscs {
 		iface, err := net.InterfaceByIndex(int(qdisc.Ifindex))
 		if err != nil {
@@ -390,9 +373,6 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 			ingressHandle = qdisc.Msg.Handle
 		}
 		if iface.Name == ifaceName {
-			fmt.Println(".....14.5 ..... Interface: %v", iface.Name , "Qdisc Kind: ", qdisc.Kind)
-			fmt.Println(".....14.6 .....", qdisc)
-			fmt.Println(".....14.7 ..............................\n\n")
 		}
 	}
 
@@ -441,12 +421,10 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 			},
 		}
 	} else if !clsactFound && ingressFound && htbFound {
-		fmt.Println(".....16.1, ingressHandle", ingressHandle)
-		fmt.Println(".....16.2, htbHandle", htbHandle)
-		if direction == models.IngressType {
+		if direction == models.EgressType {
 			parentHandle = htbHandle
 			// _ = pa("parentNew...1 ", parentNew)
-		} else if direction == models.EgressType {
+		} else if direction == models.IngressType {
 			parentHandle = ingressHandle
 		}
 		tcfilts, err := b.TCFilter.Get(&tc.Msg{
@@ -456,7 +434,6 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 			Parent:  parentHandle,
 		})
 
-		fmt.Println("Direction:", direction, "tcfilts: ", tcfilts)
 		if err != nil {
 			log.Warn().Msgf("Could not get filters for interface \"%s\" direction %s ", ifaceName, direction)
 			return fmt.Errorf("could not get filters for interface %s : %v", ifaceName, err)
@@ -472,9 +449,6 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 			if tcfilt.Attribute.Kind == "bpf" {
 				tcFilterIndex = i
 			}
-			fmt.Println("Direction:", direction, tcfilt.Attribute.Kind)
-			fmt.Println("Direction:", direction, tcfilt.Kind)
-			fmt.Println("Direction:", direction, tcfilt.Kind, tcfilts[tcFilterIndex].Msg.Info)
 		}
 		// Add a check for if tcFilterIndex out of bounds
 		filter = tc.Object{
