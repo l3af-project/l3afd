@@ -10,9 +10,10 @@ swagger:
 
 build:
 	@CGO_ENABLED=0 go build -ldflags \
-		"-X main.Version=v1.0.0 \
+		"-X main.Version=v2.0.0 \
 		 -X main.VersionSHA=`git rev-parse HEAD`"
 install: swagger
+	@go mod tidy
 	@CGO_ENABLED=0 go install -ldflags \
-		"-X main.Version=v1.0.0 \
+		"-X main.Version=v2.0.0 \
 		 -X main.VersionSHA=`git rev-parse HEAD`"

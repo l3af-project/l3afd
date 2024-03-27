@@ -38,7 +38,7 @@ jobs:
           echo "GOPATH=$gopath" >> $env:GITHUB_ENV
 
       - name: Checkout repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 
 
       - name: Format
         run: |
@@ -59,7 +59,7 @@ jobs:
         run: |
           go test -tags WINDOWS ./...
 
-      - uses: dominikh/staticcheck-action@ba605356b4b29a60e87ab9404b712f3461e566dc 
+      - uses: dominikh/staticcheck-action@fe1dd0c3658873b46f8c9bb3291096a617310ca6 
         with:
           version: "2023.1.1"
           install-go: false
