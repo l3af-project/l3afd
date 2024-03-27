@@ -245,8 +245,6 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 			ingressFound = true
 			ingressHandle = qdisc.Msg.Handle
 		}
-		if iface.Name == ifaceName {
-		}
 	}
 
 	bpfRootProg := b.ProgMapCollection.Programs[b.Program.EntryFunctionName]
@@ -284,8 +282,7 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 	} else if !clsactFound && ingressFound && htbFound {
 		if direction == models.IngressType {
 			parentHandle = htbHandle
-			// _ = pa("parentNew...1 ", parentNew)
-		} else if direction == models.EgressType {
+			} else if direction == models.EgressType {
 			parentHandle = ingressHandle
 		}
 
@@ -368,8 +365,6 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 		if iface.Name == ifaceName && qdisc.Kind == "ingress" {
 			ingressFound = true
 			ingressHandle = qdisc.Msg.Handle
-		}
-		if iface.Name == ifaceName {
 		}
 	}
 
