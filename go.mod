@@ -1,9 +1,10 @@
 module github.com/l3af-project/l3afd/v2
 
 go 1.21
+toolchain go1.22.1
 
 require (
-	github.com/cilium/ebpf v0.12.3
+	github.com/cilium/ebpf v0.14.0
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/prometheus/client_golang v1.19.0
