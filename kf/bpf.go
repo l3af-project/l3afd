@@ -1042,7 +1042,7 @@ func (b *BPF) LoadXDPAttachProgram(ifaceName string) error {
 	if err := b.LoadBPFProgram(ifaceName); err != nil {
 		return err
 	}
-
+	log.Infof("successfully loaded %s in direction %s on interface %s", b.Program.Name, b.Direction, ifaceName)
 	b.XDPLink, err = link.AttachXDP(link.XDPOptions{
 		Program:   b.ProgMapCollection.Programs[b.Program.EntryFunctionName],
 		Interface: iface.Index,
@@ -1056,7 +1056,7 @@ func (b *BPF) LoadXDPAttachProgram(ifaceName string) error {
 			return err
 		}
 	}
-
+	log.Infof("successfully Attached %s in direction %s on interface %s", b.Program.Name, b.Direction, ifaceName)
 	return nil
 }
 
