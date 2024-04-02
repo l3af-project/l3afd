@@ -366,6 +366,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		log.Info().Msgf("bpf program object file is not defined - %s", b.Program.Name)
 	}
 
+	log.Info().Msgf("successfully Loaded & Attached %s in direction %s on interface %s", b.Program.Name, direction, ifaceName)
 	// Start user program before loading
 	if len(b.Program.CmdStart) > 0 {
 		if err := b.StartUserProgram(ifaceName, direction, chain); err != nil {
@@ -1042,7 +1043,6 @@ func (b *BPF) LoadXDPAttachProgram(ifaceName string) error {
 	if err := b.LoadBPFProgram(ifaceName); err != nil {
 		return err
 	}
-	log.Infof("successfully loaded %s in direction %s on interface %s", b.Program.Name, b.Direction, ifaceName)
 	b.XDPLink, err = link.AttachXDP(link.XDPOptions{
 		Program:   b.ProgMapCollection.Programs[b.Program.EntryFunctionName],
 		Interface: iface.Index,
@@ -1056,7 +1056,6 @@ func (b *BPF) LoadXDPAttachProgram(ifaceName string) error {
 			return err
 		}
 	}
-	log.Infof("successfully Attached %s in direction %s on interface %s", b.Program.Name, b.Direction, ifaceName)
 	return nil
 }
 
