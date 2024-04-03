@@ -33,7 +33,7 @@ import (
 func DisableLRO(ifaceName string) error {
 	ethHandle, err := ethtool.NewEthtool()
 	if err != nil {
-		err = fmt.Errorf("ethtool failed to get the handle %v", err)
+		err = fmt.Errorf("ethtool failed to get the handle %w", err)
 		log.Error().Err(err).Msg("")
 		return err
 	}
@@ -42,7 +42,7 @@ func DisableLRO(ifaceName string) error {
 	config := make(map[string]bool, 1)
 	config["rx-lro"] = false
 	if err := ethHandle.Change(ifaceName, config); err != nil {
-		err = fmt.Errorf("ethtool failed to disable LRO on %s with err %v", ifaceName, err)
+		err = fmt.Errorf("ethtool failed to disable LRO on %s with err %w", ifaceName, err)
 		log.Error().Err(err).Msg("")
 		return err
 	}
@@ -97,7 +97,7 @@ func (b *BPF) SetPrLimits() error {
 // ProcessTerminate - Send sigterm to the process
 func (b *BPF) ProcessTerminate() error {
 	if err := b.Cmd.Process.Signal(syscall.SIGTERM); err != nil {
-		return fmt.Errorf("BPFProgram %s SIGTERM failed with error: %v", b.Program.Name, err)
+		return fmt.Errorf("BPFProgram %s SIGTERM failed with error: %w", b.Program.Name, err)
 	}
 	return nil
 }
@@ -111,13 +111,13 @@ func VerifyNMountBPFFS() error {
 
 	mnts, err := os.ReadFile("/proc/mounts")
 	if err != nil {
-		return fmt.Errorf("failed to read procfs: %v", err)
+		return fmt.Errorf("failed to read procfs: %w", err)
 	}
 
 	if !strings.Contains(string(mnts), dstPath) {
 		log.Warn().Msg("bpf filesystem is not mounted going to mount")
 		if err = syscall.Mount(srcPath, dstPath, fstype, uintptr(flags), ""); err != nil {
-			return fmt.Errorf("unable to mount %s at %s: %s", srcPath, dstPath, err)
+			return fmt.Errorf("unable to mount %s at %s: %w", srcPath, dstPath, err)
 		}
 	}
 
@@ -133,7 +133,7 @@ func VerifyNMountTraceFS() error {
 
 	mnts, err := os.ReadFile("/proc/self/mounts")
 	if err != nil {
-		return fmt.Errorf("failed to read procfs: %v", err)
+		return fmt.Errorf("failed to read procfs: %w", err)
 	}
 
 	if !strings.Contains(string(mnts), dstPath) {
@@ -141,11 +141,11 @@ func VerifyNMountTraceFS() error {
 		if _, err = os.Stat(dstPath); err != nil {
 			log.Warn().Msgf(" %s directory doesn't exists, creating", dstPath)
 			if err := os.Mkdir(dstPath, 0700); err != nil {
-				return fmt.Errorf("unable to create mount point %s : %s", dstPath, err)
+				return fmt.Errorf("unable to create mount point %s : %w", dstPath, err)
 			}
 		}
 		if err = syscall.Mount(srcPath, dstPath, fstype, uintptr(flags), ""); err != nil {
-			return fmt.Errorf("unable to mount %s at %s: %s", srcPath, dstPath, err)
+			return fmt.Errorf("unable to mount %s at %s: %w", srcPath, dstPath, err)
 		}
 	}
 
@@ -162,7 +162,7 @@ func GetPlatform() (string, error) {
 	linuxDistrib.Stdout = &out
 
 	if err := linuxDistrib.Run(); err != nil {
-		return "", fmt.Errorf("l3afd/nf : Failed to run command with error: %v", err)
+		return "", fmt.Errorf("l3afd/nf : Failed to run command with error: %w", err)
 	}
 
 	return strings.TrimSpace(out.String()), nil
@@ -171,12 +171,12 @@ func GetPlatform() (string, error) {
 func IsProcessRunning(pid int, name string) (bool, error) {
 	procState, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
 	if err != nil {
-		return false, fmt.Errorf("BPF Program not running %s because of error: %v", name, err)
+		return false, fmt.Errorf("BPF Program not running %s because of error: %w", name, err)
 	}
 	var u1, u2, state string
 	_, err = fmt.Sscanf(string(procState), "%s %s %s", &u1, &u2, &state)
 	if err != nil {
-		return false, fmt.Errorf("failed to scan proc state with error: %v", err)
+		return false, fmt.Errorf("failed to scan proc state with error: %w", err)
 	}
 	if state == "Z" {
 		return false, fmt.Errorf("process %d in Zombie state", pid)
@@ -195,7 +195,7 @@ func VerifyNCreateTCDirs() error {
 	log.Info().Msgf(" %s tc directory doesn't exists, creating", path)
 	err := os.MkdirAll(path, 0700)
 	if err != nil {
-		return fmt.Errorf("unable to create directories to pin tc maps %s : %s", path, err)
+		return fmt.Errorf("unable to create directories to pin tc maps %s : %w", path, err)
 	}
 	return nil
 }
@@ -215,19 +215,19 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 	// verify and add attribute clsact
 	tcgo, err := tc.Open(&tc.Config{})
 	if err != nil {
-		return fmt.Errorf("could not open rtnetlink socket for interface %s : %v", ifaceName, err)
+		return fmt.Errorf("could not open rtnetlink socket for interface %s : %w", ifaceName, err)
 	}
 
 	clsactFound := false
 	// get all the qdiscs from all interfaces
 	qdiscs, err := tcgo.Qdisc().Get()
 	if err != nil {
-		return fmt.Errorf("could not get qdiscs for interface %s : %v", ifaceName, err)
+		return fmt.Errorf("could not get qdiscs for interface %s : %w", ifaceName, err)
 	}
 	for _, qdisc := range qdiscs {
 		iface, err := net.InterfaceByIndex(int(qdisc.Ifindex))
 		if err != nil {
-			return fmt.Errorf("could not get interface %s from id %d: %v", ifaceName, qdisc.Ifindex, err)
+			return fmt.Errorf("could not get interface %s from id %d: %w", ifaceName, qdisc.Ifindex, err)
 		}
 		if iface.Name == ifaceName && qdisc.Kind == "clsact" {
 			clsactFound = true
@@ -288,7 +288,7 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 
 	// Attaching / Adding as filter
 	if err := b.TCFilter.Add(&filter); err != nil {
-		return fmt.Errorf("could not attach filter to interface %s for eBPF program %s : %v", ifaceName, b.Program.Name, err)
+		return fmt.Errorf("could not attach filter to interface %s for eBPF program %s : %w", ifaceName, b.Program.Name, err)
 	}
 
 	if b.hostConfig.BpfChainingEnabled {
@@ -326,7 +326,7 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 
 	if err != nil {
 		log.Warn().Msgf("Could not get filters for interface \"%s\" direction %s ", ifaceName, direction)
-		return fmt.Errorf("could not get filters for interface %s : %v", ifaceName, err)
+		return fmt.Errorf("could not get filters for interface %s : %w", ifaceName, err)
 	}
 
 	progFD := uint32(bpfRootProg.FD())
@@ -352,7 +352,7 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 
 	// Detaching / Deleting filter
 	if err := b.TCFilter.Delete(&filter); err != nil {
-		return fmt.Errorf("could not dettach tc filter for interface %s : %v", ifaceName, err)
+		return fmt.Errorf("could not dettach tc filter for interface %s : %w", ifaceName, err)
 	}
 
 	return nil

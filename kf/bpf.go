@@ -180,18 +180,18 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 	if fileExists(rootProgBPF.MapNamePath) {
 		log.Warn().Msgf("previous instance of root program %s persisted map %s file exists", rootProgBPF.Program.Name, rootProgBPF.MapNamePath)
 		if err := rootProgBPF.RemoveRootProgMapFile(ifaceName); err != nil {
-			log.Warn().Msgf("previous instance of root program %s map file removed unsuccessfully - %s ", rootProgBPF.Program.Name, rootProgBPF.MapNamePath)
+			log.Warn().Err(err).Msgf("previous instance of root program %s map file not removed successfully - %s ", rootProgBPF.Program.Name, rootProgBPF.MapNamePath)
 		}
 	}
 
 	if progType == models.XDPType {
 		rlimit.RemoveMemlock()
 		if err := rootProgBPF.LoadXDPAttachProgram(ifaceName); err != nil {
-			return nil, fmt.Errorf("failed to load xdp root program on iface \"%s\" name %s direction %s with err %v", ifaceName, rootProgBPF.Program.Name, direction, err)
+			return nil, fmt.Errorf("failed to load xdp root program on iface \"%s\" name %s direction %s with err %w", ifaceName, rootProgBPF.Program.Name, direction, err)
 		}
 	} else if progType == models.TCType {
 		if err := rootProgBPF.LoadTCAttachProgram(ifaceName, direction); err != nil {
-			return nil, fmt.Errorf("failed to load tc root program on iface \"%s\" name %s direction %s with err %v", ifaceName, rootProgBPF.Program.Name, direction, err)
+			return nil, fmt.Errorf("failed to load tc root program on iface \"%s\" name %s direction %s with err %w", ifaceName, rootProgBPF.Program.Name, direction, err)
 		}
 	}
 
@@ -214,7 +214,7 @@ func StopExternalRunningProcess(processName string) error {
 	myPid := os.Getpid()
 	processList, err := ps.Processes()
 	if err != nil {
-		return fmt.Errorf("failed to fetch processes list with err %v", err)
+		return fmt.Errorf("failed to fetch processes list with err %w", err)
 	}
 	log.Info().Msgf("Searching for process %s and not ppid %d", processName, myPid)
 	for _, process := range processList {
@@ -226,7 +226,7 @@ func StopExternalRunningProcess(processName string) error {
 					err = osProcess.Kill()
 				}
 				if err != nil {
-					return fmt.Errorf("external BPFProgram stop failed with error: %v", err)
+					return fmt.Errorf("external BPFProgram stop failed with error: %w", err)
 				}
 			}
 		}
@@ -275,7 +275,7 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	if len(b.Program.CmdStop) < 1 && b.Program.UserProgramDaemon {
 		// Loaded using user program
 		if err := b.ProcessTerminate(); err != nil {
-			return fmt.Errorf("BPFProgram %s process terminate failed with error: %v", b.Program.Name, err)
+			return fmt.Errorf("BPFProgram %s process terminate failed with error: %w", b.Program.Name, err)
 		}
 		if b.Cmd != nil {
 			if err := b.Cmd.Wait(); err != nil {
@@ -287,7 +287,7 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 		cmd := filepath.Join(b.FilePath, b.Program.CmdStop)
 
 		if err := assertExecutable(cmd); err != nil {
-			return fmt.Errorf("no executable permissions on %s - error %v", b.Program.CmdStop, err)
+			return fmt.Errorf("no executable permissions on %s - error %w", b.Program.CmdStop, err)
 		}
 
 		args := make([]string, 0, len(b.Program.StopArgs)<<1)
@@ -315,7 +315,7 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	// unload the BPF programs
 	if b.ProgMapCollection != nil {
 		if err := b.UnloadProgram(ifaceName, direction); err != nil {
-			return fmt.Errorf("BPFProgram %s unload failed on interface %s with error: %v", b.Program.Name, ifaceName, err)
+			return fmt.Errorf("BPFProgram %s unload failed on interface %s with error: %w", b.Program.Name, ifaceName, err)
 		}
 		log.Info().Msgf("%s => %s direction => %s - program is unloaded/detached successfully", ifaceName, b.Program.Name, direction)
 	}
@@ -340,7 +340,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	if len(b.Program.CmdStart) > 0 {
 		// Verify other instance is running
 		if err := StopExternalRunningProcess(b.Program.CmdStart); err != nil {
-			return fmt.Errorf("failed to stop external instance of the program %s with error : %v", b.Program.CmdStart, err)
+			return fmt.Errorf("failed to stop external instance of the program %s with error : %w", b.Program.CmdStart, err)
 		}
 	}
 
@@ -355,11 +355,11 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	if len(b.Program.ObjectFile) > 0 {
 		if chain {
 			if err := b.LoadBPFProgramChain(ifaceName, direction); err != nil {
-				return fmt.Errorf("loading bpf program %s - error %v", b.Program.Name, err)
+				return fmt.Errorf("loading bpf program %s - error %w", b.Program.Name, err)
 			}
 		} else {
 			if err := b.AttachBPFProgram(ifaceName, direction); err != nil {
-				return fmt.Errorf("attaching bpf program %s - error %v", b.Program.Name, err)
+				return fmt.Errorf("attaching bpf program %s - error %w", b.Program.Name, err)
 			}
 		}
 	} else {
@@ -369,20 +369,20 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	// Start user program before loading
 	if len(b.Program.CmdStart) > 0 {
 		if err := b.StartUserProgram(ifaceName, direction, chain); err != nil {
-			return fmt.Errorf("user program startup failed %s - error %v", b.Program.CmdStart, err)
+			return fmt.Errorf("user program startup failed %s - error %w", b.Program.CmdStart, err)
 		}
 	}
 
 	// making sure program fd map pinned file is created
 	if err := b.VerifyPinnedProgMap(chain, true); err != nil {
-		return fmt.Errorf("failed to find pinned file %s  %v", b.MapNamePath, err)
+		return fmt.Errorf("failed to find pinned file %s  %w", b.MapNamePath, err)
 	}
 
 	// BPF map config values
 	if len(b.Program.MapArgs) > 0 {
 		if err := b.UpdateBPFMaps(ifaceName, direction); err != nil {
 			log.Error().Err(err).Msg("failed to update ebpf program BPF maps")
-			return fmt.Errorf("failed to update ebpf program BPF maps %v", err)
+			return fmt.Errorf("failed to update ebpf program BPF maps %w", err)
 		}
 	}
 
@@ -390,7 +390,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	if len(b.Program.UpdateArgs) > 0 {
 		if err := b.UpdateArgs(ifaceName, direction); err != nil {
 			log.Error().Err(err).Msg("failed to update ebpf program config update")
-			return fmt.Errorf("failed to update ebpf program config update %v", err)
+			return fmt.Errorf("failed to update ebpf program config update %w", err)
 		}
 	}
 
@@ -410,7 +410,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 
 		if err != nil {
 			log.Error().Err(err).Msg("failed to fetch ebpf program FD")
-			return fmt.Errorf("failed to fetch ebpf program FD %v", err)
+			return fmt.Errorf("failed to fetch ebpf program FD %w", err)
 		}
 	}
 
@@ -427,7 +427,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 	userProgram, bpfProgram, err := b.isRunning()
 	if !userProgram && !bpfProgram {
 		log.Error().Err(err).Msg("eBPF program failed to start")
-		return fmt.Errorf("bpf program %s failed to start %v", b.Program.Name, err)
+		return fmt.Errorf("bpf program %s failed to start %w", b.Program.Name, err)
 	}
 
 	log.Info().Msgf("BPF program - %s started Program ID %d", b.Program.Name, uint32(b.ProgID))
@@ -468,7 +468,7 @@ func (b *BPF) UpdateArgs(ifaceName, direction string) error {
 	cmd := filepath.Join(b.FilePath, b.Program.CmdUpdate)
 	// Validate
 	if err := assertExecutable(cmd); err != nil {
-		return fmt.Errorf("no executable permissions on %s - error %v", b.Program.CmdUpdate, err)
+		return fmt.Errorf("no executable permissions on %s - error %w", b.Program.CmdUpdate, err)
 	}
 
 	args := make([]string, 0, len(b.Program.UpdateArgs)<<1)
@@ -494,13 +494,14 @@ func (b *BPF) UpdateArgs(ifaceName, direction string) error {
 	UpdateCmd := execCommand(cmd, args...)
 	if err := UpdateCmd.Start(); err != nil {
 		stats.Incr(stats.BPFUpdateFailedCount, b.Program.Name, direction, ifaceName)
-		log.Warn().Err(err).Msgf("user mode BPF program failed - %s", b.Program.Name)
-		return fmt.Errorf("failed to start : %s %v %v", cmd, args, err)
+		customerr := fmt.Errorf("failed to start : %s %v %w", cmd, args, err)
+		log.Warn().Err(customerr).Msgf("user mode BPF program failed - %s", b.Program.Name)
+		return customerr
 	}
 
 	if err := UpdateCmd.Wait(); err != nil {
 		stats.Incr(stats.BPFUpdateFailedCount, b.Program.Name, direction, ifaceName)
-		return fmt.Errorf("cmd wait at starting of bpf program returned with error %v", err)
+		return fmt.Errorf("cmd wait at starting of bpf program returned with error %w", err)
 	}
 
 	stats.Incr(stats.BPFUpdateCount, b.Program.Name, direction, ifaceName)
@@ -586,7 +587,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 	isDefaultURLUsed := false
 	platform, err := GetPlatform()
 	if err != nil {
-		return fmt.Errorf("failed to identify platform type: %v", err)
+		return fmt.Errorf("failed to identify platform type: %w", err)
 	}
 
 	RepoURL := b.Program.EPRURL
@@ -598,9 +599,9 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 	URL, err := url.Parse(RepoURL)
 	if err != nil {
 		if isDefaultURLUsed {
-			return fmt.Errorf("unknown ebpf-repo format : %v", err)
+			return fmt.Errorf("unknown ebpf-repo format : %w", err)
 		} else {
-			return fmt.Errorf("unknown ebpf_package_repo_url format : %v", err)
+			return fmt.Errorf("unknown ebpf_package_repo_url format : %w", err)
 		}
 	}
 
@@ -618,7 +619,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 			// Get the data
 			resp, err := client.Get(URL.String())
 			if err != nil {
-				return fmt.Errorf("download failed: %v", err)
+				return fmt.Errorf("download failed: %w", err)
 			}
 			defer resp.Body.Close()
 
@@ -632,7 +633,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 			if fileExists(URL.Path) {
 				f, err := os.Open(URL.Path)
 				if err != nil {
-					return fmt.Errorf("opening err : %v", err)
+					return fmt.Errorf("opening err : %w", err)
 				}
 				buf.ReadFrom(f)
 				f.Close()
@@ -648,7 +649,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 			c := bytes.NewReader(buf.Bytes())
 			zipReader, err := zip.NewReader(c, int64(c.Len()))
 			if err != nil {
-				return fmt.Errorf("failed to create zip reader: %v", err)
+				return fmt.Errorf("failed to create zip reader: %w", err)
 			}
 			tempDir := filepath.Join(conf.BPFDir, b.Program.Name, b.Program.Version)
 
@@ -656,7 +657,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 
 				zippedFile, err := file.Open()
 				if err != nil {
-					return fmt.Errorf("unzip failed: %v", err)
+					return fmt.Errorf("unzip failed: %w", err)
 				}
 				defer zippedFile.Close()
 
@@ -674,14 +675,14 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 						file.Mode(),
 					)
 					if err != nil {
-						return fmt.Errorf("unzip failed to create file: %v", err)
+						return fmt.Errorf("unzip failed to create file: %w", err)
 					}
 					defer outputFile.Close()
 
 					buf := copyBufPool.Get().(*bytes.Buffer)
 					_, err = io.CopyBuffer(outputFile, zippedFile, buf.Bytes())
 					if err != nil {
-						return fmt.Errorf("GetArtifacts failed to copy files: %v", err)
+						return fmt.Errorf("GetArtifacts failed to copy files: %w", err)
 					}
 					copyBufPool.Put(buf)
 				}
@@ -694,7 +695,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 		{
 			archive, err := gzip.NewReader(buf)
 			if err != nil {
-				return fmt.Errorf("failed to create Gzip reader: %v", err)
+				return fmt.Errorf("failed to create Gzip reader: %w", err)
 			}
 			defer archive.Close()
 			tarReader := tar.NewReader(archive)
@@ -706,7 +707,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 				if err == io.EOF {
 					break
 				} else if err != nil {
-					return fmt.Errorf("untar failed: %v", err)
+					return fmt.Errorf("untar failed: %w", err)
 				}
 
 				fPath, err := ValidatePath(header.Name, tempDir)
@@ -717,21 +718,21 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 				info := header.FileInfo()
 				if info.IsDir() {
 					if err = os.MkdirAll(fPath, info.Mode()); err != nil {
-						return fmt.Errorf("untar failed to create directories: %v", err)
+						return fmt.Errorf("untar failed to create directories: %w", err)
 					}
 					continue
 				}
 
 				file, err := os.OpenFile(fPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, info.Mode())
 				if err != nil {
-					return fmt.Errorf("untar failed to create file: %v", err)
+					return fmt.Errorf("untar failed to create file: %w", err)
 				}
 				defer file.Close()
 
 				buf := copyBufPool.Get().(*bytes.Buffer)
 				_, err = io.CopyBuffer(file, tarReader, buf.Bytes())
 				if err != nil {
-					return fmt.Errorf("GetArtifacts failed to copy files: %v", err)
+					return fmt.Errorf("GetArtifacts failed to copy files: %w", err)
 				}
 				copyBufPool.Put(buf)
 			}
@@ -754,7 +755,7 @@ func (b *BPF) createUpdateRulesFile(direction string) (string, error) {
 	fileName := path.Join(b.FilePath, direction, b.Program.RulesFile)
 
 	if err := os.WriteFile(fileName, []byte(b.Program.Rules), 0644); err != nil {
-		return "", fmt.Errorf("create or Update Rules File failed with error %v", err)
+		return "", fmt.Errorf("create or Update Rules File failed with error %w", err)
 	}
 
 	return fileName, nil
@@ -794,12 +795,12 @@ func (b *BPF) GetBPFMap(mapName string) (*BPFMap, error) {
 
 	ebpfInfo, err := ebpfMap.Info()
 	if err != nil {
-		return nil, fmt.Errorf("fetching map info failed %v", err)
+		return nil, fmt.Errorf("fetching map info failed %w", err)
 	}
 
 	tempMapID, ok := ebpfInfo.ID()
 	if !ok {
-		return nil, fmt.Errorf("fetching map id failed %v", err)
+		return nil, fmt.Errorf("fetching map id failed %w", err)
 	}
 
 	newBPFMap := BPFMap{
@@ -818,7 +819,7 @@ func (b *BPF) AddMetricsBPFMap(mapName, aggregator string, key, samplesLength in
 	var tmpMetricsBPFMap MetricsBPFMap
 	bpfMap, err := b.GetBPFMap(mapName)
 	if err != nil {
-		return fmt.Errorf("program %s metrics map %s not found : %v", b.Program.Name, mapName, err)
+		return fmt.Errorf("program %s metrics map %s not found : %w", b.Program.Name, mapName, err)
 	}
 
 	tmpMetricsBPFMap.BPFMap = *bpfMap
@@ -841,7 +842,7 @@ func (b *BPF) MonitorMaps(ifaceName string, intervals int) error {
 		_, ok := b.MetricsBpfMaps[mapKey]
 		if !ok {
 			if err := b.AddMetricsBPFMap(element.Name, element.Aggregator, element.Key, intervals); err != nil {
-				return fmt.Errorf("not able to fetch map %s key %d aggregator %s : %v", element.Name, element.Key, element.Aggregator, err)
+				return fmt.Errorf("not able to fetch map %s key %d aggregator %s : %w", element.Name, element.Key, element.Aggregator, err)
 			}
 		}
 		bpfMap := b.MetricsBpfMaps[mapKey]
@@ -861,19 +862,19 @@ func (b *BPF) PutNextProgFDFromID(progID int) error {
 	log.Info().Msgf("PutNextProgFDFromID : Map Name %s ID %d", b.Program.MapName, progID)
 	ebpfMap, err := ebpf.NewMapFromID(b.ProgMapID)
 	if err != nil {
-		return fmt.Errorf("unable to access pinned next prog map %s %v", b.Program.MapName, err)
+		return fmt.Errorf("unable to access pinned next prog map %s %w", b.Program.MapName, err)
 	}
 	defer ebpfMap.Close()
 
 	bpfProg, err := ebpf.NewProgramFromID(ebpf.ProgramID(progID))
 	if err != nil {
-		return fmt.Errorf("failed to get next prog FD from ID for program %s %v", b.Program.Name, err)
+		return fmt.Errorf("failed to get next prog FD from ID for program %s %w", b.Program.Name, err)
 	}
 	key := 0
 	fd := bpfProg.FD()
 	log.Info().Msgf("PutNextProgFDFromID : Map Name %s FD %d", b.Program.MapName, fd)
 	if err = ebpfMap.Update(unsafe.Pointer(&key), unsafe.Pointer(&fd), 0); err != nil {
-		return fmt.Errorf("unable to update prog next map %s %v", b.Program.MapName, err)
+		return fmt.Errorf("unable to update prog next map %s %w", b.Program.MapName, err)
 	}
 	return nil
 }
@@ -884,7 +885,7 @@ func (b *BPF) GetProgID() (ebpf.ProgramID, error) {
 	ebpfMap, err := ebpf.LoadPinnedMap(b.PrevMapNamePath, &ebpf.LoadPinOptions{ReadOnly: true})
 	if err != nil {
 		log.Error().Err(err).Msgf("unable to access pinned prog map %s", b.PrevMapNamePath)
-		return 0, fmt.Errorf("unable to access pinned prog map %s %v", b.PrevMapNamePath, err)
+		return 0, fmt.Errorf("unable to access pinned prog map %s %w", b.PrevMapNamePath, err)
 	}
 	defer ebpfMap.Close()
 	var value ebpf.ProgramID
@@ -892,14 +893,14 @@ func (b *BPF) GetProgID() (ebpf.ProgramID, error) {
 
 	if err = ebpfMap.Lookup(unsafe.Pointer(&key), unsafe.Pointer(&value)); err != nil {
 		log.Warn().Err(err).Msgf("unable to look up prog map %s", b.PrevMapNamePath)
-		return 0, fmt.Errorf("unable to look up prog map %v", err)
+		return 0, fmt.Errorf("unable to look up prog map %w", err)
 	}
 
 	// verify progID before storing in locally.
 	_, err = ebpf.NewProgramFromID(ebpf.ProgramID(value))
 	if err != nil {
 		log.Warn().Err(err).Msgf("failed to verify program ID %s", b.PrevMapNamePath)
-		return 0, fmt.Errorf("failed to verify program ID %s %v", b.Program.Name, err)
+		return 0, fmt.Errorf("failed to verify program ID %s %w", b.Program.Name, err)
 	}
 
 	log.Info().Msgf("GetProgID - Name %s PrevMapName %s ID %d", b.Program.Name, b.PrevMapNamePath, value)
@@ -916,13 +917,13 @@ func (b *BPF) RemoveNextProgFD() error {
 
 	ebpfMap, err := ebpf.NewMapFromID(b.PrevProgMapID)
 	if err != nil {
-		return fmt.Errorf("unable to access pinned next prog map %s %v", b.Program.MapName, err)
+		return fmt.Errorf("unable to access pinned next prog map %s %w", b.Program.MapName, err)
 	}
 	defer ebpfMap.Close()
 	key := 0
 
 	if err := ebpfMap.Delete(unsafe.Pointer(&key)); err != nil {
-		return fmt.Errorf("failed to delete prog fd entry : %v", err)
+		return fmt.Errorf("failed to delete prog fd entry : %w", err)
 	}
 	return nil
 }
@@ -932,7 +933,7 @@ func (b *BPF) RemovePrevProgFD() error {
 
 	ebpfMap, err := ebpf.NewMapFromID(b.PrevProgMapID)
 	if err != nil {
-		return fmt.Errorf("unable to access pinned prev prog map %s %v", b.PrevMapNamePath, err)
+		return fmt.Errorf("unable to access pinned prev prog map %s %w", b.PrevMapNamePath, err)
 	}
 	defer ebpfMap.Close()
 	key := 0
@@ -973,10 +974,10 @@ func (b *BPF) VerifyPinnedProgMap(chain, exists bool) error {
 		}
 
 		if err != nil && exists {
-			err = fmt.Errorf("VerifyPinnedProgMap creation : failed to find pinned file %s err %v", b.MapNamePath, err)
+			err = fmt.Errorf("VerifyPinnedProgMap creation : failed to find pinned file %s err %w", b.MapNamePath, err)
 			log.Error().Err(err).Msg("")
 		} else if err != nil {
-			err = fmt.Errorf("VerifyPinnedProgMap removal : %s map file was never removed by BPF program %s err %v", b.MapNamePath, b.Program.Name, err)
+			err = fmt.Errorf("VerifyPinnedProgMap removal : %s map file was never removed by BPF program %s err %w", b.MapNamePath, b.Program.Name, err)
 			log.Error().Err(err).Msg("")
 		}
 		return err
@@ -1048,7 +1049,7 @@ func (b *BPF) LoadXDPAttachProgram(ifaceName string) error {
 		Interface: iface.Index,
 	})
 	if err != nil {
-		return fmt.Errorf("could not attach xdp program %s to interface %s : %v", b.Program.Name, ifaceName, err)
+		return fmt.Errorf("could not attach xdp program %s to interface %s : %w", b.Program.Name, ifaceName, err)
 	}
 
 	if b.hostConfig.BpfChainingEnabled {
@@ -1105,7 +1106,7 @@ func (b *BPF) RemoveMapFiles(ifaceName string) error {
 			mapFilename = filepath.Join(b.hostConfig.BpfMapDefaultPath, ifaceName, k)
 		}
 		if err := v.Unpin(); err != nil {
-			return fmt.Errorf("BPF program %s prog type %s ifacename %s map %s:failed to pin the map err - %#v",
+			return fmt.Errorf("BPF program %s prog type %s ifacename %s map %s:failed to pin the map err - %w",
 				b.Program.Name, b.Program.ProgType, ifaceName, mapFilename, err)
 		}
 	}
@@ -1134,7 +1135,7 @@ func (b *BPF) RemoveRootProgMapFile(ifacename string) error {
 	if err := os.Remove(mapFilename); err != nil {
 		if !os.IsNotExist(err) {
 			log.Warn().Msgf("RemoveRootProgMapFile: %s program type %s map file remove unsuccessfully - %s err - %#v", b.Program.ProgType, b.Program.Name, mapFilename, err)
-			return fmt.Errorf("%s - remove failed with error %#v", mapFilename, err)
+			return fmt.Errorf("%s - remove failed with error %w", mapFilename, err)
 		}
 	}
 	return nil
@@ -1145,13 +1146,13 @@ func (b *BPF) VerifyCleanupMaps(chain bool) error {
 	// verify pinned map file is removed.
 	if err := b.VerifyPinnedProgMap(chain, false); err != nil {
 		log.Error().Err(err).Msgf("stop user program - failed to remove pinned file %s", b.Program.Name)
-		return fmt.Errorf("stop user program - failed to remove pinned file %s : %v", b.Program.Name, err)
+		return fmt.Errorf("stop user program - failed to remove pinned file %s : %w", b.Program.Name, err)
 	}
 
 	// Verify all metrics map references are removed from kernel
 	if err := b.VerifyMetricsMapsVanish(); err != nil {
 		log.Error().Err(err).Msgf("stop user program - failed to remove metric map references %s", b.Program.Name)
-		return fmt.Errorf("stop user program - failed to remove metric map references %s : %v", b.Program.Name, err)
+		return fmt.Errorf("stop user program - failed to remove metric map references %s : %w", b.Program.Name, err)
 	}
 
 	return nil
@@ -1178,12 +1179,12 @@ func (b *BPF) LoadBPFProgram(ifaceName string) error {
 	// Allow the current process to lock memory for eBPF resources.
 	if err := rlimit.RemoveMemlock(); err != nil {
 		log.Error().Msgf("failed to remove memory lock limits  %#v", err)
-		return fmt.Errorf("%s: remove rlimit lock failed : %#v", b.Program.Name, err)
+		return fmt.Errorf("%s: remove rlimit lock failed : %w", b.Program.Name, err)
 	}
 
 	objSpec, err := ebpf.LoadCollectionSpec(ObjectFile)
 	if err != nil {
-		return fmt.Errorf("%s: loading collection spec failed - %#v", ObjectFile, err)
+		return fmt.Errorf("%s: loading collection spec failed - %w", ObjectFile, err)
 	}
 
 	if err := b.CreateMapPinDirectory(ifaceName); err != nil {
@@ -1205,7 +1206,7 @@ func (b *BPF) LoadBPFProgram(ifaceName string) error {
 	// Load the BPF program with the updated map options
 	prg, err := ebpf.NewCollectionWithOptions(objSpec, collOptions)
 	if err != nil {
-		return fmt.Errorf("%s: loading of bpf program failed - %#v", b.Program.Name, err)
+		return fmt.Errorf("%s: loading of bpf program failed - %w", b.Program.Name, err)
 	}
 
 	// Persist program handle
@@ -1218,7 +1219,7 @@ func (b *BPF) LoadBPFProgram(ifaceName string) error {
 
 	progInfo, err := bpfProg.Info()
 	if err != nil {
-		return fmt.Errorf("%s: information of bpf program failed : %v", b.Program.Name, err)
+		return fmt.Errorf("%s: information of bpf program failed : %w", b.Program.Name, err)
 	}
 
 	ok := false
@@ -1229,7 +1230,7 @@ func (b *BPF) LoadBPFProgram(ifaceName string) error {
 
 	// Initialise metric maps
 	if err := b.InitialiseMetricMaps(); err != nil {
-		return fmt.Errorf("initialising metric maps failed %#v", err)
+		return fmt.Errorf("initialising metric maps failed %w", err)
 	}
 
 	if err := b.PinBpfMaps(ifaceName); err != nil {
@@ -1353,7 +1354,7 @@ func (b *BPF) StartUserProgram(ifaceName, direction string, chain bool) error {
 	cmd := filepath.Join(b.FilePath, b.Program.CmdStart)
 	// Validate
 	if err := assertExecutable(cmd); err != nil {
-		return fmt.Errorf("no executable permissions on %s - error %v", b.Program.CmdStart, err)
+		return fmt.Errorf("no executable permissions on %s - error %w", b.Program.CmdStart, err)
 	}
 
 	args := make([]string, 0, len(b.Program.StartArgs)<<1)
@@ -1392,7 +1393,7 @@ func (b *BPF) StartUserProgram(ifaceName, direction string, chain bool) error {
 	b.Cmd = execCommand(cmd, args...)
 	if err := b.Cmd.Start(); err != nil {
 		log.Info().Err(err).Msgf("user program failed - %s", b.Program.Name)
-		return fmt.Errorf("failed to start : %s %v with err: %v", cmd, args, err)
+		return fmt.Errorf("failed to start : %s %v with err: %w", cmd, args, err)
 	}
 	if !b.Program.UserProgramDaemon {
 		log.Info().Msgf("no user program - %s No Pid", b.Program.Name)
@@ -1425,7 +1426,7 @@ func (b *BPF) CreateMapPinDirectory(ifaceName string) error {
 		return fmt.Errorf("%s contains relative path is not supported - %s", mapPathDir, b.Program.Name)
 	}
 	if err := os.MkdirAll(mapPathDir, 0750); err != nil {
-		return fmt.Errorf("%s failed to create map dir path of %s program %s with err : %v", mapPathDir, b.Program.ProgType, b.Program.Name, err)
+		return fmt.Errorf("%s failed to create map dir path of %s program %s with err : %w", mapPathDir, b.Program.ProgType, b.Program.Name, err)
 	}
 	return nil
 }
@@ -1434,11 +1435,11 @@ func (b *BPF) CreateMapPinDirectory(ifaceName string) error {
 func (b *BPF) AttachBPFProgram(ifaceName, direction string) error {
 	if b.Program.ProgType == models.XDPType {
 		if err := b.LoadXDPAttachProgram(ifaceName); err != nil {
-			return fmt.Errorf("failed to attach xdp program %s to inferface %s with err: %v", b.Program.Name, ifaceName, err)
+			return fmt.Errorf("failed to attach xdp program %s to inferface %s with err: %w", b.Program.Name, ifaceName, err)
 		}
 	} else if b.Program.ProgType == models.TCType {
 		if err := b.LoadTCAttachProgram(ifaceName, direction); err != nil {
-			return fmt.Errorf("failed to attach tc program %s to inferface %s direction %s with err: %v", b.Program.Name, ifaceName, direction, err)
+			return fmt.Errorf("failed to attach tc program %s to inferface %s direction %s with err: %w", b.Program.Name, ifaceName, direction, err)
 		}
 	}
 	return nil
@@ -1461,7 +1462,7 @@ func (b *BPF) PinBpfMaps(ifaceName string) error {
 		// In case one of the program pins the map then other program will skip
 		if !fileExists(mapFilename) {
 			if err := v.Pin(mapFilename); err != nil {
-				return fmt.Errorf("eBPF program %s map %s:failed to pin the map err - %#v", b.Program.Name, mapFilename, err)
+				return fmt.Errorf("eBPF program %s map %s:failed to pin the map err - %w", b.Program.Name, mapFilename, err)
 			}
 		}
 	}
@@ -1479,13 +1480,13 @@ func (b *BPF) UpdateProgramMap(ifaceName string) error {
 
 	ebpfInfo, err := bpfRootMap.Info()
 	if err != nil {
-		return fmt.Errorf("fetching map info failed for %s program %s to interface %s : %v", b.Program.ProgType, b.Program.Name, ifaceName, err)
+		return fmt.Errorf("fetching map info failed for %s program %s to interface %s : %w", b.Program.ProgType, b.Program.Name, ifaceName, err)
 	}
 
 	var ok bool
 	b.ProgMapID, ok = ebpfInfo.ID()
 	if !ok {
-		return fmt.Errorf("fetching map id failed for %s program %s to interface %s : %v", b.Program.ProgType, b.Program.Name, ifaceName, err)
+		return fmt.Errorf("fetching map id failed for %s program %s to interface %s : %w", b.Program.ProgType, b.Program.Name, ifaceName, err)
 	}
 
 	return nil
@@ -1506,7 +1507,7 @@ func (b *BPF) LoadBPFProgramChain(ifaceName, direction string) error {
 	// Link this program into previous program map
 	ebpfMap, err := ebpf.NewMapFromID(b.PrevProgMapID)
 	if err != nil {
-		return fmt.Errorf("unable to access pinned previous prog map %s %v", b.PrevMapNamePath, err)
+		return fmt.Errorf("unable to access pinned previous prog map %s %w", b.PrevMapNamePath, err)
 	}
 	defer ebpfMap.Close()
 
