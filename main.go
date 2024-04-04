@@ -23,6 +23,7 @@ import (
 	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/l3af-project/l3afd/v2/pidfile"
 	"github.com/l3af-project/l3afd/v2/stats"
+	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -58,6 +59,20 @@ func setupLogging() {
 	log.Debug().Msgf("Log level set to %q", logLevel)
 }
 
+func saveLogsToFile(conf *config.Config) {
+
+	logFileWithRotation := &lumberjack.Logger{
+		Filename:   conf.FileLogLocation,
+		MaxSize:    100, // Max size in megabytes
+		MaxBackups: 20,  // Max number of old log files to keep
+		MaxAge:     60,  // Max number of days to keep log files
+		Compress:   true,
+	}
+	multi := zerolog.MultiLevelWriter(os.Stdout, logFileWithRotation)
+	log.Logger = log.Output(zerolog.ConsoleWriter{
+		Out: multi, TimeFormat: time.RFC3339Nano})
+}
+
 func main() {
 	setupLogging()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -72,6 +87,10 @@ func main() {
 	conf, err := config.ReadConfig(confPath)
 	if err != nil {
 		log.Fatal().Err(err).Msgf("Unable to parse config %q", confPath)
+	}
+
+	if conf.FileLogging {
+		saveLogsToFile(conf)
 	}
 
 	if err = pidfile.CheckPIDConflict(conf.PIDFilename); err != nil {
