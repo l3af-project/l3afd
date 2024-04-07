@@ -89,7 +89,8 @@ func main() {
 		log.Fatal().Err(err).Msgf("Unable to parse config %q", confPath)
 	}
 
-	if conf.FileLogging {
+	if conf.FileLogLocation != "" {
+		log.Info().Msgf("Saving logs to file: %s", conf.FileLogLocation)
 		saveLogsToFile(conf)
 	}
 
