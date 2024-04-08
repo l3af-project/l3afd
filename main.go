@@ -66,7 +66,6 @@ func saveLogsToFile(confFileLogLocation string) {
 		MaxSize:    100, // Max size in megabytes
 		MaxBackups: 20,  // Max number of old log files to keep
 		MaxAge:     60,  // Max number of days to keep log files
-		Compress:   true,
 	}
 	multi := zerolog.MultiLevelWriter(os.Stdout, logFileWithRotation)
 	log.Logger = log.Output(zerolog.ConsoleWriter{
