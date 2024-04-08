@@ -59,10 +59,10 @@ func setupLogging() {
 	log.Debug().Msgf("Log level set to %q", logLevel)
 }
 
-func saveLogsToFile(conf *config.Config) {
+func saveLogsToFile(confFileLogLocation string) {
 
 	logFileWithRotation := &lumberjack.Logger{
-		Filename:   conf.FileLogLocation,
+		Filename:   confFileLogLocation,
 		MaxSize:    100, // Max size in megabytes
 		MaxBackups: 20,  // Max number of old log files to keep
 		MaxAge:     60,  // Max number of days to keep log files
@@ -91,7 +91,7 @@ func main() {
 
 	if conf.FileLogLocation != "" {
 		log.Info().Msgf("Saving logs to file: %s", conf.FileLogLocation)
-		saveLogsToFile(conf)
+		saveLogsToFile(conf.FileLogLocation)
 	}
 
 	if err = pidfile.CheckPIDConflict(conf.PIDFilename); err != nil {
