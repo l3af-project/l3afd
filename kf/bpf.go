@@ -70,6 +70,7 @@ type BPF struct {
 	hostConfig        *config.Config
 	TCFilter          *tc.Filter `json:"-"` // handle to tc filter
 	XDPLink           link.Link  `json:"-"` // handle xdp link object
+	ProbeLinks        []*link.Link
 }
 
 func NewBpfProgram(ctx context.Context, program models.BPFProgram, conf *config.Config, ifaceName string) *BPF {
@@ -1082,6 +1083,10 @@ func (b *BPF) UnloadProgram(ifaceName, direction string) error {
 		}
 	}
 
+	for _, LinkObject := range b.ProbeLinks {
+		(*LinkObject).Close()
+	}
+
 	// Release all the resources of the epbf program
 	if b.ProgMapCollection != nil {
 		b.ProgMapCollection.Close()
@@ -1210,6 +1215,10 @@ func (b *BPF) LoadBPFProgram(ifaceName string) error {
 
 	// Persist program handle
 	b.ProgMapCollection = prg
+
+	if err := b.LoadBPFProgramProbeTypes(objSpec); err != nil {
+		return fmt.Errorf("LoadBPFProgramProbeTypes failed with error %v ", err)
+	}
 
 	bpfProg := prg.Programs[b.Program.EntryFunctionName]
 	if bpfProg == nil {
@@ -1523,4 +1532,46 @@ func (b *BPF) LoadBPFProgramChain(ifaceName, direction string) error {
 	}
 	log.Info().Msgf("eBPF program %s loaded on interface %s direction %s successfully", b.Program.Name, ifaceName, direction)
 	return nil
+}
+
+// LoadBPFProgramProbeTypes - Load the BPF programs of probe types - TracePoint
+func (b *BPF) LoadBPFProgramProbeTypes(objSpec *ebpf.CollectionSpec) error {
+	for i, prog := range b.ProgMapCollection.Programs {
+		if i == b.Program.EntryFunctionName {
+			// skipping XDP/TC programs
+			continue
+		}
+		if err := b.LoadBPFProgramProbeType(prog, objSpec.Programs[i].SectionName); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *BPF) LoadBPFProgramProbeType(prog *ebpf.Program, sectionName string) error {
+	switch prog.Type() {
+	case ebpf.TracePoint:
+		group, probeName := GetProgramSectionDetails(sectionName)
+		tp, err := link.Tracepoint(group, probeName, prog, nil)
+		if err != nil {
+			return fmt.Errorf("failed to link tracepoint sec name %s error %v", sectionName, err)
+		}
+		b.ProbeLinks = append(b.ProbeLinks, &tp)
+	default:
+		return fmt.Errorf("un-supported probe type %s ", prog.Type())
+	}
+	return nil
+}
+
+// GetProgramSectionDetails returns group and name details
+// Section name format /prob type/group/name
+// e.g.: tracepoint/sock/inet_sock_set_state
+// e.g.: kprobe/sys_execve
+func GetProgramSectionDetails(sectionName string) (string, string) {
+	sections := strings.Split(sectionName, "/")
+	length := len(sections)
+	if length > 1 {
+		return sections[length-2], sections[length-1]
+	}
+	return "", ""
 }
