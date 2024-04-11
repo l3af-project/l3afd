@@ -59,13 +59,13 @@ func setupLogging() {
 	log.Debug().Msgf("Log level set to %q", logLevel)
 }
 
-func saveLogsToFile(confFileLogLocation string) {
+func saveLogsToFile(conf *config.Config) {
 
 	logFileWithRotation := &lumberjack.Logger{
-		Filename:   confFileLogLocation,
-		MaxSize:    100, // Max size in megabytes
-		MaxBackups: 20,  // Max number of old log files to keep
-		MaxAge:     60,  // Max number of days to keep log files
+		Filename:   conf.FileLogLocation,
+		MaxSize:    conf.FileLogMaxSize,    // Max size in megabytes
+		MaxBackups: conf.FileLogMaxBackups, // Max number of old log files to keep
+		MaxAge:     conf.FileLogMaxAge,     // Max number of days to keep log files
 	}
 	multi := zerolog.MultiLevelWriter(os.Stdout, logFileWithRotation)
 	log.Logger = log.Output(zerolog.ConsoleWriter{
@@ -90,7 +90,7 @@ func main() {
 
 	if conf.FileLogLocation != "" {
 		log.Info().Msgf("Saving logs to file: %s", conf.FileLogLocation)
-		saveLogsToFile(conf.FileLogLocation)
+		saveLogsToFile(conf)
 	}
 
 	if err = pidfile.CheckPIDConflict(conf.PIDFilename); err != nil {

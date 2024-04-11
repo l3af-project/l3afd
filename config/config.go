@@ -33,7 +33,10 @@ type Config struct {
 	// Flag to enable chaining with root program
 	BpfChainingEnabled bool
 
-	FileLogLocation string
+	FileLogLocation   string
+	FileLogMaxSize    int
+	FileLogMaxBackups int
+	FileLogMaxAge     int
 
 	// stats
 	// Prometheus endpoint for pull/scrape the metrics.
@@ -108,6 +111,9 @@ func ReadConfig(configPath string) (*Config, error) {
 		MinKernelMajorVer:              LoadOptionalConfigInt(confReader, "l3afd", "kernel-major-version", 5),
 		MinKernelMinorVer:              LoadOptionalConfigInt(confReader, "l3afd", "kernel-minor-version", 15),
 		FileLogLocation:                LoadOptionalConfigString(confReader, "l3afd", "file-log-location", ""),
+		FileLogMaxSize:                 LoadOptionalConfigInt(confReader, "l3afd", "file-log-max-size", 100),
+		FileLogMaxBackups:              LoadOptionalConfigInt(confReader, "l3afd", "file-log-max-backups", 20),
+		FileLogMaxAge:                  LoadOptionalConfigInt(confReader, "l3afd", "file-log-max-age", 60),
 		EBPFRepoURL:                    LoadConfigString(confReader, "ebpf-repo", "url"),
 		HttpClientTimeout:              LoadOptionalConfigDuration(confReader, "l3afd", "http-client-timeout", 30*time.Second),
 		MaxEBPFReStartCount:            LoadOptionalConfigInt(confReader, "l3afd", "max-ebpf-restart-count", 3),
