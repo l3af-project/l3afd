@@ -56,7 +56,7 @@ func (b *BPFMap) Update(value string) error {
 	log.Debug().Msgf("update map name %s ID %d", b.Name, b.MapID)
 	ebpfMap, err := ebpf.NewMapFromID(b.MapID)
 	if err != nil {
-		return fmt.Errorf("access new map from ID failed %v", err)
+		return fmt.Errorf("access new map from ID failed %w", err)
 	}
 	defer ebpfMap.Close()
 
@@ -80,7 +80,7 @@ func (b *BPFMap) Update(value string) error {
 			x := 1
 			log.Info().Msgf("updating map %s key %d mapid %d", b.Name, v, b.MapID)
 			if err := ebpfMap.Update(unsafe.Pointer(&v), unsafe.Pointer(&x), 0); err != nil {
-				return fmt.Errorf("update hash map element failed for key %d error %v", key, err)
+				return fmt.Errorf("update hash map element failed for key %d error %w", key, err)
 			}
 		}
 	} else if b.Type == ebpf.Array {
@@ -88,7 +88,7 @@ func (b *BPFMap) Update(value string) error {
 			v, _ := strconv.ParseInt(val, 10, 64)
 			log.Info().Msgf("updating map %s key %d mapid %d", b.Name, v, b.MapID)
 			if err := ebpfMap.Update(unsafe.Pointer(&key), unsafe.Pointer(&v), 0); err != nil {
-				return fmt.Errorf("update array map index %d %v", key, err)
+				return fmt.Errorf("update array map index %d %w", key, err)
 			}
 		}
 	} else {
