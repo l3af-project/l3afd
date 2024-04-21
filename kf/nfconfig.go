@@ -750,10 +750,13 @@ func (c *NFConfigs) SaveConfigsToConfigStore() error {
 
 	var bpfProgs []models.L3afBPFPrograms
 
+	c.hostInterfaces, _ = getHostInterfaces()
 	for _, iface := range c.ifaces {
-		log.Info().Msgf("SaveConfigsToConfigStore - %s", iface)
-		bpfPrograms := c.EBPFPrograms(iface)
-		bpfProgs = append(bpfProgs, bpfPrograms)
+		if _, interfaceFound := c.hostInterfaces[iface]; interfaceFound {
+			log.Info().Msgf("SaveConfigsToConfigStore - %s", iface)
+			bpfPrograms := c.EBPFPrograms(iface)
+			bpfProgs = append(bpfProgs, bpfPrograms)
+		}
 	}
 
 	file, err := json.MarshalIndent(bpfProgs, "", " ")
@@ -761,7 +764,6 @@ func (c *NFConfigs) SaveConfigsToConfigStore() error {
 		log.Error().Err(err).Msgf("failed to marshal configs to save")
 		return fmt.Errorf("failed to marshal configs %w", err)
 	}
-
 	if err = os.WriteFile(c.HostConfig.L3afConfigStoreFileName, file, 0644); err != nil {
 		log.Error().Err(err).Msgf("failed write to file operation")
 		return fmt.Errorf("failed to save configs %w", err)
@@ -1205,7 +1207,16 @@ func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfPro
 	}
 
 	if _, ok := c.hostInterfaces[ifaceName]; !ok {
-		errOut := fmt.Errorf("%s interface name not found in the host", ifaceName)
+		errOut := fmt.Errorf("%s interface name not found in the host, and deleting all EBPF programs associated to ", ifaceName)
+		if c.EgressTCBpfs[ifaceName] != nil {
+			c.EgressTCBpfs[ifaceName] = nil
+		}
+		if c.IngressTCBpfs[ifaceName] != nil {
+			c.IngressTCBpfs[ifaceName] = nil
+		}
+		if c.IngressXDPBpfs[ifaceName] != nil {
+			c.IngressXDPBpfs[ifaceName] = nil
+		}
 		log.Error().Err(errOut)
 		return errOut
 	}
@@ -1312,6 +1323,9 @@ func (c *NFConfigs) DeleteEbpfPrograms(bpfProgs []models.L3afBPFProgramNames) er
 			if err := c.SaveConfigsToConfigStore(); err != nil {
 				return fmt.Errorf("SaveConfigsToConfigStore failed to save configs %w", err)
 			}
+			//if err := c.SaveConfigsToConfigStore(); err != nil {
+			//	return fmt.Errorf("SaveConfigsToConfigStore failed to save configs %w", err)
+			//}
 			return fmt.Errorf("failed to Remove eBPF program on iface %s with error: %w", bpfProg.Iface, err)
 		}
 		c.ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
