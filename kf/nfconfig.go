@@ -660,7 +660,38 @@ func (c *NFConfigs) Deploy(ifaceName, HostName string, bpfProgs *models.BPFProgr
 			return errOut
 		}
 		if _, interfaceFound := c.hostInterfaces[ifaceName]; !interfaceFound {
-			errOut := fmt.Errorf("%s interface name not found in the host", ifaceName)
+			var bpfList *list.List
+			if c.EgressTCBpfs[ifaceName] != nil {
+				bpfList = c.EgressTCBpfs[ifaceName]
+				for e := bpfList.Front(); e != nil; e = e.Next() {
+					data := e.Value.(*BPF)
+					if err := data.CleanupForDeletedInterface(ifaceName, models.EgressType, c.HostConfig.BpfChainingEnabled); err != nil {
+						log.Error().Err(err).Msgf("failed to remove map file for program %s => %s", ifaceName, data.Program.Name)
+					}
+				}
+				c.EgressTCBpfs[ifaceName] = nil
+			}
+			if c.IngressTCBpfs[ifaceName] != nil {
+				bpfList = c.IngressTCBpfs[ifaceName]
+				for e := bpfList.Front(); e != nil; e = e.Next() {
+					data := e.Value.(*BPF)
+					if err := data.CleanupForDeletedInterface(ifaceName, models.IngressType, c.HostConfig.BpfChainingEnabled); err != nil {
+						log.Error().Err(err).Msgf("failed to remove map file for program %s => %s", ifaceName, data.Program.Name)
+					}
+				}
+				c.IngressTCBpfs[ifaceName] = nil
+			}
+			if c.IngressXDPBpfs[ifaceName] != nil {
+				bpfList = c.IngressXDPBpfs[ifaceName]
+				for e := bpfList.Front(); e != nil; e = e.Next() {
+					data := e.Value.(*BPF)
+					if err := data.CleanupForDeletedInterface(ifaceName, models.XDPIngressType, c.HostConfig.BpfChainingEnabled); err != nil {
+						log.Error().Err(err).Msgf("failed to remove map file for program %s => %s", ifaceName, data.Program.Name)
+					}
+				}
+				c.IngressXDPBpfs[ifaceName] = nil
+			}
+			errOut := fmt.Errorf("%s interface name not found in the host CleanupForDeletedInterface called", ifaceName)
 			log.Error().Err(errOut)
 			return errOut
 		}
@@ -1194,6 +1225,13 @@ func (c *NFConfigs) AddeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error {
 
 // DeleteProgramsOnInterface : It will delete ebpf Programs on the given interface
 func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfProgs *models.BPFProgramNames) error {
+	var err error
+	if c.hostInterfaces, err = getHostInterfaces(); err != nil {
+		errOut := fmt.Errorf("failed get interfaces in DeleteProgramsOnInterface Function: %v", err)
+		log.Error().Err(errOut)
+		return errOut
+	}
+
 	if HostName != c.HostName {
 		errOut := fmt.Errorf("provided bpf programs do not belong to this host")
 		log.Error().Err(errOut)
@@ -1207,16 +1245,38 @@ func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfPro
 	}
 
 	if _, ok := c.hostInterfaces[ifaceName]; !ok {
-		errOut := fmt.Errorf("%s interface name not found in the host, and deleting all EBPF programs associated to ", ifaceName)
+		var bpfList *list.List
 		if c.EgressTCBpfs[ifaceName] != nil {
+			bpfList = c.EgressTCBpfs[ifaceName]
+			for e := bpfList.Front(); e != nil; e = e.Next() {
+				data := e.Value.(*BPF)
+				if err := data.CleanupForDeletedInterface(ifaceName, models.EgressType, c.HostConfig.BpfChainingEnabled); err != nil {
+					log.Error().Err(err).Msgf("failed to remove map file for program %s => %s", ifaceName, data.Program.Name)
+				}
+			}
 			c.EgressTCBpfs[ifaceName] = nil
 		}
 		if c.IngressTCBpfs[ifaceName] != nil {
+			bpfList = c.IngressTCBpfs[ifaceName]
+			for e := bpfList.Front(); e != nil; e = e.Next() {
+				data := e.Value.(*BPF)
+				if err := data.CleanupForDeletedInterface(ifaceName, models.IngressType, c.HostConfig.BpfChainingEnabled); err != nil {
+					log.Error().Err(err).Msgf("failed to remove map file for program %s => %s", ifaceName, data.Program.Name)
+				}
+			}
 			c.IngressTCBpfs[ifaceName] = nil
 		}
 		if c.IngressXDPBpfs[ifaceName] != nil {
+			bpfList = c.IngressXDPBpfs[ifaceName]
+			for e := bpfList.Front(); e != nil; e = e.Next() {
+				data := e.Value.(*BPF)
+				if err := data.CleanupForDeletedInterface(ifaceName, models.XDPIngressType, c.HostConfig.BpfChainingEnabled); err != nil {
+					log.Error().Err(err).Msgf("failed to remove map file for program %s => %s", ifaceName, data.Program.Name)
+				}
+			}
 			c.IngressXDPBpfs[ifaceName] = nil
 		}
+		errOut := fmt.Errorf("%s interface name not found in the host, CleanupForDeletedInterface called ", ifaceName)
 		log.Error().Err(errOut)
 		return errOut
 	}
@@ -1323,9 +1383,6 @@ func (c *NFConfigs) DeleteEbpfPrograms(bpfProgs []models.L3afBPFProgramNames) er
 			if err := c.SaveConfigsToConfigStore(); err != nil {
 				return fmt.Errorf("SaveConfigsToConfigStore failed to save configs %w", err)
 			}
-			//if err := c.SaveConfigsToConfigStore(); err != nil {
-			//	return fmt.Errorf("SaveConfigsToConfigStore failed to save configs %w", err)
-			//}
 			return fmt.Errorf("failed to Remove eBPF program on iface %s with error: %w", bpfProg.Iface, err)
 		}
 		c.ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}

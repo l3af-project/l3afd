@@ -328,6 +328,95 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	return nil
 }
 
+// CleanupForDeletedInterface returns the last error seen
+// Stops the user programs if any
+// Clean up all map handles.
+// Verify next program pinned map file is removed
+func (b *BPF) CleanupForDeletedInterface(ifaceName, direction string, chain bool) error {
+	if b.Program.UserProgramDaemon && b.Cmd == nil {
+		return fmt.Errorf("BPFProgram is not running %s", b.Program.Name)
+	}
+
+	log.Info().Msgf("Stopping BPF Program 1 - %s", b.Program.Name)
+
+	// Removing maps
+	for key, val := range b.BpfMaps {
+		log.Debug().Msgf("removing BPF maps %s value map %#v", key, val)
+		delete(b.BpfMaps, key)
+	}
+
+	// Removing Metrics maps
+	for key, val := range b.MetricsBpfMaps {
+		log.Debug().Msgf("removing metric bpf maps %s value %#v", key, val)
+		delete(b.MetricsBpfMaps, key)
+	}
+
+	// Stop KFconfigs
+	if len(b.Program.CmdConfig) > 0 && len(b.Program.ConfigFilePath) > 0 {
+		log.Info().Msgf("Stopping KF configs %s ", b.Program.Name)
+		b.Done <- true
+	}
+
+	// Reset ProgID
+	b.ProgID = 0
+
+	stats.Incr(stats.BPFStopCount, b.Program.Name, direction, ifaceName)
+
+	// Setting NFRunning to 0, indicates not running
+	stats.SetWithVersion(0.0, stats.BPFRunning, b.Program.Name, b.Program.Version, direction, ifaceName)
+	// Stop User Programs if any
+	if len(b.Program.CmdStop) < 1 && b.Program.UserProgramDaemon {
+		// Loaded using user program
+		if err := b.ProcessTerminate(); err != nil {
+			return fmt.Errorf("BPFProgram %s process terminate failed with error: %w", b.Program.Name, err)
+		}
+		if b.Cmd != nil {
+			if err := b.Cmd.Wait(); err != nil {
+				log.Error().Err(err).Msgf("cmd wait at stopping bpf program %s errored", b.Program.Name)
+			}
+			b.Cmd = nil
+		}
+	} else if len(b.Program.CmdStop) > 0 && b.Program.UserProgramDaemon {
+		cmd := filepath.Join(b.FilePath, b.Program.CmdStop)
+
+		if err := assertExecutable(cmd); err != nil {
+			return fmt.Errorf("no executable permissions on %s - error %w", b.Program.CmdStop, err)
+		}
+
+		args := make([]string, 0, len(b.Program.StopArgs)<<1)
+		args = append(args, "--iface="+ifaceName)     // detaching from iface
+		args = append(args, "--direction="+direction) // xdpingress or ingress or egress
+
+		for k, val := range b.Program.StopArgs {
+			if v, ok := val.(string); !ok {
+				err := fmt.Errorf("stop args is not a string for the bpf program %s", b.Program.Name)
+				log.Error().Err(err).Msgf("failed to convert stop args value into string for program %s", b.Program.Name)
+				return err
+			} else {
+				args = append(args, "--"+k+" ="+v)
+			}
+		}
+
+		log.Info().Msgf("bpf program stop command : %s %v", cmd, args)
+		prog := execCommand(cmd, args...)
+		if err := prog.Run(); err != nil {
+			log.Warn().Err(err).Msgf("l3afd : Failed to stop the program %s", b.Program.CmdStop)
+		}
+		b.Cmd = nil
+	}
+
+	if err := b.RemoveMapFiles(ifaceName); err != nil {
+		log.Error().Err(err).Msgf("stop user program - failed to remove map files %s", b.Program.Name)
+		return fmt.Errorf("stop user program - failed to remove map files %s", b.Program.Name)
+	}
+	if err := b.VerifyCleanupMaps(chain); err != nil {
+		log.Error().Err(err).Msgf("stop user program - failed to remove map files %s", b.Program.Name)
+		return fmt.Errorf("stop user program - failed to remove map files %s", b.Program.Name)
+	}
+
+	return nil
+}
+
 // Start returns the last error seen, but starts bpf program.
 // Here initially prevprogmap entry is removed and passed to the bpf program
 // After starting the user program, will update the kernel progam fd into prevprogram map.
