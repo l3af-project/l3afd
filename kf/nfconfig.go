@@ -664,7 +664,7 @@ func (c *NFConfigs) Deploy(ifaceName, HostName string, bpfProgs *models.BPFProgr
 				bpfList = c.EgressTCBpfs[ifaceName]
 				for e := bpfList.Front(); e != nil; e = e.Next() {
 					data := e.Value.(*BPF)
-					if err := data.CleanupForDeletedInterface(ifaceName, models.EgressType, c.HostConfig.BpfChainingEnabled); err != nil {
+					if err := data.Stop(ifaceName, models.EgressType, c.HostConfig.BpfChainingEnabled); err != nil {
 						log.Error().Err(err).Msgf("failed to remove map file for program %s => %s", ifaceName, data.Program.Name)
 					}
 				}
@@ -674,7 +674,7 @@ func (c *NFConfigs) Deploy(ifaceName, HostName string, bpfProgs *models.BPFProgr
 				bpfList = c.IngressTCBpfs[ifaceName]
 				for e := bpfList.Front(); e != nil; e = e.Next() {
 					data := e.Value.(*BPF)
-					if err := data.CleanupForDeletedInterface(ifaceName, models.IngressType, c.HostConfig.BpfChainingEnabled); err != nil {
+					if err := data.Stop(ifaceName, models.IngressType, c.HostConfig.BpfChainingEnabled); err != nil {
 						log.Error().Err(err).Msgf("failed to remove map file for program %s => %s", ifaceName, data.Program.Name)
 					}
 				}
@@ -684,13 +684,13 @@ func (c *NFConfigs) Deploy(ifaceName, HostName string, bpfProgs *models.BPFProgr
 				bpfList = c.IngressXDPBpfs[ifaceName]
 				for e := bpfList.Front(); e != nil; e = e.Next() {
 					data := e.Value.(*BPF)
-					if err := data.CleanupForDeletedInterface(ifaceName, models.XDPIngressType, c.HostConfig.BpfChainingEnabled); err != nil {
+					if err := data.Stop(ifaceName, models.XDPIngressType, c.HostConfig.BpfChainingEnabled); err != nil {
 						log.Error().Err(err).Msgf("failed to remove map file for program %s => %s", ifaceName, data.Program.Name)
 					}
 				}
 				c.IngressXDPBpfs[ifaceName] = nil
 			}
-			errOut := fmt.Errorf("%s interface name not found in the host CleanupForDeletedInterface called", ifaceName)
+			errOut := fmt.Errorf("%s interface name not found in the host Stop called", ifaceName)
 			log.Error().Err(errOut)
 			return errOut
 		}
@@ -1275,7 +1275,7 @@ func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfPro
 			}
 			c.IngressXDPBpfs[ifaceName] = nil
 		}
-		errOut := fmt.Errorf("%s interface name not found in the host, CleanupForDeletedInterface called ", ifaceName)
+		errOut := fmt.Errorf("%s interface name not found in the host, Stop called ", ifaceName)
 		log.Error().Err(errOut)
 		return errOut
 	}
