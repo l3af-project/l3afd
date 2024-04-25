@@ -315,7 +315,7 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 
 	// unload the BPF programs
 	allInterfaces, _ := getHostInterfaces()
-	for iface, _ := range allInterfaces {
+	for iface := range allInterfaces {
 		if iface == ifaceName {
 			if b.ProgMapCollection != nil {
 				if err := b.UnloadProgram(ifaceName, direction); err != nil {
