@@ -365,7 +365,6 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 		// Version Change
 		if data.Program.Version != bpfProg.Version || !reflect.DeepEqual(data.Program.StartArgs, bpfProg.StartArgs) {
 			log.Info().Msgf("VerifyNUpdateBPFProgram : version update initiated - current version %s new version %s", data.Program.Version, bpfProg.Version)
-
 			if err := data.Stop(ifaceName, direction, c.HostConfig.BpfChainingEnabled); err != nil {
 				return fmt.Errorf("failed to stop older version of network function BPF %s iface %s direction %s version %s with err: %w", bpfProg.Name, ifaceName, direction, bpfProg.Version, err)
 			}
@@ -1250,7 +1249,7 @@ func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfPro
 			bpfList = c.EgressTCBpfs[ifaceName]
 			for e := bpfList.Front(); e != nil; e = e.Next() {
 				data := e.Value.(*BPF)
-				if err := data.CleanupForDeletedInterface(ifaceName, models.EgressType, c.HostConfig.BpfChainingEnabled); err != nil {
+				if err := data.Stop(ifaceName, models.EgressType, c.HostConfig.BpfChainingEnabled); err != nil {
 					log.Error().Err(err).Msgf("failed to remove map file for program %s => %s", ifaceName, data.Program.Name)
 				}
 			}
@@ -1260,7 +1259,7 @@ func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfPro
 			bpfList = c.IngressTCBpfs[ifaceName]
 			for e := bpfList.Front(); e != nil; e = e.Next() {
 				data := e.Value.(*BPF)
-				if err := data.CleanupForDeletedInterface(ifaceName, models.IngressType, c.HostConfig.BpfChainingEnabled); err != nil {
+				if err := data.Stop(ifaceName, models.IngressType, c.HostConfig.BpfChainingEnabled); err != nil {
 					log.Error().Err(err).Msgf("failed to remove map file for program %s => %s", ifaceName, data.Program.Name)
 				}
 			}
@@ -1270,7 +1269,7 @@ func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfPro
 			bpfList = c.IngressXDPBpfs[ifaceName]
 			for e := bpfList.Front(); e != nil; e = e.Next() {
 				data := e.Value.(*BPF)
-				if err := data.CleanupForDeletedInterface(ifaceName, models.XDPIngressType, c.HostConfig.BpfChainingEnabled); err != nil {
+				if err := data.Stop(ifaceName, models.XDPIngressType, c.HostConfig.BpfChainingEnabled); err != nil {
 					log.Error().Err(err).Msgf("failed to remove map file for program %s => %s", ifaceName, data.Program.Name)
 				}
 			}
