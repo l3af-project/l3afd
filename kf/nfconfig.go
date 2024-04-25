@@ -1244,36 +1244,20 @@ func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfPro
 	}
 
 	if _, ok := c.hostInterfaces[ifaceName]; !ok {
-		var bpfList *list.List
-		if c.EgressTCBpfs[ifaceName] != nil {
-			bpfList = c.EgressTCBpfs[ifaceName]
-			for e := bpfList.Front(); e != nil; e = e.Next() {
-				data := e.Value.(*BPF)
-				if err := data.Stop(ifaceName, models.EgressType, c.HostConfig.BpfChainingEnabled); err != nil {
-					log.Error().Err(err).Msgf("failed to remove map file for program %s => %s", ifaceName, data.Program.Name)
-				}
+		if c.IngressXDPBpfs[ifaceName] != nil {
+			if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.XDPIngressType); err != nil {
+				log.Warn().Err(err).Msg("failed to Close Ingress XDP BPF Program")
 			}
-			c.EgressTCBpfs[ifaceName] = nil
 		}
 		if c.IngressTCBpfs[ifaceName] != nil {
-			bpfList = c.IngressTCBpfs[ifaceName]
-			for e := bpfList.Front(); e != nil; e = e.Next() {
-				data := e.Value.(*BPF)
-				if err := data.Stop(ifaceName, models.IngressType, c.HostConfig.BpfChainingEnabled); err != nil {
-					log.Error().Err(err).Msgf("failed to remove map file for program %s => %s", ifaceName, data.Program.Name)
-				}
+			if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.IngressType); err != nil {
+				log.Warn().Err(err).Msg("failed to Close Ingress XDP BPF Program")
 			}
-			c.IngressTCBpfs[ifaceName] = nil
 		}
-		if c.IngressXDPBpfs[ifaceName] != nil {
-			bpfList = c.IngressXDPBpfs[ifaceName]
-			for e := bpfList.Front(); e != nil; e = e.Next() {
-				data := e.Value.(*BPF)
-				if err := data.Stop(ifaceName, models.XDPIngressType, c.HostConfig.BpfChainingEnabled); err != nil {
-					log.Error().Err(err).Msgf("failed to remove map file for program %s => %s", ifaceName, data.Program.Name)
-				}
+		if c.EgressTCBpfs[ifaceName] != nil {
+			if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.EgressType); err != nil {
+				log.Warn().Err(err).Msg("failed to Close Ingress XDP BPF Program")
 			}
-			c.IngressXDPBpfs[ifaceName] = nil
 		}
 		errOut := fmt.Errorf("%s interface name not found in the host, Stop called ", ifaceName)
 		log.Error().Err(errOut)
