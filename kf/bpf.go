@@ -314,22 +314,26 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	}
 
 	// unload the BPF programs
-	allInterfaces, _ := getHostInterfaces()
-	for iface := range allInterfaces {
-		if iface == ifaceName {
+	if allInterfaces, err := getHostInterfaces(); err != nil {
+		errOut := fmt.Errorf("failed get interfaces in Stop Function: %v", err)
+		log.Error().Err(errOut)
+		return errOut
+	} else {
+		if _, ok := allInterfaces[ifaceName]; ok {
 			if b.ProgMapCollection != nil {
 				if err := b.UnloadProgram(ifaceName, direction); err != nil {
 					return fmt.Errorf("BPFProgram %s unload failed on interface %s with error: %w", b.Program.Name, ifaceName, err)
 				}
 				log.Info().Msgf("%s => %s direction => %s - program is unloaded/detached successfully", ifaceName, b.Program.Name, direction)
 			}
+		} else {
+			if err := b.RemoveMapFiles(ifaceName); err != nil {
+				log.Error().Err(err).Msgf("stop user program - failed to remove map files %s", b.Program.Name)
+				return fmt.Errorf("stop user program - failed to remove map files %s", b.Program.Name)
+			}
 		}
 	}
 
-	if err := b.RemoveMapFiles(ifaceName); err != nil {
-		log.Error().Err(err).Msgf("stop user program - failed to remove map files %s", b.Program.Name)
-		return fmt.Errorf("stop user program - failed to remove map files %s", b.Program.Name)
-	}
 	if err := b.VerifyCleanupMaps(chain); err != nil {
 		log.Error().Err(err).Msgf("stop user program - failed to remove map files %s", b.Program.Name)
 		return fmt.Errorf("stop user program - failed to remove map files %s", b.Program.Name)
