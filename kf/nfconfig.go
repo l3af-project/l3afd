@@ -653,47 +653,13 @@ func (c *NFConfigs) Deploy(ifaceName, HostName string, bpfProgs *models.BPFProgr
 
 	var err error
 	if _, ok := c.hostInterfaces[ifaceName]; !ok {
-		if c.hostInterfaces, err = getHostInterfaces(); err != nil {
-			errOut := fmt.Errorf("failed get interfaces: %v", err)
-			log.Error().Err(errOut)
-			return errOut
+		err = c.CleanupProgramsOnInterface(ifaceName)
+		if err != nil {
+			return fmt.Errorf("CleanupProgramsOnInterface function failed : %w", err)
 		}
-		if _, interfaceFound := c.hostInterfaces[ifaceName]; !interfaceFound {
-			var bpfList *list.List
-			if c.EgressTCBpfs[ifaceName] != nil {
-				bpfList = c.EgressTCBpfs[ifaceName]
-				for e := bpfList.Front(); e != nil; e = e.Next() {
-					data := e.Value.(*BPF)
-					if err := data.Stop(ifaceName, models.EgressType, c.HostConfig.BpfChainingEnabled); err != nil {
-						log.Error().Err(err).Msgf("failed to remove map file for program %s => %s", ifaceName, data.Program.Name)
-					}
-				}
-				c.EgressTCBpfs[ifaceName] = nil
-			}
-			if c.IngressTCBpfs[ifaceName] != nil {
-				bpfList = c.IngressTCBpfs[ifaceName]
-				for e := bpfList.Front(); e != nil; e = e.Next() {
-					data := e.Value.(*BPF)
-					if err := data.Stop(ifaceName, models.IngressType, c.HostConfig.BpfChainingEnabled); err != nil {
-						log.Error().Err(err).Msgf("failed to remove map file for program %s => %s", ifaceName, data.Program.Name)
-					}
-				}
-				c.IngressTCBpfs[ifaceName] = nil
-			}
-			if c.IngressXDPBpfs[ifaceName] != nil {
-				bpfList = c.IngressXDPBpfs[ifaceName]
-				for e := bpfList.Front(); e != nil; e = e.Next() {
-					data := e.Value.(*BPF)
-					if err := data.Stop(ifaceName, models.XDPIngressType, c.HostConfig.BpfChainingEnabled); err != nil {
-						log.Error().Err(err).Msgf("failed to remove map file for program %s => %s", ifaceName, data.Program.Name)
-					}
-				}
-				c.IngressXDPBpfs[ifaceName] = nil
-			}
-			errOut := fmt.Errorf("%s interface name not found in the host Stop called", ifaceName)
-			log.Error().Err(errOut)
-			return errOut
-		}
+		errOut := fmt.Errorf("%s interface name not found in the host Stop called", ifaceName)
+		log.Error().Err(errOut)
+		return errOut
 	}
 
 	c.mu.Lock()
@@ -1222,6 +1188,26 @@ func (c *NFConfigs) AddeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error {
 	return nil
 }
 
+// CleanupProgramsOnInterface removes all EBPF program and its metadata, on the network interface provided
+func (c *NFConfigs) CleanupProgramsOnInterface(ifaceName string) error {
+	if c.IngressXDPBpfs[ifaceName] != nil {
+		if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.XDPIngressType); err != nil {
+			log.Warn().Err(err).Msg("failed to Close Ingress XDP BPF Program")
+		}
+	}
+	if c.IngressTCBpfs[ifaceName] != nil {
+		if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.IngressType); err != nil {
+			log.Warn().Err(err).Msg("failed to Close Ingress XDP BPF Program")
+		}
+	}
+	if c.EgressTCBpfs[ifaceName] != nil {
+		if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.EgressType); err != nil {
+			log.Warn().Err(err).Msg("failed to Close Ingress XDP BPF Program")
+		}
+	}
+	return nil
+}
+
 // DeleteProgramsOnInterface : It will delete ebpf Programs on the given interface
 func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfProgs *models.BPFProgramNames) error {
 	var err error
@@ -1244,22 +1230,11 @@ func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfPro
 	}
 
 	if _, ok := c.hostInterfaces[ifaceName]; !ok {
-		if c.IngressXDPBpfs[ifaceName] != nil {
-			if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.XDPIngressType); err != nil {
-				log.Warn().Err(err).Msg("failed to Close Ingress XDP BPF Program")
-			}
+		err = c.CleanupProgramsOnInterface(ifaceName)
+		if err != nil {
+			return fmt.Errorf("CleanupProgramsOnInterface function failed : %w", err)
 		}
-		if c.IngressTCBpfs[ifaceName] != nil {
-			if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.IngressType); err != nil {
-				log.Warn().Err(err).Msg("failed to Close Ingress XDP BPF Program")
-			}
-		}
-		if c.EgressTCBpfs[ifaceName] != nil {
-			if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.EgressType); err != nil {
-				log.Warn().Err(err).Msg("failed to Close Ingress XDP BPF Program")
-			}
-		}
-		errOut := fmt.Errorf("%s interface name not found in the host, Stop called ", ifaceName)
+		errOut := fmt.Errorf("%s interface name not found in the host, Stop called, %w", ifaceName, err)
 		log.Error().Err(errOut)
 		return errOut
 	}
