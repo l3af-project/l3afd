@@ -651,12 +651,8 @@ func (c *NFConfigs) Deploy(ifaceName, HostName string, bpfProgs *models.BPFProgr
 		return errOut
 	}
 
-	var err error
 	if _, ok := c.hostInterfaces[ifaceName]; !ok {
-		err = c.CleanupProgramsOnInterface(ifaceName)
-		if err != nil {
-			return fmt.Errorf("CleanupProgramsOnInterface function failed : %w", err)
-		}
+		c.CleanupProgramsOnInterface(ifaceName)
 		errOut := fmt.Errorf("%s interface name not found in the host Stop called", ifaceName)
 		log.Error().Err(errOut)
 		return errOut
@@ -1189,7 +1185,7 @@ func (c *NFConfigs) AddeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error {
 }
 
 // CleanupProgramsOnInterface removes all EBPF program and its metadata, on the network interface provided
-func (c *NFConfigs) CleanupProgramsOnInterface(ifaceName string) error {
+func (c *NFConfigs) CleanupProgramsOnInterface(ifaceName string) {
 	if c.IngressXDPBpfs[ifaceName] != nil {
 		if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.XDPIngressType); err != nil {
 			log.Warn().Err(err).Msg("failed to Close Ingress XDP BPF Program")
@@ -1205,7 +1201,6 @@ func (c *NFConfigs) CleanupProgramsOnInterface(ifaceName string) error {
 			log.Warn().Err(err).Msg("failed to Close Ingress XDP BPF Program")
 		}
 	}
-	return nil
 }
 
 // DeleteProgramsOnInterface : It will delete ebpf Programs on the given interface
@@ -1230,10 +1225,7 @@ func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfPro
 	}
 
 	if _, ok := c.hostInterfaces[ifaceName]; !ok {
-		err = c.CleanupProgramsOnInterface(ifaceName)
-		if err != nil {
-			return fmt.Errorf("CleanupProgramsOnInterface function failed : %w", err)
-		}
+		c.CleanupProgramsOnInterface(ifaceName)
 		errOut := fmt.Errorf("%s interface name not found in the host, Stop called, %w", ifaceName, err)
 		log.Error().Err(errOut)
 		return errOut
