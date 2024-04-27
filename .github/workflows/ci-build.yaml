@@ -21,10 +21,10 @@ jobs:
   build:
     runs-on: ubuntu-20.04
     steps:
-      - name: Setup Go 1.21.3
+      - name: Setup Go 1.22.2
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 
         with:
-          go-version: '1.21.3'
+          go-version: '1.22.2'
 
       - name: Harden Runner
         uses: step-security/harden-runner@63c24ba6bd7ba022e95695ff85de572c04a18142
@@ -62,7 +62,7 @@ jobs:
         with:
           version: "2023.1.1"
           install-go: false
-          cache-key: "1.21.x"
+          cache-key: "1.22.x"
 
       - name: Build
         run: |
