@@ -314,12 +314,26 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	}
 
 	// unload the BPF programs
-	if b.ProgMapCollection != nil {
-		if err := b.UnloadProgram(ifaceName, direction); err != nil {
-			return fmt.Errorf("BPFProgram %s unload failed on interface %s with error: %w", b.Program.Name, ifaceName, err)
+	if allInterfaces, err := getHostInterfaces(); err != nil {
+		errOut := fmt.Errorf("failed get interfaces in Stop Function: %v", err)
+		log.Error().Err(errOut)
+		return errOut
+	} else {
+		if _, ok := allInterfaces[ifaceName]; ok {
+			if b.ProgMapCollection != nil {
+				if err := b.UnloadProgram(ifaceName, direction); err != nil {
+					return fmt.Errorf("BPFProgram %s unload failed on interface %s with error: %w", b.Program.Name, ifaceName, err)
+				}
+				log.Info().Msgf("%s => %s direction => %s - program is unloaded/detached successfully", ifaceName, b.Program.Name, direction)
+			}
+		} else {
+			if err := b.RemoveMapFiles(ifaceName); err != nil {
+				log.Error().Err(err).Msgf("stop user program - failed to remove map files %s", b.Program.Name)
+				return fmt.Errorf("stop user program - failed to remove map files %s", b.Program.Name)
+			}
 		}
-		log.Info().Msgf("%s => %s direction => %s - program is unloaded/detached successfully", ifaceName, b.Program.Name, direction)
 	}
+
 	if err := b.VerifyCleanupMaps(chain); err != nil {
 		log.Error().Err(err).Msgf("stop user program - failed to remove map files %s", b.Program.Name)
 		return fmt.Errorf("stop user program - failed to remove map files %s", b.Program.Name)
@@ -1102,16 +1116,18 @@ func (b *BPF) UnloadProgram(ifaceName, direction string) error {
 
 // RemoveMapFiles - removes all the pinned map files
 func (b *BPF) RemoveMapFiles(ifaceName string) error {
-	for k, v := range b.ProgMapCollection.Maps {
-		var mapFilename string
-		if b.Program.ProgType == models.TCType {
-			mapFilename = filepath.Join(b.hostConfig.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, k)
-		} else {
-			mapFilename = filepath.Join(b.hostConfig.BpfMapDefaultPath, ifaceName, k)
-		}
-		if err := v.Unpin(); err != nil {
-			return fmt.Errorf("BPF program %s prog type %s ifacename %s map %s:failed to pin the map err - %w",
-				b.Program.Name, b.Program.ProgType, ifaceName, mapFilename, err)
+	if b.ProgMapCollection != nil {
+		for k, v := range b.ProgMapCollection.Maps {
+			var mapFilename string
+			if b.Program.ProgType == models.TCType {
+				mapFilename = filepath.Join(b.hostConfig.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, k)
+			} else {
+				mapFilename = filepath.Join(b.hostConfig.BpfMapDefaultPath, ifaceName, k)
+			}
+			if err := v.Unpin(); err != nil {
+				return fmt.Errorf("BPF program %s prog type %s ifacename %s map %s:failed to pin the map err - %w",
+					b.Program.Name, b.Program.ProgType, ifaceName, mapFilename, err)
+			}
 		}
 	}
 	return nil

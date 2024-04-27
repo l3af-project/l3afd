@@ -761,7 +761,7 @@ func TestDeleteProgramsOnInterface(t *testing.T) {
 			wanterr: true,
 		},
 		{
-			name: "GoodInput",
+			name: "GoodInputButNotRealInterface",
 			field: fields{
 				hostName:       "l3af-local-test",
 				hostInterfaces: map[string]bool{"fakeif0": true},
@@ -779,7 +779,7 @@ func TestDeleteProgramsOnInterface(t *testing.T) {
 					TCEgress:   []string{},
 				},
 			},
-			wanterr: false,
+			wanterr: true,
 		},
 	}
 	for _, tt := range tests {
@@ -887,7 +887,7 @@ func TestDeleteEbpfPrograms(t *testing.T) {
 			wanterr: true,
 		},
 		{
-			name: "GoodInput",
+			name: "GoodInputButNotRealInterface",
 			field: fields{
 				hostName:       "l3af-local-test",
 				hostInterfaces: map[string]bool{"fakeif0": true},
@@ -911,7 +911,7 @@ func TestDeleteEbpfPrograms(t *testing.T) {
 					},
 				},
 			},
-			wanterr: false,
+			wanterr: true,
 		},
 	}
 	for _, tt := range tests {
