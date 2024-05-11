@@ -1,0 +1,149 @@
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: l3afd
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: l3afd
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: l3afd
+subjects:
+- kind: ServiceAccount
+  name: l3afd
+  namespace: kube-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: l3afd
+  namespace: kube-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: l3afd
+  namespace: kube-system
+data:
+  l3afd.cfg: |-
+    [DEFAULT]
+
+    [l3afd]
+    pid-file: /var/run/l3afd.pid
+    datacenter: dc
+    bpf-dir: /dev/shm
+    bpf-log-dir:
+    shutdown-timeout: 25s
+    http-client-timeout: 30s
+    max-ebpf-restart-count: 3
+    bpf-chaining-enabled: true
+    swagger-api-enabled: false
+    # PROD | DEV
+    environment: DEV
+    # BpfMapDefaultPath is base path for storing maps
+    BpfMapDefaultPath: /sys/fs/bpf
+    file-log-location: /var/log/l3afd.log
+
+    [ebpf-repo]
+    url: file:///var/l3afd/repo
+
+    [web]
+    metrics-addr: 0.0.0.0:8898
+    ebpf-poll-interval: 30s
+    n-metric-samples: 20
+
+    [xdp-root]
+    package-name: xdp-root
+    artifact: l3af_xdp_root.tar.gz
+    ingress-map-name: xdp_root_array
+    command: xdp_root
+    version: latest
+    object-file: xdp_root_kern.o
+    entry-function-name: xdp_root
+
+    [tc-root]
+    package-name: tc-root
+    artifact: l3af_tc_root.tar.gz
+    ingress-map-name: tc_ingress_root_array
+    egress-map-name: tc_egress_root_array
+    command: tc_root
+    version: latest
+    ingress-object-file: tc_root_ingress_kern.o
+    egress-object-file: tc_root_egress_kern.o
+    ingress-entry-function-name: tc_ingress_root
+    egress-entry-function-name: tc_egress_root
+
+    [ebpf-chain-debug]
+    addr: localhost:8899
+    enabled: false
+
+    [l3af-configs]
+    restapi-addr: localhost:53000
+
+    [l3af-config-store]
+    filename: /var/l3afd/l3af-config.json
+
+    [mtls]
+    enabled: false
+    # TLS_1_2 or TLS_1_3
+    min-tls-version: TLS_1_3
+    cert-dir: /etc/l3afd/certs
+    cacert-filename: ca.pem
+    server-crt-filename: server.crt
+    server-key-filename: server.key
+    # how many days before expiry you want warning
+    cert-expiry-warning-days: 30
+    # multiple domains seperated by comma
+    # literal and regex are validated in lowercase
+    # san-match-rules: .+l3afd.l3af.io,.*l3af.l3af.io,^l3afd.l3af.io$
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: l3afd
+  namespace: kube-system
+  labels:
+    tier: node
+    app: l3afd
+    k8s-app: l3afd
+spec:
+  selector:
+    matchLabels:
+      app: l3afd
+  template:
+    metadata:
+      labels:
+        tier: node
+        app: l3afd
+        k8s-app: l3afd
+    spec:
+      hostNetwork: true
+      tolerations:
+      - operator: Exists
+        effect: NoSchedule
+      serviceAccountName: l3afd
+      containers:
+      - name: l3afd
+        image: aojea/l3afd:v2.0.0
+        volumeMounts:
+        - mountPath: /config
+          name: l3afd
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "50Mi"
+          limits:
+            cpu: "100m"
+            memory: "50Mi"
+        securityContext:
+          privileged: true
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: l3afd
+        name: l3afd
+---
