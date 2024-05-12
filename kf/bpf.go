@@ -452,23 +452,18 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 
 // UpdateBPFMaps - Update the config ebpf maps via map arguments
 func (b *BPF) UpdateBPFMaps(ifaceName, direction string) error {
-	for k, val := range b.Program.MapArgs {
+	for _, val := range b.Program.MapArgs {
+		for _, v := range val.Args {
+			log.Info().Msgf("Update map args key %v val %v", v.Key, v.Value)
 
-		if v, ok := val.(string); !ok {
-			err := fmt.Errorf("update map args is not a string for the ebpf program %s", b.Program.Name)
-			log.Error().Err(err).Msgf("failed to convert map args value into string for program %s", b.Program.Name)
-			return err
-		} else {
-			log.Info().Msgf("Update map args key %s val %s", k, v)
-
-			bpfMap, ok := b.BpfMaps[k]
+			bpfMap, ok := b.BpfMaps[val.Name]
 			if !ok {
-				if err := b.AddBPFMap(k); err != nil {
+				if err := b.AddBPFMap(val.Name); err != nil {
 					return err
 				}
-				bpfMap = b.BpfMaps[k]
+				bpfMap = b.BpfMaps[val.Name]
 			}
-			bpfMap.Update(v)
+			bpfMap.Update(v.Key, v.Value)
 		}
 	}
 	stats.Incr(stats.BPFUpdateCount, b.Program.Name, direction, ifaceName)
