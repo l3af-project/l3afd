@@ -1,6 +1,6 @@
 module github.com/l3af-project/l3afd/v2
 
-go 1.22.2
+go 1.22.3
 
 require (
 	github.com/cilium/ebpf v0.15.0
@@ -12,7 +12,7 @@ require (
 	github.com/safchain/ethtool v0.3.0
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/swaggo/swag v1.16.3
-	golang.org/x/sys v0.18.0 // exclude
+	golang.org/x/sys v0.20.0 // exclude
 )
 
 require (

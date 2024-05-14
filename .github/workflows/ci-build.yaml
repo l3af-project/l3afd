@@ -21,13 +21,13 @@ jobs:
   build:
     runs-on: ubuntu-20.04
     steps:
-      - name: Setup Go 1.22.2
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 
+      - name: Setup Go 1.22.3
+        uses: actions/setup-go@4ab57d7ea2fd0c9948210b2e0784e280674e7144
         with:
-          go-version: '1.22.2'
+          go-version: '1.22.3'
 
       - name: Harden Runner
-        uses: step-security/harden-runner@63c24ba6bd7ba022e95695ff85de572c04a18142
+        uses: step-security/harden-runner@a4aa98b93cab29d9b1101a6143fb8bce00e2eac4
         with:
           egress-policy: audit # TODO: change to 'egress-policy: block' after couple of runs
 
@@ -37,7 +37,7 @@ jobs:
           sudo apt-get install gcc libc-dev bash perl curl make
 
       - name: Checkout repository
-        uses: actions/checkout@1d96c772d19495a3b5c517cd2bc0cb401ea0529f 
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b 
 
       - name: Format
         run: |
@@ -58,7 +58,7 @@ jobs:
           go test ./...
           go clean -modcache
 
-      - uses: dominikh/staticcheck-action@fe1dd0c3658873b46f8c9bb3291096a617310ca6 
+      - uses: dominikh/staticcheck-action@fe1dd0c3658873b46f8c9bb3291096a617310ca6
         with:
           version: "2023.1.1"
           install-go: false
@@ -68,7 +68,7 @@ jobs:
         run: |
           make
 
-      - uses: actions/upload-artifact@1746f4ab65b179e0ea60a494b83293b640dd5bba
+      - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
         with:
           name: l3afd-latest-linux-x86_64
           path: l3afd
