@@ -52,6 +52,7 @@ func Test_KFMetrics_Start(t *testing.T) {
 		IngressXDPbpfProgs map[string]*list.List
 		IngressTCbpfProgs  map[string]*list.List
 		EgressTCbpfProgs   map[string]*list.List
+		Probebpfs          list.List
 	}
 	tests := []struct {
 		name    string
@@ -75,7 +76,7 @@ func Test_KFMetrics_Start(t *testing.T) {
 				Chain:     tt.fields.Chain,
 				Intervals: tt.fields.Interval,
 			}
-			c.kfMetricsStart(tt.args.IngressXDPbpfProgs, tt.args.IngressTCbpfProgs, tt.args.EgressTCbpfProgs)
+			c.kfMetricsStart(tt.args.IngressXDPbpfProgs, tt.args.IngressTCbpfProgs, tt.args.EgressTCbpfProgs, &tt.args.Probebpfs)
 		})
 	}
 }
