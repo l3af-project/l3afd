@@ -205,7 +205,9 @@ func TestNFConfigs_Deploy(t *testing.T) {
 		log.Info().Msg("getHostInterfaces returned and error")
 	}
 	var hostInterfacesKey string
-	for hostInterfacesKey, _ = range hostInterfaces {
+	var hostInterfacesValue bool
+	for hostInterfacesKey, hostInterfacesValue = range hostInterfaces {
+		log.Debug().Msgf("hostInterfacesKey: %v, hostInterfacesValue: %v", hostInterfacesKey, hostInterfacesValue)
 		break
 	}
 	tests := []struct {
@@ -467,7 +469,9 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 		log.Info().Msg("getHostInterfaces returned and error")
 	}
 	var hostInterfacesKey string
-	for hostInterfacesKey, _ = range hostInterfaces {
+	var hostInterfacesValue bool
+	for hostInterfacesKey, hostInterfacesValue = range hostInterfaces {
+		log.Debug().Msgf("hostInterfacesKey: %v, hostInterfacesValue: %v", hostInterfacesKey, hostInterfacesValue)
 		break
 	}
 	type fields struct {
@@ -585,7 +589,9 @@ func TestAddeBPFPrograms(t *testing.T) {
 		log.Info().Msg("getHostInterfaces returned and error")
 	}
 	var hostInterfacesKey string
-	for hostInterfacesKey, _ = range hostInterfaces {
+	var hostInterfacesValue bool
+	for hostInterfacesKey, hostInterfacesValue = range hostInterfaces {
+		log.Debug().Msgf("hostInterfacesKey: %v, hostInterfacesValue: %v", hostInterfacesKey, hostInterfacesValue)
 		break
 	}
 	type fields struct {
