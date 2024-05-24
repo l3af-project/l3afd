@@ -200,7 +200,10 @@ func TestNFConfigs_Deploy(t *testing.T) {
 	setupBPFProgramVersionChange()
 	setupBPFProgramStatusChange()
 
-	hostInterfaces, _ = getHostInterfaces()
+	hostInterfaces, err := getHostInterfaces()
+	if err != nil {
+		log.Info().Msg("getHostInterfaces returned and error")
+	}
 	var hostInterfacesKey string
 	for hostInterfacesKey, _ = range hostInterfaces {
 		break
@@ -459,7 +462,10 @@ func Test_BinarySearch(t *testing.T) {
 }
 
 func Test_AddProgramsOnInterface(t *testing.T) {
-	hostInterfaces, _ = getHostInterfaces()
+	hostInterfaces, err := getHostInterfaces()
+	if err != nil {
+		log.Info().Msg("getHostInterfaces returned and error")
+	}
 	var hostInterfacesKey string
 	for hostInterfacesKey, _ = range hostInterfaces {
 		break
@@ -574,7 +580,10 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 }
 
 func TestAddeBPFPrograms(t *testing.T) {
-	hostInterfaces, _ = getHostInterfaces()
+	hostInterfaces, err := getHostInterfaces()
+	if err != nil {
+		log.Info().Msg("getHostInterfaces returned and error")
+	}
 	var hostInterfacesKey string
 	for hostInterfacesKey, _ = range hostInterfaces {
 		break
