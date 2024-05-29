@@ -60,6 +60,35 @@ go test -tags WINDOWS ./...
 # Generate Swagger Docs
 See our [Swaggo setup](docs/swagger.md)
 
+# Build L3AFD Docker image
+- L3afd binary & configuration that is required in the Docker image needs to be built locally and copied to build-docker directory
+- Execute below command to build the docker image 
+```
+docker build -t l3afd:r2 -f Dockerfile.l3afd .
+```
+Note: l3afd:r2 => <docker-build-name>:<tag> Name and build tag can be changed accordingly
+
+# Run L3AFD Docker Container 
+Requirements to run L3afd as a Container
+- BPF, debugfs & shared-memory filesystems mount points should be available in the Container
+- L3afd container needs Privileged access as it needs to perform attach/detach of eBPF programs
+- eBPF programs should be attached to the Host interface so that it will apply to all the Containers in the Host
+
+In order to satisfy the above requirements L3afd docker container needs to be run using the below command
+```
+docker run -d -v /sys/fs/bpf:/sys/fs/bpf -v /sys/kernel/debug/:/sys/kernel/debug/ -v /dev/shm:/dev/shm --privileged --net=host l3afd:r2
+```
+
+Command to connect to L3afd container shell
+```
+docker exec -it <container> /bin/bashL3afd logs
+```
+
+Command to check L3afd logs
+```
+docker logs <l3afd-container-id>
+```
+
 # Contributing
 Contributing to L3afd is fun. To get started:
 - [Contributing guide](docs/CONTRIBUTING.md)
