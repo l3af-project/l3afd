@@ -1,8 +1,8 @@
 // Copyright Contributors to the L3AF Project.
 // SPDX-License-Identifier: Apache-2.0
 
-// Package kf provides primitives for NF process monitoring.
-package kf
+// Package bpfprogs provides primitives for NF process monitoring.
+package bpfprogs
 
 import (
 	"container/list"
@@ -13,26 +13,26 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type kfMetrics struct {
+type bpfMetrics struct {
 	Chain     bool
 	Intervals int
 }
 
-func NewpKFMetrics(chain bool, interval int) *kfMetrics {
-	m := &kfMetrics{
+func NewpBPFMetrics(chain bool, interval int) *bpfMetrics {
+	m := &bpfMetrics{
 		Chain:     chain,
 		Intervals: interval,
 	}
 	return m
 }
 
-func (c *kfMetrics) kfMetricsStart(xdpProgs, ingressTCProgs, egressTCProgs map[string]*list.List) {
-	go c.kfMetricsWorker(xdpProgs, models.XDPIngressType)
-	go c.kfMetricsWorker(ingressTCProgs, models.IngressType)
-	go c.kfMetricsWorker(egressTCProgs, models.EgressType)
+func (c *bpfMetrics) bpfMetricsStart(xdpProgs, ingressTCProgs, egressTCProgs map[string]*list.List) {
+	go c.bpfMetricsWorker(xdpProgs, models.XDPIngressType)
+	go c.bpfMetricsWorker(ingressTCProgs, models.IngressType)
+	go c.bpfMetricsWorker(egressTCProgs, models.EgressType)
 }
 
-func (c *kfMetrics) kfMetricsWorker(bpfProgs map[string]*list.List, direction string) {
+func (c *bpfMetrics) bpfMetricsWorker(bpfProgs map[string]*list.List, direction string) {
 	for range time.NewTicker(1 * time.Second).C {
 		for ifaceName, bpfList := range bpfProgs {
 			if bpfList == nil { // no bpf programs are running

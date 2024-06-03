@@ -1,7 +1,7 @@
 // Copyright Contributors to the L3AF Project.
 // SPDX-License-Identifier: Apache-2.0
 
-package kf
+package bpfprogs
 
 import (
 	"container/list"
@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestNewpKFMetrics(t *testing.T) {
+func TestNewpBPFMetrics(t *testing.T) {
 	type args struct {
 		chain    bool
 		interval int
@@ -17,33 +17,33 @@ func TestNewpKFMetrics(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    *kfMetrics
+		want    *bpfMetrics
 		wantErr bool
 	}{
 		{
 			name:    "EmptypCheck",
 			args:    args{chain: false, interval: 0},
-			want:    &kfMetrics{Chain: false, Intervals: 0},
+			want:    &bpfMetrics{Chain: false, Intervals: 0},
 			wantErr: false,
 		},
 		{
 			name:    "ValidpCheck",
 			args:    args{chain: true, interval: 10},
-			want:    &kfMetrics{Chain: true, Intervals: 10},
+			want:    &bpfMetrics{Chain: true, Intervals: 10},
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewpKFMetrics(tt.args.chain, tt.args.interval)
+			got := NewpBPFMetrics(tt.args.chain, tt.args.interval)
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewKFMetrics() = %v, want %v", got, tt.want)
+				t.Errorf("NewBPFMetrics() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func Test_KFMetrics_Start(t *testing.T) {
+func Test_BPFMetrics_Start(t *testing.T) {
 	type fields struct {
 		Chain    bool
 		Interval int
@@ -71,11 +71,11 @@ func Test_KFMetrics_Start(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &kfMetrics{
+			c := &bpfMetrics{
 				Chain:     tt.fields.Chain,
 				Intervals: tt.fields.Interval,
 			}
-			c.kfMetricsStart(tt.args.IngressXDPbpfProgs, tt.args.IngressTCbpfProgs, tt.args.EgressTCbpfProgs)
+			c.bpfMetricsStart(tt.args.IngressXDPbpfProgs, tt.args.IngressTCbpfProgs, tt.args.EgressTCbpfProgs)
 		})
 	}
 }

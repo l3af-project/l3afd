@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	chi "github.com/go-chi/chi/v5"
-	"github.com/l3af-project/l3afd/v2/kf"
+	"github.com/l3af-project/l3afd/v2/bpfprogs"
 )
 
 func Test_GetConfig(t *testing.T) {
@@ -16,19 +16,19 @@ func Test_GetConfig(t *testing.T) {
 		name   string
 		iface  string
 		status int
-		cfg    *kf.NFConfigs
+		cfg    *bpfprogs.NFConfigs
 	}{
 		{
 			name:   "EmptyInterfaceInRequest",
 			iface:  "",
 			status: http.StatusBadRequest,
-			cfg:    &kf.NFConfigs{},
+			cfg:    &bpfprogs.NFConfigs{},
 		},
 		{
 			name:   "GoodInput",
 			iface:  "fakeif0",
 			status: http.StatusOK,
-			cfg: &kf.NFConfigs{
+			cfg: &bpfprogs.NFConfigs{
 				IngressXDPBpfs: map[string]*list.List{"fakeif0": nil},
 				IngressTCBpfs:  map[string]*list.List{"fakeif0": nil},
 				EgressTCBpfs:   map[string]*list.List{"fakeif0": nil},
@@ -54,12 +54,12 @@ func Test_GetConfigAll(t *testing.T) {
 	tests := []struct {
 		name   string
 		status int
-		cfg    *kf.NFConfigs
+		cfg    *bpfprogs.NFConfigs
 	}{
 		{
 			name:   "GoodInput",
 			status: http.StatusOK,
-			cfg:    &kf.NFConfigs{},
+			cfg:    &bpfprogs.NFConfigs{},
 		},
 	}
 	for _, tt := range tests {

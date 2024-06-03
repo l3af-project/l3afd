@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/l3af-project/l3afd/v2/bpfprogs"
 	"github.com/l3af-project/l3afd/v2/config"
-	"github.com/l3af-project/l3afd/v2/kf"
 )
 
 const dummypayload string = `[
@@ -35,13 +35,13 @@ func Test_addprog(t *testing.T) {
 		Body   *strings.Reader
 		header map[string]string
 		status int
-		cfg    *kf.NFConfigs
+		cfg    *bpfprogs.NFConfigs
 	}{
 		{
 			name:   "NilBody",
 			Body:   nil,
 			status: http.StatusOK,
-			cfg: &kf.NFConfigs{
+			cfg: &bpfprogs.NFConfigs{
 				HostConfig: &config.Config{
 					L3afConfigStoreFileName: filepath.FromSlash("../../testdata/Test_l3af-config.json"),
 				},
@@ -52,7 +52,7 @@ func Test_addprog(t *testing.T) {
 			Body:   strings.NewReader("Something"),
 			status: http.StatusInternalServerError,
 			header: map[string]string{},
-			cfg: &kf.NFConfigs{
+			cfg: &bpfprogs.NFConfigs{
 				HostConfig: &config.Config{
 					L3afConfigStoreFileName: filepath.FromSlash("../../testdata/Test_l3af-config.json"),
 				},
@@ -64,7 +64,7 @@ func Test_addprog(t *testing.T) {
 			header: map[string]string{
 				"Content-Type": "application/json",
 			},
-			cfg: &kf.NFConfigs{
+			cfg: &bpfprogs.NFConfigs{
 				HostConfig: &config.Config{
 					L3afConfigStoreFileName: filepath.FromSlash("../../testdata/Test_l3af-config.json"),
 				},
@@ -76,7 +76,7 @@ func Test_addprog(t *testing.T) {
 			Body:   strings.NewReader(dummypayload),
 			status: http.StatusInternalServerError,
 			header: map[string]string{},
-			cfg: &kf.NFConfigs{
+			cfg: &bpfprogs.NFConfigs{
 				HostName: "dummy",
 				HostConfig: &config.Config{
 					L3afConfigStoreFileName: filepath.FromSlash("../../testdata/Test_l3af-config.json"),
