@@ -1,4 +1,4 @@
-FROM ubuntu:jammy
+FROM ubuntu:jammy@sha256:6d7b5d3317a71adb5e175640150e44b8b9a9401a7dd394f44840626aff9fa94d
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -16,14 +16,14 @@ RUN apt-get update && \
     cmake \
     zlib1g-dev \
     libevent-dev \
-            vim \
-            wget \
-            curl \
-            linux-tools-generic \
-            net-tools \
-            iproute2 \
-            elfutils \
-            libjson-c-dev \
+    vim \
+    wget \
+    curl \
+    linux-tools-generic \
+    net-tools \
+    iproute2 \
+    elfutils \
+    libjson-c-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
