@@ -391,7 +391,6 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 		// Version Change
 		if data.Program.Version != bpfProg.Version || !reflect.DeepEqual(data.Program.StartArgs, bpfProg.StartArgs) {
 			log.Info().Msgf("VerifyNUpdateBPFProgram : version update initiated - current version %s new version %s", data.Program.Version, bpfProg.Version)
-
 			if err := data.Stop(ifaceName, direction, c.HostConfig.BpfChainingEnabled); err != nil {
 				return fmt.Errorf("failed to stop older version of network function BPF %s iface %s direction %s version %s with err: %w", bpfProg.Name, ifaceName, direction, bpfProg.Version, err)
 			}
@@ -683,18 +682,12 @@ func (c *NFConfigs) Deploy(ifaceName, HostName string, bpfProgs *models.BPFProgr
 		return errOut
 	}
 
-	var err error
+	c.hostInterfaces, _ = getHostInterfaces()
 	if _, ok := c.hostInterfaces[ifaceName]; !ok {
-		if c.hostInterfaces, err = getHostInterfaces(); err != nil {
-			errOut := fmt.Errorf("failed get interfaces: %v", err)
-			log.Error().Err(errOut)
-			return errOut
-		}
-		if _, interfaceFound := c.hostInterfaces[ifaceName]; !interfaceFound {
-			errOut := fmt.Errorf("%s interface name not found in the host", ifaceName)
-			log.Error().Err(errOut)
-			return errOut
-		}
+		c.CleanupProgramsOnInterface(ifaceName)
+		errOut := fmt.Errorf("%s interface name not found in the host Stop called", ifaceName)
+		log.Error().Err(errOut)
+		return errOut
 	}
 
 	c.mu.Lock()
@@ -770,7 +763,11 @@ func (c *NFConfigs) DeployeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error 
 			}
 			return fmt.Errorf("failed to deploy BPF program on iface %s with error: %w", bpfProg.Iface, err)
 		}
-		c.ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
+		if len(c.ifaces) == 0 {
+			c.ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
+		} else {
+			c.ifaces[bpfProg.Iface] = bpfProg.Iface
+		}
 	}
 
 	if err := c.RemoveMissingNetIfacesNBPFProgsInConfig(bpfProgs); err != nil {
@@ -787,10 +784,13 @@ func (c *NFConfigs) SaveConfigsToConfigStore() error {
 
 	var bpfProgs []models.L3afBPFPrograms
 
+	c.hostInterfaces, _ = getHostInterfaces()
 	for _, iface := range c.ifaces {
-		log.Info().Msgf("SaveConfigsToConfigStore - %s", iface)
-		bpfPrograms := c.EBPFPrograms(iface)
-		bpfProgs = append(bpfProgs, bpfPrograms)
+		if _, interfaceFound := c.hostInterfaces[iface]; interfaceFound {
+			log.Info().Msgf("SaveConfigsToConfigStore - %s", iface)
+			bpfPrograms := c.EBPFPrograms(iface)
+			bpfProgs = append(bpfProgs, bpfPrograms)
+		}
 	}
 
 	file, err := json.MarshalIndent(bpfProgs, "", " ")
@@ -798,7 +798,6 @@ func (c *NFConfigs) SaveConfigsToConfigStore() error {
 		log.Error().Err(err).Msgf("failed to marshal configs to save")
 		return fmt.Errorf("failed to marshal configs %w", err)
 	}
-
 	if err = os.WriteFile(c.HostConfig.L3afConfigStoreFileName, file, 0644); err != nil {
 		log.Error().Err(err).Msgf("failed write to file operation")
 		return fmt.Errorf("failed to save configs %w", err)
@@ -868,7 +867,6 @@ func (c *NFConfigs) EBPFProgramsAll() []models.L3afBPFPrograms {
 
 // RemoveMissingNetIfacesNBPFProgsInConfig - Stops running eBPF programs which are missing in the config
 func (c *NFConfigs) RemoveMissingNetIfacesNBPFProgsInConfig(bpfProgCfgs []models.L3afBPFPrograms) error {
-
 	tempIfaces := map[string]bool{}
 	wg := sync.WaitGroup{}
 	for _, bpfProg := range bpfProgCfgs {
@@ -929,7 +927,6 @@ func (c *NFConfigs) RemoveMissingNetIfacesNBPFProgsInConfig(bpfProgCfgs []models
 
 // RemoveMissingBPFProgramsInConfig - This method to stop the eBPF programs which are not listed in the config.
 func (c *NFConfigs) RemoveMissingBPFProgramsInConfig(bpfProg models.L3afBPFPrograms, ifaceName, direction string) error {
-
 	var bpfProgArr []*models.BPFProgram
 	var bpfList *list.List
 	switch direction {
@@ -1142,6 +1139,7 @@ func (c *NFConfigs) AddProgramsOnInterface(ifaceName, HostName string, bpfProgs 
 		return errOut
 	}
 
+	c.hostInterfaces, _ = getHostInterfaces()
 	if _, ok := c.hostInterfaces[ifaceName]; !ok {
 		errOut := fmt.Errorf("%s interface name not found in the host", ifaceName)
 		log.Error().Err(errOut)
@@ -1232,6 +1230,11 @@ func (c *NFConfigs) AddeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error {
 			return fmt.Errorf("failed to Add eBPF program of type probe with error: %w", err)
 		}
 		c.ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
+		if len(c.ifaces) == 0 {
+			c.ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
+		} else {
+			c.ifaces[bpfProg.Iface] = bpfProg.Iface
+		}
 	}
 	if err := c.SaveConfigsToConfigStore(); err != nil {
 		return fmt.Errorf("AddeBPFPrograms failed to save configs %w", err)
@@ -1239,8 +1242,34 @@ func (c *NFConfigs) AddeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error {
 	return nil
 }
 
+// CleanupProgramsOnInterface removes all EBPF program and its metadata, on the network interface provided
+func (c *NFConfigs) CleanupProgramsOnInterface(ifaceName string) {
+	if c.IngressXDPBpfs[ifaceName] != nil {
+		if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.XDPIngressType); err != nil {
+			log.Warn().Err(err).Msg("failed to Close Ingress XDP BPF Program")
+		}
+	}
+	if c.IngressTCBpfs[ifaceName] != nil {
+		if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.IngressType); err != nil {
+			log.Warn().Err(err).Msg("failed to Close Ingress XDP BPF Program")
+		}
+	}
+	if c.EgressTCBpfs[ifaceName] != nil {
+		if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.EgressType); err != nil {
+			log.Warn().Err(err).Msg("failed to Close Ingress XDP BPF Program")
+		}
+	}
+}
+
 // DeleteProgramsOnInterface : It will delete ebpf Programs on the given interface
 func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfProgs *models.BPFProgramNames) error {
+	var err error
+	if c.hostInterfaces, err = getHostInterfaces(); err != nil {
+		errOut := fmt.Errorf("failed get interfaces in DeleteProgramsOnInterface Function: %v", err)
+		log.Error().Err(errOut)
+		return errOut
+	}
+
 	if HostName != c.HostName {
 		errOut := fmt.Errorf("provided bpf programs do not belong to this host")
 		log.Error().Err(errOut)
@@ -1254,7 +1283,8 @@ func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfPro
 	}
 
 	if _, ok := c.hostInterfaces[ifaceName]; !ok {
-		errOut := fmt.Errorf("%s interface name not found in the host", ifaceName)
+		c.CleanupProgramsOnInterface(ifaceName)
+		errOut := fmt.Errorf("%s interface name not found in the host, Stop called, %w", ifaceName, err)
 		log.Error().Err(errOut)
 		return errOut
 	}

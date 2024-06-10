@@ -5,6 +5,7 @@ package kf
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/l3af-project/l3afd/v2/stats"
@@ -52,4 +53,19 @@ func (b *BPF) LoadBPFProgramProbeTypes(objSpec *ebpf.CollectionSpec) error {
 		}
 	}
 	return nil
+}
+
+// GetProgramSectionDetails returns group and name details
+// Section name format /prob type/group/name
+// e.g.: tracepoint/sock/inet_sock_set_state
+// e.g.: kprobe/sys_execve
+func GetProgramSectionDetails(sectionName string) (string, string) {
+	sections := strings.Split(sectionName, "/")
+	length := len(sections)
+	if length > 1 {
+		return sections[length-2], sections[length-1]
+	} else if length == 1 {
+		return "", sections[0]
+	}
+	return "", ""
 }

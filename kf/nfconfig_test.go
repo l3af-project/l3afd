@@ -200,6 +200,16 @@ func TestNFConfigs_Deploy(t *testing.T) {
 	setupBPFProgramVersionChange()
 	setupBPFProgramStatusChange()
 
+	hostInterfaces, err := getHostInterfaces()
+	if err != nil {
+		log.Info().Msg("getHostInterfaces returned and error")
+	}
+	var hostInterfacesKey string
+	var hostInterfacesValue bool
+	for hostInterfacesKey, hostInterfacesValue = range hostInterfaces {
+		log.Debug().Msgf("hostInterfacesKey: %v, hostInterfacesValue: %v", hostInterfacesKey, hostInterfacesValue)
+		break
+	}
 	tests := []struct {
 		name    string
 		fields  fields
@@ -264,7 +274,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 			name: "ValidHostNameValidIfaceName",
 			fields: fields{
 				hostName:       machineHostname,
-				hostInterfaces: map[string]bool{"fakeif0": true},
+				hostInterfaces: hostInterfaces,
 				ingressXDPBpfs: make(map[string]*list.List),
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
@@ -273,7 +283,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    "fakeif0",
+				iface:    hostInterfacesKey,
 				hostName: machineHostname,
 				bpfProgs: &models.BPFPrograms{},
 			},
@@ -283,7 +293,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 			name: "TestEBPFRepoDownload",
 			fields: fields{
 				hostName:       machineHostname,
-				hostInterfaces: map[string]bool{"fakeif0": true},
+				hostInterfaces: hostInterfaces,
 				ingressXDPBpfs: make(map[string]*list.List),
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
@@ -292,7 +302,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    "fakeif0",
+				iface:    hostInterfacesKey,
 				hostName: machineHostname,
 				bpfProgs: bpfProgs,
 			},
@@ -302,7 +312,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 			name: "NewBPFWithVersionChange",
 			fields: fields{
 				hostName:       machineHostname,
-				hostInterfaces: map[string]bool{"fakeif0": true},
+				hostInterfaces: hostInterfaces,
 				ingressXDPBpfs: make(map[string]*list.List),
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
@@ -311,7 +321,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    "fakeif0",
+				iface:    hostInterfacesKey,
 				hostName: machineHostname,
 				bpfProgs: valVerChange,
 			},
@@ -321,7 +331,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 			name: "NewBPFWithStatusChange",
 			fields: fields{
 				hostName:       machineHostname,
-				hostInterfaces: map[string]bool{"fakeif0": true},
+				hostInterfaces: hostInterfaces,
 				ingressXDPBpfs: make(map[string]*list.List),
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
@@ -330,7 +340,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    "fakeif0",
+				iface:    hostInterfacesKey,
 				hostName: machineHostname,
 				bpfProgs: valStatusChange,
 			},
@@ -454,6 +464,16 @@ func Test_BinarySearch(t *testing.T) {
 }
 
 func Test_AddProgramsOnInterface(t *testing.T) {
+	hostInterfaces, err := getHostInterfaces()
+	if err != nil {
+		log.Info().Msg("getHostInterfaces returned and error")
+	}
+	var hostInterfacesKey string
+	var hostInterfacesValue bool
+	for hostInterfacesKey, hostInterfacesValue = range hostInterfaces {
+		log.Debug().Msgf("hostInterfacesKey: %v, hostInterfacesValue: %v", hostInterfacesKey, hostInterfacesValue)
+		break
+	}
 	type fields struct {
 		hostName       string
 		hostInterfaces map[string]bool
@@ -522,7 +542,7 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 			name: "GoodInput",
 			field: fields{
 				hostName:       "l3af-local-test",
-				hostInterfaces: map[string]bool{"fakeif0": true},
+				hostInterfaces: hostInterfaces,
 				mu:             new(sync.Mutex),
 				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
 				ingressTCBpfs:  map[string]*list.List{"fakeif0": nil},
@@ -533,7 +553,7 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 			},
 			arg: args{
 				hostName: "l3af-local-test",
-				iface:    "fakeif0",
+				iface:    hostInterfacesKey,
 				bpfProgs: &models.BPFPrograms{
 					XDPIngress: []*models.BPFProgram{},
 					TCEgress:   []*models.BPFProgram{},
@@ -564,6 +584,16 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 }
 
 func TestAddeBPFPrograms(t *testing.T) {
+	hostInterfaces, err := getHostInterfaces()
+	if err != nil {
+		log.Info().Msg("getHostInterfaces returned and error")
+	}
+	var hostInterfacesKey string
+	var hostInterfacesValue bool
+	for hostInterfacesKey, hostInterfacesValue = range hostInterfaces {
+		log.Debug().Msgf("hostInterfacesKey: %v, hostInterfacesValue: %v", hostInterfacesKey, hostInterfacesValue)
+		break
+	}
 	type fields struct {
 		hostName       string
 		hostInterfaces map[string]bool
@@ -661,7 +691,7 @@ func TestAddeBPFPrograms(t *testing.T) {
 			name: "GoodInput",
 			field: fields{
 				hostName:       "l3af-local-test",
-				hostInterfaces: map[string]bool{"fakeif0": true},
+				hostInterfaces: hostInterfaces,
 				// fakeif0 is a fake interface
 				mu:             new(sync.Mutex),
 				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
@@ -675,7 +705,7 @@ func TestAddeBPFPrograms(t *testing.T) {
 			arg: []models.L3afBPFPrograms{
 				{
 					HostName: "l3af-local-test",
-					Iface:    "fakeif0",
+					Iface:    hostInterfacesKey,
 					BpfPrograms: &models.BPFPrograms{
 						XDPIngress: []*models.BPFProgram{},
 						TCIngress:  []*models.BPFProgram{},
@@ -761,7 +791,7 @@ func TestDeleteProgramsOnInterface(t *testing.T) {
 			wanterr: true,
 		},
 		{
-			name: "GoodInput",
+			name: "GoodInputButNotRealInterface",
 			field: fields{
 				hostName:       "l3af-local-test",
 				hostInterfaces: map[string]bool{"fakeif0": true},
@@ -779,7 +809,7 @@ func TestDeleteProgramsOnInterface(t *testing.T) {
 					TCEgress:   []string{},
 				},
 			},
-			wanterr: false,
+			wanterr: true,
 		},
 	}
 	for _, tt := range tests {
@@ -887,7 +917,7 @@ func TestDeleteEbpfPrograms(t *testing.T) {
 			wanterr: true,
 		},
 		{
-			name: "GoodInput",
+			name: "GoodInputButNotRealInterface",
 			field: fields{
 				hostName:       "l3af-local-test",
 				hostInterfaces: map[string]bool{"fakeif0": true},
@@ -911,7 +941,7 @@ func TestDeleteEbpfPrograms(t *testing.T) {
 					},
 				},
 			},
-			wanterr: false,
+			wanterr: true,
 		},
 	}
 	for _, tt := range tests {

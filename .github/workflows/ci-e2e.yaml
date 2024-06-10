@@ -28,12 +28,12 @@ jobs:
           sudo apt install -y iproute2
           sudo apt install git curl hey
       - name: Checkout repository
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29
       
       - name: Prep
         run: |
           sudo cp -r /home/runner/work/l3afd/l3afd /root
-          sudo git clone https://github.com/l3af-project/l3af-arch.git /root/l3af-arch
+          sudo git clone -b sanfern-e2e-add-probes https://github.com/sanfern/l3af-arch.git /root/l3af-arch
           sudo bash /root/l3af-arch/dev_environment/e2e_test/prep_env.sh
           sudo bash /root/l3af-arch/dev_environment/setup_linux_dev_env.sh --ci-build
           hm=$(hostname)

@@ -41,6 +41,10 @@ environment: PROD
 |swagger-api-enabled| `"false"`              |Whether the swagger API is enabled or not.  For more info see [swagger.md](https://github.com/l3af-project/l3afd/blob/main/docs/swagger.md)| No |
 |environment| `"PROD"`               |If set to anything other than "PROD", mTLS security will not be checked| Yes |
 |BpfMapDefaultPath| `"/sys/fs/bpf"`        |The base pin path for eBPF maps| Yes |
+| file-log-location | `"/var/log/l3afd.log"`            | Location of the log file | No |
+| file-log-max-size | `"100"`            | Max size in megabytes for Log file rotation | No |
+| file-log-max-backups | `"20"`            | Max size in megabytes for Log file rotation | No |
+| file-log-max-age | `"60"`            | Max number of days to keep Log files | No |
 
 ## [ebpf-repo]
 | FieldName     | Default                    | Description     | Required |
