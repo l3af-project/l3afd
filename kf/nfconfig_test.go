@@ -6,6 +6,8 @@ package kf
 import (
 	"container/list"
 	"context"
+	"errors"
+	"net"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -126,6 +128,14 @@ func setupBPFProgramStatusChange() {
 	}
 	bpfProgsTmp.XDPIngress = append(bpfProgsTmp.XDPIngress, bpfProg)
 	valStatusChange = bpfProgsTmp
+}
+
+func createBPFList(names []string) *list.List {
+	l := list.New()
+	for _, name := range names {
+		l.PushBack(&BPF{Program: models.BPFProgram{Name: name}})
+	}
+	return l
 }
 
 func TestNewNFConfigs(t *testing.T) {
@@ -419,15 +429,43 @@ func TestNFConfigs_Close(t *testing.T) {
 func Test_getHostInterfaces(t *testing.T) {
 	tests := []struct {
 		name    string
+		mockInterfaces func() ([]net.Interface, error)
+		want         map[string]bool
 		wantErr bool
 	}{
 		{
-			name:    "GoodInput",
+			name:    "ValidInterfaces",
+			mockInterfaces: func() ([]net.Interface, error) {
+				return []net.Interface{
+					{Name: "eth0", Flags: net.FlagUp},
+					{Name: "eth1", Flags: net.FlagUp},
+				}, nil
+			},
+			want: map[string]bool{"eth0": true, "eth1": true},
 			wantErr: false,
+		},
+		{
+			name: "NoInterfaces",
+			mockInterfaces: func() ([]net.Interface, error) {
+				return []net.Interface{}, nil
+			},
+			want:    map[string]bool{},
+			wantErr: false,
+		},
+		{
+			name: "ErrorRetrievingInterfaces",
+			mockInterfaces: func() ([]net.Interface, error) {
+				return nil, errors.New("mocke error: failed to get net interfaces")
+			},
+			want:    nil,
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			originalNetInterfaces := netInterfaces
+			defer func() { netInterfaces = originalNetInterfaces }()
+			netInterfaces = tt.mockInterfaces
 			_, err := getHostInterfaces()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("getHostInterfaces() error : %v", err)
@@ -561,6 +599,88 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 				},
 			},
 			wanterr: false,
+		},
+		{
+			name: "BPFChainingDisabled",
+			field: fields{
+				hostName:       "l3af-local-test",
+				hostInterfaces: map[string]bool{"fakeif0": true},
+				mu:             new(sync.Mutex),
+				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
+				ingressTCBpfs:  map[string]*list.List{"fakeif0": nil},
+				egressTCBpfs:   map[string]*list.List{"fakeif0": nil},
+				hostConfig: &config.Config{
+					BpfChainingEnabled: false,
+				},
+			},
+			arg: args{
+				hostName: "l3af-local-test",
+				iface:    "fakeif0",
+				bpfProgs: &models.BPFPrograms{
+					XDPIngress: []*models.BPFProgram{
+						&models.BPFProgram{
+							Name:              "dummy_name",
+							SeqID:             1,
+							Artifact:          "dummy_artifact.tar.gz",
+							MapName:           "xdp_rl_ingress_next_prog",
+							CmdStart:          "dummy_command",
+							Version:           "latest",
+							UserProgramDaemon: true,
+							AdminStatus:       "enabled",
+							ProgType:          "xdp",
+							CfgVersion:        1,
+						},
+						&models.BPFProgram{
+							Name:              "dummy_name_2",
+							SeqID:             1,
+							Artifact:          "dummy_artifact.tar.gz",
+							MapName:           "xdp_rl_ingress_next_prog",
+							CmdStart:          "dummy_command",
+							Version:           "latest",
+							UserProgramDaemon: true,
+							AdminStatus:       "enabled",
+							ProgType:          "xdp",
+							CfgVersion:        1,
+						},
+					},
+				},
+			},
+			wanterr: true,
+		},
+		{
+			name: "BadInput",
+			field: fields{
+				hostName:       "l3af-local-test",
+				hostInterfaces: map[string]bool{"fakeif0": true},
+				mu:             new(sync.Mutex),
+				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
+				ingressTCBpfs:  map[string]*list.List{"fakeif0": nil},
+				egressTCBpfs:   map[string]*list.List{"fakeif0": nil},
+				hostConfig: &config.Config{
+					BpfChainingEnabled: true,
+				},
+			},
+			arg: args{
+				hostName: "l3af-local-test",
+				iface:    "fakeif0",
+				bpfProgs: &models.BPFPrograms{
+					XDPIngress: []*models.BPFProgram{
+						&models.BPFProgram{
+							Name:              "dummy_name",
+							SeqID:             1,
+							Artifact:          "dummy_artifact.tar.gz",
+							MapName:           "xdp_rl_ingress_next_prog",
+							CmdStart:          "dummy_command",
+							Version:           "latest",
+							UserProgramDaemon: true,
+							AdminStatus:       models.Enabled,
+							ProgType:          "xdp",
+							CfgVersion:        1,
+						},
+					},
+				},
+			},
+			wanterr: true,
 		},
 	}
 	for _, tt := range tests {
@@ -1102,6 +1222,115 @@ func TestAddProgramWithoutChaining(t *testing.T) {
 			e := cfg.AddProgramWithoutChaining(tt.arg.iface, tt.arg.bpfProgs)
 			if (e != nil) != tt.wanterr {
 				t.Errorf(" AddProgramWithoutChaining failed : %v", e)
+			}
+		})
+	}
+}
+
+func TestEBPFPrograms(t *testing.T) {
+	type fields struct {
+		hostName       string
+		ingressXDPBpfs map[string]*list.List
+		ingressTCBpfs  map[string]*list.List
+		egressTCBpfs   map[string]*list.List
+		hostConfig     *config.Config
+	}
+	type args struct {
+		iface    string
+		hostName string
+	}
+	tests := []struct {
+		name       string
+		field   fields
+		arg     args
+		wantResult models.L3afBPFPrograms
+	}{
+		{
+			name: "Test with IngressXDPBpfs",
+			field: fields{
+				hostName: "host1",
+				ingressXDPBpfs: map[string]*list.List{"eth0": createBPFList([]string{"xdp1", "xdp2"})},
+				ingressTCBpfs: map[string]*list.List{"eth0": createBPFList([]string{"tc1", "tc2"})},
+				egressTCBpfs: map[string]*list.List{},
+				hostConfig: &config.Config{},
+			},
+			arg: args{
+				iface:    "eth0",
+				hostName: "host1",
+			},
+			wantResult: models.L3afBPFPrograms{
+				HostName: "host1",
+				Iface:    "eth0",
+				BpfPrograms: &models.BPFPrograms{
+					XDPIngress: []*models.BPFProgram{
+						{Name: "xdp1"},
+						{Name: "xdp2"},
+					},
+				},
+			},
+		},
+		{
+			name: "Test with IngressTCBpfs",
+			field: fields{
+				hostName: "host1",
+				ingressXDPBpfs: map[string]*list.List{},
+				ingressTCBpfs: map[string]*list.List{"eth0": createBPFList([]string{"tc1", "tc2"})},
+				egressTCBpfs: map[string]*list.List{},
+				hostConfig: &config.Config{},
+			},
+			arg: args{
+				iface:    "eth0",
+				hostName: "host1",
+			},
+			wantResult: models.L3afBPFPrograms{
+				HostName: "host1",
+				Iface:    "eth0",
+				BpfPrograms: &models.BPFPrograms{
+					TCIngress: []*models.BPFProgram{
+						{Name: "tc1"},
+						{Name: "tc2"},
+					},
+				},
+			},
+		},
+		{
+			name: "Test with EgressTCBpfs",
+			field: fields{
+				hostName: "host1",
+				ingressXDPBpfs: map[string]*list.List{},
+				ingressTCBpfs: map[string]*list.List{},
+				egressTCBpfs: map[string]*list.List{"eth0": createBPFList([]string{"tc1", "tc2"})},
+				hostConfig: &config.Config{},
+			},
+			arg: args{
+				iface:    "eth0",
+				hostName: "host1",
+			},
+			wantResult: models.L3afBPFPrograms{
+				HostName: "host1",
+				Iface:    "eth0",
+				BpfPrograms: &models.BPFPrograms{
+					TCEgress: []*models.BPFProgram{
+						{Name: "tc1"},
+						{Name: "tc2"},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &NFConfigs{
+				HostName: tt.field.hostName,
+				HostConfig:     tt.field.hostConfig,
+				IngressXDPBpfs: tt.field.ingressXDPBpfs,
+				IngressTCBpfs: tt.field.ingressTCBpfs,
+				EgressTCBpfs: tt.field.egressTCBpfs,
+			}
+			got := cfg.EBPFPrograms(tt.arg.iface)
+			if !reflect.DeepEqual(got, tt.wantResult) {
+				t.Errorf("EBPFPrograms() = %v, want %v", got, tt.wantResult)
 			}
 		})
 	}
