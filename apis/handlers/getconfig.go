@@ -8,14 +8,14 @@ import (
 	"net/http"
 
 	chi "github.com/go-chi/chi/v5"
-	"github.com/l3af-project/l3afd/v2/kf"
+	"github.com/l3af-project/l3afd/v2/bpfprogs"
 	"github.com/rs/zerolog/log"
 )
 
-var kfcfgs *kf.NFConfigs
+var bpfcfgs *bpfprogs.NFConfigs
 
-func InitConfigs(cfgs *kf.NFConfigs) error {
-	kfcfgs = cfgs
+func InitConfigs(cfgs *bpfprogs.NFConfigs) error {
+	bpfcfgs = cfgs
 	return nil
 }
 
@@ -49,7 +49,7 @@ func GetConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := json.MarshalIndent(kfcfgs.EBPFPrograms(iface), "", "  ")
+	resp, err := json.MarshalIndent(bpfcfgs.EBPFPrograms(iface), "", "  ")
 	if err != nil {
 		mesg = "internal server error"
 		log.Error().Msgf("failed to marshal response: %v", err)
@@ -80,7 +80,7 @@ func GetConfigAll(w http.ResponseWriter, r *http.Request) {
 		}
 	}(&mesg, &statusCode)
 
-	resp, err := json.MarshalIndent(kfcfgs.EBPFProgramsAll(), "", "  ")
+	resp, err := json.MarshalIndent(bpfcfgs.EBPFProgramsAll(), "", "  ")
 	if err != nil {
 		mesg = "internal server error"
 		log.Error().Msgf("failed to marshal response: %v", err)

@@ -1,8 +1,8 @@
 // Copyright Contributors to the L3AF Project.
 // SPDX-License-Identifier: Apache-2.0
 
-// Package kf provides primitives for BPF process monitoring.
-package kf
+// Package bpfprogs provides primitives for BPF process monitoring.
+package bpfprogs
 
 import (
 	"container/list"
@@ -10,7 +10,6 @@ import (
 
 	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/l3af-project/l3afd/v2/stats"
-
 	"github.com/rs/zerolog/log"
 )
 

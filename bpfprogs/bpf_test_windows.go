@@ -4,7 +4,7 @@
 //go:build WINDOWS
 // +build WINDOWS
 
-package kf
+package bpfprogs
 
 import (
 	"fmt"
