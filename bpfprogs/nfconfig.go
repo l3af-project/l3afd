@@ -1,8 +1,8 @@
 // Copyright Contributors to the L3AF Project.
 // SPDX-License-Identifier: Apache-2.0
 
-// Package kf provides primitives for l3afd's network function configs.
-package kf
+// Package bpfprogs provides primitives for l3afd's network function configs.
+package bpfprogs
 
 import (
 	"container/list"
@@ -35,9 +35,9 @@ type NFConfigs struct {
 	IngressTCBpfs  map[string]*list.List
 	EgressTCBpfs   map[string]*list.List
 
-	HostConfig   *config.Config
-	processMon   *pCheck
-	kfMetricsMon *kfMetrics
+	HostConfig    *config.Config
+	processMon    *pCheck
+	bpfMetricsMon *bpfMetrics
 
 	// keep track of interfaces
 	ifaces map[string]string
@@ -45,7 +45,7 @@ type NFConfigs struct {
 	mu *sync.Mutex
 }
 
-func NewNFConfigs(ctx context.Context, host string, hostConf *config.Config, pMon *pCheck, metricsMon *kfMetrics) (*NFConfigs, error) {
+func NewNFConfigs(ctx context.Context, host string, hostConf *config.Config, pMon *pCheck, metricsMon *bpfMetrics) (*NFConfigs, error) {
 	nfConfigs := &NFConfigs{
 		ctx:            ctx,
 		HostName:       host,
@@ -65,8 +65,8 @@ func NewNFConfigs(ctx context.Context, host string, hostConf *config.Config, pMo
 
 	nfConfigs.processMon = pMon
 	nfConfigs.processMon.pCheckStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs)
-	nfConfigs.kfMetricsMon = metricsMon
-	nfConfigs.kfMetricsMon.kfMetricsStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs)
+	nfConfigs.bpfMetricsMon = metricsMon
+	nfConfigs.bpfMetricsMon.bpfMetricsStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs)
 	return nfConfigs, nil
 }
 
@@ -613,8 +613,8 @@ func (c *NFConfigs) LinkBPFPrograms(leftBPF, rightBPF *BPF) error {
 	return nil
 }
 
-// KFDetails - Method provides dump of KFs for debug purpose
-func (c *NFConfigs) KFDetails(iface string) []*BPF {
+// BPFDetails - Method provides dump of BPFs for debug purpose
+func (c *NFConfigs) BPFDetails(iface string) []*BPF {
 	arrBPFDetails := make([]*BPF, 0)
 	bpfList := c.IngressXDPBpfs[iface]
 	if bpfList != nil {
