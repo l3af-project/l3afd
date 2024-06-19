@@ -34,7 +34,7 @@ jobs:
       - name: Set up environment
         run: |
           sudo apt-get update
-          sudo apt-get install gcc libc-dev bash perl curl make
+          sudo apt-get install -y gcc libc-dev bash perl curl make docker docker.io
 
       - name: Checkout repository
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 
@@ -68,7 +68,20 @@ jobs:
         run: |
           make
 
+      - name: Build docker image
+        run: |
+          sudo git clone https://github.com/l3af-project/l3af-arch.git /root/l3af-arch
+          sudo cp /root/l3af-arch/dev_environment/cfg/l3afd.cfg ./build-docker
+          sudo cp l3afd ./build-docker
+          sudo docker build -t l3afd:r2-latest -f ./build-docker/Dockerfile ./build-docker
+          sudo docker save l3afd:r2-latest > l3afd-docker-img-r2-latest.tar
+
       - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
         with:
           name: l3afd-latest-linux-x86_64
           path: l3afd
+
+      - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
+        with:
+          name: l3afd-docker-img-linux-x86_64-r2-latest
+          path: l3afd-docker-img-linux-x86_64-r2-latest.tar
