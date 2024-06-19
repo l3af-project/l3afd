@@ -50,7 +50,7 @@ type BPFProgram struct {
 	StopArgs          L3afDNFArgs         `json:"stop_args"`             // Map of arguments to stop command
 	StatusArgs        L3afDNFArgs         `json:"status_args"`           // Map of arguments to status command
 	UpdateArgs        L3afDNFArgs         `json:"update_args"`           // Map of arguments to update command
-	MapArgs           L3afDNFArgs         `json:"map_args"`              // Config BPF Map of arguments
+	MapArgs           []L3afDMapArg       `json:"map_args"`              // Config BPF Map of arguments
 	ConfigArgs        L3afDNFArgs         `json:"config_args"`           // Map of arguments to config command
 	MonitorMaps       []L3afDNFMetricsMap `json:"monitor_maps"`          // Metrics BPF maps
 	EPRURL            string              `json:"ebpf_package_repo_url"` // Download url for Program
@@ -63,6 +63,18 @@ type L3afDNFMetricsMap struct {
 	Name       string `json:"name"`       // BPF map name
 	Key        int    `json:"key"`        // Index of the bpf map
 	Aggregator string `json:"aggregator"` // Aggregation function names
+}
+
+// KeyValue defines struct for key and value
+type KeyValue struct {
+	Key   int `json:"key"`   // Key
+	Value int `json:"value"` // Value
+}
+
+// L3afDMapArg defines map arg
+type L3afDMapArg struct {
+	Name string     `json:"name"` // BPF map name
+	Args []KeyValue `json:"args"` // BPF map arguments
 }
 
 // L3afBPFPrograms defines configs for a node
