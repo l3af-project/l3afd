@@ -1,8 +1,8 @@
 // Copyright Contributors to the L3AF Project.
 // SPDX-License-Identifier: Apache-2.0
 
-// Package kf provides primitives for BPF programs / Network Functions.
-package kf
+// Package bpfprogs provides primitives for BPF programs / Network Functions.
+package bpfprogs
 
 import (
 	"archive/tar"
@@ -255,9 +255,9 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 		delete(b.MetricsBpfMaps, key)
 	}
 
-	// Stop KFconfigs
+	// Stop BPF configs
 	if len(b.Program.CmdConfig) > 0 && len(b.Program.ConfigFilePath) > 0 {
-		log.Info().Msgf("Stopping KF configs %s ", b.Program.Name)
+		log.Info().Msgf("Stopping BPF configs %s ", b.Program.Name)
 		b.Done <- true
 	}
 
@@ -430,11 +430,11 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		}
 	}
 
-	// KFconfigs
+	// BPFconfigs
 	if len(b.Program.CmdConfig) > 0 && len(b.Program.ConfigFilePath) > 0 {
 		log.Info().Msgf("eBPF program specific config monitoring - %s", b.Program.ConfigFilePath)
 		b.Done = make(chan bool)
-		go b.RunKFConfigs()
+		go b.RunBPFConfigs()
 	}
 
 	stats.Incr(stats.BPFStartCount, b.Program.Name, direction, ifaceName)

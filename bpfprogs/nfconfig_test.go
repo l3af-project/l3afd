@@ -1,7 +1,7 @@
 // Copyright Contributors to the L3AF Project.
 // SPDX-License-Identifier: Apache-2.0
 
-package kf
+package bpfprogs
 
 import (
 	"container/list"
@@ -23,7 +23,7 @@ var (
 	machineHostname string
 	hostInterfaces  map[string]bool
 	pMon            *pCheck
-	mMon            *kfMetrics
+	mMon            *bpfMetrics
 	valVerChange    *models.BPFPrograms
 	valStatusChange *models.BPFPrograms
 	ingressXDPBpfs  map[string]*list.List
@@ -39,7 +39,7 @@ func setupDBTest() {
 	hostInterfaces = make(map[string]bool)
 	hostInterfaces["fakeif0"] = true
 	pMon = NewpCheck(3, true, 10)
-	mMon = NewpKFMetrics(true, 30)
+	mMon = NewpBPFMetrics(true, 30)
 
 	ingressXDPBpfs = make(map[string]*list.List)
 	ingressTCBpfs = make(map[string]*list.List)
@@ -133,7 +133,7 @@ func TestNewNFConfigs(t *testing.T) {
 		host     string
 		hostConf *config.Config
 		pMon     *pCheck
-		mMon     *kfMetrics
+		mMon     *bpfMetrics
 		ctx      context.Context
 	}
 	setupDBTest()
@@ -157,7 +157,7 @@ func TestNewNFConfigs(t *testing.T) {
 				EgressTCBpfs:   egressTCBpfs,
 				HostConfig:     nil,
 				processMon:     pMon,
-				kfMetricsMon:   mMon,
+				bpfMetricsMon:  mMon,
 				mu:             new(sync.Mutex),
 			},
 			wantErr: false,
@@ -186,7 +186,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 		egressTCBpfs   map[string]*list.List
 		hostConfig     *config.Config
 		processMon     *pCheck
-		metricsMon     *kfMetrics
+		metricsMon     *bpfMetrics
 	}
 	type args struct {
 		iface    string

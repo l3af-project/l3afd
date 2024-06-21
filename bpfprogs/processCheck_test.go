@@ -1,52 +1,55 @@
 // Copyright Contributors to the L3AF Project.
 // SPDX-License-Identifier: Apache-2.0
 
-package kf
+package bpfprogs
 
 import (
 	"container/list"
 	"reflect"
 	"testing"
+	"time"
 )
 
-func TestNewpKFMetrics(t *testing.T) {
+func TestNewpCheck(t *testing.T) {
 	type args struct {
+		rc       int
 		chain    bool
-		interval int
+		interval time.Duration
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    *kfMetrics
+		want    *pCheck
 		wantErr bool
 	}{
 		{
 			name:    "EmptypCheck",
-			args:    args{chain: false, interval: 0},
-			want:    &kfMetrics{Chain: false, Intervals: 0},
+			args:    args{rc: 0, chain: false, interval: 0},
+			want:    &pCheck{MaxRetryCount: 0},
 			wantErr: false,
 		},
 		{
 			name:    "ValidpCheck",
-			args:    args{chain: true, interval: 10},
-			want:    &kfMetrics{Chain: true, Intervals: 10},
+			args:    args{rc: 3, chain: true, interval: 10},
+			want:    &pCheck{MaxRetryCount: 3},
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewpKFMetrics(tt.args.chain, tt.args.interval)
+			got := NewpCheck(tt.args.rc, false, 0)
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewKFMetrics() = %v, want %v", got, tt.want)
+				t.Errorf("NewpCheck() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func Test_KFMetrics_Start(t *testing.T) {
+func Test_pCheck_pCheckStart(t *testing.T) {
 	type fields struct {
-		Chain    bool
-		Interval int
+		MaxRetryCount     int
+		chain             bool
+		retryMonitorDelay time.Duration
 	}
 	type args struct {
 		IngressXDPbpfProgs map[string]*list.List
@@ -62,7 +65,7 @@ func Test_KFMetrics_Start(t *testing.T) {
 	}{
 		{
 			name:   "EmptyBPF",
-			fields: fields{Chain: true, Interval: 10},
+			fields: fields{MaxRetryCount: 3, chain: true, retryMonitorDelay: 10},
 			args: args{IngressXDPbpfProgs: make(map[string]*list.List),
 				IngressTCbpfProgs: make(map[string]*list.List),
 				EgressTCbpfProgs:  make(map[string]*list.List),
@@ -72,11 +75,12 @@ func Test_KFMetrics_Start(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &kfMetrics{
-				Chain:     tt.fields.Chain,
-				Intervals: tt.fields.Interval,
+			c := &pCheck{
+				MaxRetryCount:     tt.fields.MaxRetryCount,
+				Chain:             tt.fields.chain,
+				retryMonitorDelay: tt.fields.retryMonitorDelay,
 			}
-			c.kfMetricsStart(tt.args.IngressXDPbpfProgs, tt.args.IngressTCbpfProgs, tt.args.EgressTCbpfProgs, &tt.args.Probebpfs)
+			c.pCheckStart(tt.args.IngressXDPbpfProgs, tt.args.IngressTCbpfProgs, tt.args.EgressTCbpfProgs, &tt.args.Probebpfs)
 		})
 	}
 }

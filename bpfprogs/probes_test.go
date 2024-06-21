@@ -1,7 +1,7 @@
 // Copyright Contributors to the L3AF Project.
 // SPDX-License-Identifier: Apache-2.0
 
-package kf
+package bpfprogs
 
 import (
 	"testing"
