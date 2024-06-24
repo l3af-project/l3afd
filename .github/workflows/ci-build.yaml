@@ -70,11 +70,10 @@ jobs:
 
       - name: Build docker image
         run: |
-          sudo git clone https://github.com/l3af-project/l3af-arch.git /root/l3af-arch
-          sudo cp /root/l3af-arch/dev_environment/cfg/l3afd.cfg ./build-docker
+          sudo cp ./config/l3afd.cfg ./build-docker
           sudo cp l3afd ./build-docker
-          sudo docker build -t l3afd:r2-latest -f ./build-docker/Dockerfile ./build-docker
-          sudo docker save l3afd:r2-latest > l3afd-docker-img-r2-latest.tar
+          sudo docker build -t l3afd:v2.0.0 -f ./build-docker/Dockerfile ./build-docker
+          sudo docker save l3afd:v2.0.0 > l3afd-docker-img-linux-x86_64-v2.0.0.tar
 
       - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
         with:
@@ -83,5 +82,5 @@ jobs:
 
       - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
         with:
-          name: l3afd-docker-img-linux-x86_64-r2-latest
-          path: l3afd-docker-img-linux-x86_64-r2-latest.tar
+          name: l3afd-docker-img-linux-x86_64-v2.0.0.tar
+          path: l3afd-docker-img-linux-x86_64-v2.0.0.tar
