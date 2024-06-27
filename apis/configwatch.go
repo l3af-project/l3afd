@@ -24,8 +24,8 @@ import (
 
 	httpSwagger "github.com/swaggo/http-swagger"
 
+	"github.com/l3af-project/l3afd/v2/bpfprogs"
 	"github.com/l3af-project/l3afd/v2/config"
-	"github.com/l3af-project/l3afd/v2/kf"
 	"github.com/l3af-project/l3afd/v2/routes"
 	"github.com/l3af-project/l3afd/v2/signals"
 
@@ -35,7 +35,7 @@ import (
 )
 
 type Server struct {
-	KFRTConfigs   *kf.NFConfigs
+	BPFRTConfigs  *bpfprogs.NFConfigs
 	HostName      string
 	l3afdServer   *http.Server
 	CaCertPool    *x509.CertPool
@@ -47,12 +47,12 @@ type Server struct {
 // @description Configuration APIs to deploy and get the details of the eBPF Programs on the node
 // @host
 // @BasePath /
-func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *config.Config, kfrtconfg *kf.NFConfigs) error {
+func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *config.Config, bpfrtconfg *bpfprogs.NFConfigs) error {
 	log.Info().Msgf("%s config server setup started on host %s", daemonName, hostname)
 
 	s := &Server{
-		KFRTConfigs: kfrtconfg,
-		HostName:    hostname,
+		BPFRTConfigs: bpfrtconfg,
+		HostName:     hostname,
 		l3afdServer: &http.Server{
 			Addr: conf.L3afConfigsRestAPIAddr,
 		},
@@ -69,7 +69,7 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 	}()
 
 	go func() {
-		r := routes.NewRouter(apiRoutes(ctx, kfrtconfg))
+		r := routes.NewRouter(apiRoutes(ctx, bpfrtconfg))
 		if conf.SwaggerApiEnabled {
 			r.Mount("/swagger", httpSwagger.WrapHandler)
 		}
@@ -157,10 +157,10 @@ func (s *Server) GracefulStop(shutdownTimeout time.Duration) error {
 	log.Info().Msg("L3afd graceful stop initiated")
 
 	exitCode := 0
-	if len(s.KFRTConfigs.IngressXDPBpfs) > 0 || len(s.KFRTConfigs.IngressTCBpfs) > 0 || len(s.KFRTConfigs.EgressTCBpfs) > 0 {
+	if len(s.BPFRTConfigs.IngressXDPBpfs) > 0 || len(s.BPFRTConfigs.IngressTCBpfs) > 0 || len(s.BPFRTConfigs.EgressTCBpfs) > 0 {
 		ctx, cancelfunc := context.WithTimeout(context.Background(), shutdownTimeout)
 		defer cancelfunc()
-		if err := s.KFRTConfigs.Close(ctx); err != nil {
+		if err := s.BPFRTConfigs.Close(ctx); err != nil {
 			log.Error().Err(err).Msg("stopping all network functions failed")
 			exitCode = 1
 		}

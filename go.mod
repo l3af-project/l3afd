@@ -3,16 +3,16 @@ module github.com/l3af-project/l3afd/v2
 go 1.22.3
 
 require (
-	github.com/cilium/ebpf v0.15.0
-	github.com/go-chi/chi/v5 v5.0.12
+	github.com/cilium/ebpf v0.12.3
+	github.com/go-chi/chi/v5 v5.0.14
 	github.com/mitchellh/go-ps v1.0.0
-	github.com/prometheus/client_golang v1.19.0
+	github.com/prometheus/client_golang v1.19.1
 	github.com/robfig/config v0.0.0-20141207224736-0f78529c8c7e
-	github.com/rs/zerolog v1.32.0
-	github.com/safchain/ethtool v0.3.0
+	github.com/rs/zerolog v1.33.0
+	github.com/safchain/ethtool v0.4.0
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/swaggo/swag v1.16.3
-	golang.org/x/sys v0.20.0 // exclude
+	golang.org/x/sys v0.21.0 // exclude
 )
 
 require (
@@ -45,6 +45,6 @@ require (
 	golang.org/x/net v0.20.0 // indirect
 	golang.org/x/sync v0.4.0 // indirect
 	golang.org/x/tools v0.14.0 // indirect
-	google.golang.org/protobuf v1.32.0 // indirect
+	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

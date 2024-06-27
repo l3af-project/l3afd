@@ -30,7 +30,7 @@ The payload will look more like this standard JSON:
             { "name": "rl_drop_count_map", "key": 0, "aggregator": "scalar"},
             { "name": "rl_recv_count_map", "key": 0, "aggregator": "max-rate"}
           ],
-          "object_file": "ratelimiting_kern.o",
+          "object_file": "ratelimiting.bpf.o",
           "entry_function_name": "_xdp_ratelimiting"
         }
         ],
@@ -69,7 +69,7 @@ The payload will look more like this standard JSON:
 | map_args              | map                                            | `{"rl_config_map": "2", "rl_ports_map":"80,443"}`              | BPF map to be updated with the value provided in the config. This option can only be utilized when object file provided to load by l3afd.                                                                                                                                                                            |
 | update_args           | map                                            |                                                                | Argument list passed while calling cmd_update to update the configuration BPF maps.  A program must have logic to parse the map argument and update the appropriate configuration maps for the BPF program.                                                                                                  |
 | monitor_maps          | array of [monitor_maps](#monitor_maps) objects | `[{"name":"cl_drop_count_map","key":0,"aggregator":"scalar"}]` | The BPF maps to monitor for metrics and how to aggregate metrics information at each interval metrics are sampled. This option can only be utilized when object file provided to load by l3afd.                                                                                                                      |
-| object_file           | string                                         | `ratelimiting_kern.o`                                          | The Object file containing BPF programs and maps, this option is needed to load BPF program from l3afd                                                                                                                                                                                                               |
+| object_file           | string                                         | `ratelimiting.bpf.o`                                          | The Object file containing BPF programs and maps, this option is needed to load BPF program from l3afd                                                                                                                                                                                                               |
 | entry_function_name   | string                                         | `_xdp_ratelimiting`                                            | The BPF program entry function name, this option is needed to load BPF program from l3afd                                                                                                                                                                                                                            |
 
 Note: `name`, `version`, the Linux distribution name, and `artifact` are

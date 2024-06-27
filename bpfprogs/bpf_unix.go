@@ -4,8 +4,8 @@
 //go:build !WINDOWS
 // +build !WINDOWS
 
-// Package kf provides primitives for l3afd's network function configs.
-package kf
+// Package bpfprogs provides primitives for l3afd's network function configs.
+package bpfprogs
 
 import (
 	"bytes"

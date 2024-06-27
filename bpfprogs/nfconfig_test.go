@@ -1,7 +1,7 @@
 // Copyright Contributors to the L3AF Project.
 // SPDX-License-Identifier: Apache-2.0
 
-package kf
+package bpfprogs
 
 import (
 	"container/list"
@@ -23,7 +23,7 @@ var (
 	machineHostname string
 	hostInterfaces  map[string]bool
 	pMon            *pCheck
-	mMon            *kfMetrics
+	mMon            *bpfMetrics
 	valVerChange    *models.BPFPrograms
 	valStatusChange *models.BPFPrograms
 	ingressXDPBpfs  map[string]*list.List
@@ -39,7 +39,7 @@ func setupDBTest() {
 	hostInterfaces = make(map[string]bool)
 	hostInterfaces["fakeif0"] = true
 	pMon = NewpCheck(3, true, 10)
-	mMon = NewpKFMetrics(true, 30)
+	mMon = NewpBPFMetrics(true, 30)
 
 	ingressXDPBpfs = make(map[string]*list.List)
 	ingressTCBpfs = make(map[string]*list.List)
@@ -133,7 +133,7 @@ func TestNewNFConfigs(t *testing.T) {
 		host     string
 		hostConf *config.Config
 		pMon     *pCheck
-		mMon     *kfMetrics
+		mMon     *bpfMetrics
 		ctx      context.Context
 	}
 	setupDBTest()
@@ -157,7 +157,7 @@ func TestNewNFConfigs(t *testing.T) {
 				EgressTCBpfs:   egressTCBpfs,
 				HostConfig:     nil,
 				processMon:     pMon,
-				kfMetricsMon:   mMon,
+				bpfMetricsMon:  mMon,
 				mu:             new(sync.Mutex),
 			},
 			wantErr: false,
@@ -186,7 +186,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 		egressTCBpfs   map[string]*list.List
 		hostConfig     *config.Config
 		processMon     *pCheck
-		metricsMon     *kfMetrics
+		metricsMon     *bpfMetrics
 	}
 	type args struct {
 		iface    string
@@ -200,6 +200,16 @@ func TestNFConfigs_Deploy(t *testing.T) {
 	setupBPFProgramVersionChange()
 	setupBPFProgramStatusChange()
 
+	hostInterfaces, err := getHostInterfaces()
+	if err != nil {
+		log.Info().Msg("getHostInterfaces returned and error")
+	}
+	var hostInterfacesKey string
+	var hostInterfacesValue bool
+	for hostInterfacesKey, hostInterfacesValue = range hostInterfaces {
+		log.Debug().Msgf("hostInterfacesKey: %v, hostInterfacesValue: %v", hostInterfacesKey, hostInterfacesValue)
+		break
+	}
 	tests := []struct {
 		name    string
 		fields  fields
@@ -264,7 +274,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 			name: "ValidHostNameValidIfaceName",
 			fields: fields{
 				hostName:       machineHostname,
-				hostInterfaces: map[string]bool{"fakeif0": true},
+				hostInterfaces: hostInterfaces,
 				ingressXDPBpfs: make(map[string]*list.List),
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
@@ -273,7 +283,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    "fakeif0",
+				iface:    hostInterfacesKey,
 				hostName: machineHostname,
 				bpfProgs: &models.BPFPrograms{},
 			},
@@ -283,7 +293,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 			name: "TestEBPFRepoDownload",
 			fields: fields{
 				hostName:       machineHostname,
-				hostInterfaces: map[string]bool{"fakeif0": true},
+				hostInterfaces: hostInterfaces,
 				ingressXDPBpfs: make(map[string]*list.List),
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
@@ -292,7 +302,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    "fakeif0",
+				iface:    hostInterfacesKey,
 				hostName: machineHostname,
 				bpfProgs: bpfProgs,
 			},
@@ -302,7 +312,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 			name: "NewBPFWithVersionChange",
 			fields: fields{
 				hostName:       machineHostname,
-				hostInterfaces: map[string]bool{"fakeif0": true},
+				hostInterfaces: hostInterfaces,
 				ingressXDPBpfs: make(map[string]*list.List),
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
@@ -311,7 +321,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    "fakeif0",
+				iface:    hostInterfacesKey,
 				hostName: machineHostname,
 				bpfProgs: valVerChange,
 			},
@@ -321,7 +331,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 			name: "NewBPFWithStatusChange",
 			fields: fields{
 				hostName:       machineHostname,
-				hostInterfaces: map[string]bool{"fakeif0": true},
+				hostInterfaces: hostInterfaces,
 				ingressXDPBpfs: make(map[string]*list.List),
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
@@ -330,7 +340,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    "fakeif0",
+				iface:    hostInterfacesKey,
 				hostName: machineHostname,
 				bpfProgs: valStatusChange,
 			},
@@ -454,6 +464,16 @@ func Test_BinarySearch(t *testing.T) {
 }
 
 func Test_AddProgramsOnInterface(t *testing.T) {
+	hostInterfaces, err := getHostInterfaces()
+	if err != nil {
+		log.Info().Msg("getHostInterfaces returned and error")
+	}
+	var hostInterfacesKey string
+	var hostInterfacesValue bool
+	for hostInterfacesKey, hostInterfacesValue = range hostInterfaces {
+		log.Debug().Msgf("hostInterfacesKey: %v, hostInterfacesValue: %v", hostInterfacesKey, hostInterfacesValue)
+		break
+	}
 	type fields struct {
 		hostName       string
 		hostInterfaces map[string]bool
@@ -522,7 +542,7 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 			name: "GoodInput",
 			field: fields{
 				hostName:       "l3af-local-test",
-				hostInterfaces: map[string]bool{"fakeif0": true},
+				hostInterfaces: hostInterfaces,
 				mu:             new(sync.Mutex),
 				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
 				ingressTCBpfs:  map[string]*list.List{"fakeif0": nil},
@@ -533,7 +553,7 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 			},
 			arg: args{
 				hostName: "l3af-local-test",
-				iface:    "fakeif0",
+				iface:    hostInterfacesKey,
 				bpfProgs: &models.BPFPrograms{
 					XDPIngress: []*models.BPFProgram{},
 					TCEgress:   []*models.BPFProgram{},
@@ -564,6 +584,16 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 }
 
 func TestAddeBPFPrograms(t *testing.T) {
+	hostInterfaces, err := getHostInterfaces()
+	if err != nil {
+		log.Info().Msg("getHostInterfaces returned and error")
+	}
+	var hostInterfacesKey string
+	var hostInterfacesValue bool
+	for hostInterfacesKey, hostInterfacesValue = range hostInterfaces {
+		log.Debug().Msgf("hostInterfacesKey: %v, hostInterfacesValue: %v", hostInterfacesKey, hostInterfacesValue)
+		break
+	}
 	type fields struct {
 		hostName       string
 		hostInterfaces map[string]bool
@@ -661,7 +691,7 @@ func TestAddeBPFPrograms(t *testing.T) {
 			name: "GoodInput",
 			field: fields{
 				hostName:       "l3af-local-test",
-				hostInterfaces: map[string]bool{"fakeif0": true},
+				hostInterfaces: hostInterfaces,
 				// fakeif0 is a fake interface
 				mu:             new(sync.Mutex),
 				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
@@ -675,7 +705,7 @@ func TestAddeBPFPrograms(t *testing.T) {
 			arg: []models.L3afBPFPrograms{
 				{
 					HostName: "l3af-local-test",
-					Iface:    "fakeif0",
+					Iface:    hostInterfacesKey,
 					BpfPrograms: &models.BPFPrograms{
 						XDPIngress: []*models.BPFProgram{},
 						TCIngress:  []*models.BPFProgram{},

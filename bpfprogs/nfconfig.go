@@ -1,8 +1,8 @@
 // Copyright Contributors to the L3AF Project.
 // SPDX-License-Identifier: Apache-2.0
 
-// Package kf provides primitives for l3afd's network function configs.
-package kf
+// Package bpfprogs provides primitives for l3afd's network function configs.
+package bpfprogs
 
 import (
 	"container/list"
@@ -34,10 +34,11 @@ type NFConfigs struct {
 	IngressXDPBpfs map[string]*list.List
 	IngressTCBpfs  map[string]*list.List
 	EgressTCBpfs   map[string]*list.List
+	ProbesBpfs     list.List
 
-	HostConfig   *config.Config
-	processMon   *pCheck
-	kfMetricsMon *kfMetrics
+	HostConfig    *config.Config
+	processMon    *pCheck
+	bpfMetricsMon *bpfMetrics
 
 	// keep track of interfaces
 	ifaces map[string]string
@@ -45,7 +46,7 @@ type NFConfigs struct {
 	mu *sync.Mutex
 }
 
-func NewNFConfigs(ctx context.Context, host string, hostConf *config.Config, pMon *pCheck, metricsMon *kfMetrics) (*NFConfigs, error) {
+func NewNFConfigs(ctx context.Context, host string, hostConf *config.Config, pMon *pCheck, metricsMon *bpfMetrics) (*NFConfigs, error) {
 	nfConfigs := &NFConfigs{
 		ctx:            ctx,
 		HostName:       host,
@@ -64,9 +65,9 @@ func NewNFConfigs(ctx context.Context, host string, hostConf *config.Config, pMo
 	}
 
 	nfConfigs.processMon = pMon
-	nfConfigs.processMon.pCheckStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs)
-	nfConfigs.kfMetricsMon = metricsMon
-	nfConfigs.kfMetricsMon.kfMetricsStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs)
+	nfConfigs.processMon.pCheckStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs, &nfConfigs.ProbesBpfs)
+	nfConfigs.bpfMetricsMon = metricsMon
+	nfConfigs.bpfMetricsMon.bpfMetricsStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs, &nfConfigs.ProbesBpfs)
 	return nfConfigs, nil
 }
 
@@ -114,6 +115,15 @@ func (c *NFConfigs) Close(ctx context.Context) error {
 			}
 			delete(c.EgressTCBpfs, ifaceName)
 		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := c.StopNRemoveAllBPFProbePrograms(); err != nil {
+			log.Warn().Err(err).Msg("failed to Close Probe BPF Programs")
+		}
+
 	}()
 
 	select {
@@ -275,6 +285,22 @@ func (c *NFConfigs) StopNRemoveAllBPFPrograms(ifaceName, direction string) error
 		}
 		nextBPF := e.Next()
 		bpfList.Remove(e)
+		e = nextBPF
+	}
+
+	return nil
+}
+
+// StopNRemoveAllBPFProbePrograms Stopping all probe programs in order
+func (c *NFConfigs) StopNRemoveAllBPFProbePrograms() error {
+
+	for e := c.ProbesBpfs.Front(); e != nil; {
+		data := e.Value.(*BPF)
+		if err := data.Stop("", "", false); err != nil {
+			return fmt.Errorf("failed to stop probe program %s with err :%w", data.Program.Name, err)
+		}
+		nextBPF := e.Next()
+		c.ProbesBpfs.Remove(e)
 		e = nextBPF
 	}
 
@@ -613,8 +639,8 @@ func (c *NFConfigs) LinkBPFPrograms(leftBPF, rightBPF *BPF) error {
 	return nil
 }
 
-// KFDetails - Method provides dump of KFs for debug purpose
-func (c *NFConfigs) KFDetails(iface string) []*BPF {
+// BPFDetails - Method provides dump of BPFs for debug purpose
+func (c *NFConfigs) BPFDetails(iface string) []*BPF {
 	arrBPFDetails := make([]*BPF, 0)
 	bpfList := c.IngressXDPBpfs[iface]
 	if bpfList != nil {
@@ -634,6 +660,11 @@ func (c *NFConfigs) KFDetails(iface string) []*BPF {
 			arrBPFDetails = append(arrBPFDetails, e.Value.(*BPF))
 		}
 	}
+
+	for e := c.ProbesBpfs.Front(); e != nil; e = e.Next() {
+		arrBPFDetails = append(arrBPFDetails, e.Value.(*BPF))
+	}
+
 	return arrBPFDetails
 }
 
@@ -651,6 +682,7 @@ func (c *NFConfigs) Deploy(ifaceName, HostName string, bpfProgs *models.BPFProgr
 		return errOut
 	}
 
+	c.hostInterfaces, _ = getHostInterfaces()
 	if _, ok := c.hostInterfaces[ifaceName]; !ok {
 		c.CleanupProgramsOnInterface(ifaceName)
 		errOut := fmt.Errorf("%s interface name not found in the host Stop called", ifaceName)
@@ -713,6 +745,12 @@ func (c *NFConfigs) Deploy(ifaceName, HostName string, bpfProgs *models.BPFProgr
 		}
 	}
 
+	for _, bpfProg := range bpfProgs.Probes {
+		if err := c.PushBackAndStartProbe(bpfProg); err != nil {
+			return fmt.Errorf("failed to update Probe BPF Program: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -725,7 +763,11 @@ func (c *NFConfigs) DeployeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error 
 			}
 			return fmt.Errorf("failed to deploy BPF program on iface %s with error: %w", bpfProg.Iface, err)
 		}
-		c.ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
+		if len(c.ifaces) == 0 {
+			c.ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
+		} else {
+			c.ifaces[bpfProg.Iface] = bpfProg.Iface
+		}
 	}
 
 	if err := c.RemoveMissingNetIfacesNBPFProgsInConfig(bpfProgs); err != nil {
@@ -803,6 +845,11 @@ func (c *NFConfigs) EBPFPrograms(iface string) models.L3afBPFPrograms {
 		}
 	}
 
+	e := c.ProbesBpfs.Front()
+	for ; e != nil; e = e.Next() {
+		BPFProgram.BpfPrograms.Probes = append(BPFProgram.BpfPrograms.Probes, &e.Value.(*BPF).Program)
+	}
+
 	return BPFProgram
 }
 
@@ -820,7 +867,6 @@ func (c *NFConfigs) EBPFProgramsAll() []models.L3afBPFPrograms {
 
 // RemoveMissingNetIfacesNBPFProgsInConfig - Stops running eBPF programs which are missing in the config
 func (c *NFConfigs) RemoveMissingNetIfacesNBPFProgsInConfig(bpfProgCfgs []models.L3afBPFPrograms) error {
-
 	tempIfaces := map[string]bool{}
 	wg := sync.WaitGroup{}
 	for _, bpfProg := range bpfProgCfgs {
@@ -881,7 +927,6 @@ func (c *NFConfigs) RemoveMissingNetIfacesNBPFProgsInConfig(bpfProgCfgs []models
 
 // RemoveMissingBPFProgramsInConfig - This method to stop the eBPF programs which are not listed in the config.
 func (c *NFConfigs) RemoveMissingBPFProgramsInConfig(bpfProg models.L3afBPFPrograms, ifaceName, direction string) error {
-
 	var bpfProgArr []*models.BPFProgram
 	var bpfList *list.List
 	switch direction {
@@ -1075,10 +1120,11 @@ func (c *NFConfigs) AddProgramWithoutChaining(ifaceName string, bpfProgs *models
 			}
 		}
 	}
+
 	return nil
 }
 
-// AddProgramsOnInterface: AddProgramsOnInterface will add given ebpf programs on given interface
+// AddProgramsOnInterface will add given ebpf programs on given interface
 func (c *NFConfigs) AddProgramsOnInterface(ifaceName, HostName string, bpfProgs *models.BPFPrograms) error {
 
 	if HostName != c.HostName {
@@ -1093,6 +1139,7 @@ func (c *NFConfigs) AddProgramsOnInterface(ifaceName, HostName string, bpfProgs 
 		return errOut
 	}
 
+	c.hostInterfaces, _ = getHostInterfaces()
 	if _, ok := c.hostInterfaces[ifaceName]; !ok {
 		errOut := fmt.Errorf("%s interface name not found in the host", ifaceName)
 		log.Error().Err(errOut)
@@ -1176,7 +1223,18 @@ func (c *NFConfigs) AddeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error {
 			}
 			return fmt.Errorf("failed to Add BPF program on iface %s with error: %w", bpfProg.Iface, err)
 		}
+		if err := c.AddProbePrograms(bpfProg.HostName, bpfProg.BpfPrograms.Probes); err != nil {
+			if err := c.SaveConfigsToConfigStore(); err != nil {
+				return fmt.Errorf("add eBPF Programs of type probes failed to save configs %w", err)
+			}
+			return fmt.Errorf("failed to Add eBPF program of type probe with error: %w", err)
+		}
 		c.ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
+		if len(c.ifaces) == 0 {
+			c.ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
+		} else {
+			c.ifaces[bpfProg.Iface] = bpfProg.Iface
+		}
 	}
 	if err := c.SaveConfigsToConfigStore(); err != nil {
 		return fmt.Errorf("AddeBPFPrograms failed to save configs %w", err)
@@ -1289,6 +1347,19 @@ func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfPro
 			c.EgressTCBpfs[ifaceName] = nil
 		}
 	}
+
+	sort.Strings(bpfProgs.Probes)
+	for e := c.ProbesBpfs.Front(); e != nil; {
+		next := e.Next()
+		data := e.Value.(*BPF)
+		if BinarySearch(bpfProgs.Probes, data.Program.Name) {
+			err := c.DeleteProgramsOnInterfaceHelper(e, ifaceName, "", &c.ProbesBpfs)
+			if err != nil {
+				return fmt.Errorf("DeleteProgramsOnInterfaceHelper function failed : %w", err)
+			}
+		}
+		e = next
+	}
 	return nil
 }
 
@@ -1359,4 +1430,54 @@ func BinarySearch(names []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func (c *NFConfigs) AddProbePrograms(HostName string, bpfProgs []*models.BPFProgram) error {
+	if HostName != c.HostName {
+		errOut := fmt.Errorf("provided bpf programs do not belong to this host")
+		log.Error().Err(errOut)
+		return errOut
+	}
+
+	if len(bpfProgs) == 0 {
+		return nil
+	}
+
+	for _, bpfProg := range bpfProgs {
+		if err := c.PushBackAndStartProbe(bpfProg); err != nil {
+			return fmt.Errorf("failed to PushBackAndStartBPF BPF Program: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// PushBackAndStartProbe method inserts the element at the end of the list
+func (c *NFConfigs) PushBackAndStartProbe(bpfProg *models.BPFProgram) error {
+	log.Info().Msgf("PushBackAndStartProbe: %s", bpfProg.Name)
+	bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig, "")
+
+	if err := c.DownloadAndStartProbes(c.ProbesBpfs.PushBack(bpf)); err != nil {
+		return fmt.Errorf("failed to download and start the BPF %s  with err: %w", bpfProg.Name, err)
+	}
+
+	return nil
+}
+
+func (c *NFConfigs) DownloadAndStartProbes(element *list.Element) error {
+	if element == nil {
+		return fmt.Errorf("element is nil pointer")
+	}
+
+	bpf := element.Value.(*BPF)
+
+	if err := bpf.VerifyAndGetArtifacts(c.HostConfig); err != nil {
+		return fmt.Errorf("failed to get artifacts %s with error: %w", bpf.Program.Artifact, err)
+	}
+
+	if err := bpf.LoadBPFProgram(""); err != nil {
+		return fmt.Errorf("failed to load bpf program %s with error: %w", bpf.Program.Name, err)
+	}
+
+	return nil
 }
