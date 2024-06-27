@@ -312,6 +312,13 @@ const docTemplate = `{
         "models.BPFProgramNames": {
             "type": "object",
             "properties": {
+                "probes": {
+                    "description": "names of the probe eBPF programs",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "tc_egress": {
                     "description": "names of the TC egress eBPF programs",
                     "type": "array",
@@ -338,6 +345,13 @@ const docTemplate = `{
         "models.BPFPrograms": {
             "type": "object",
             "properties": {
+                "probes": {
+                    "description": "list of probe bpf programs",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.BPFProgram"
+                    }
+                },
                 "tc_egress": {
                     "description": "list of tc egress bpf programs",
                     "type": "array",

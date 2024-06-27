@@ -55,6 +55,7 @@ func Test_pCheck_pCheckStart(t *testing.T) {
 		IngressXDPbpfProgs map[string]*list.List
 		IngressTCbpfProgs  map[string]*list.List
 		EgressTCbpfProgs   map[string]*list.List
+		Probebpfs          list.List
 	}
 	tests := []struct {
 		name    string
@@ -79,7 +80,7 @@ func Test_pCheck_pCheckStart(t *testing.T) {
 				Chain:             tt.fields.chain,
 				retryMonitorDelay: tt.fields.retryMonitorDelay,
 			}
-			c.pCheckStart(tt.args.IngressXDPbpfProgs, tt.args.IngressTCbpfProgs, tt.args.EgressTCbpfProgs)
+			c.pCheckStart(tt.args.IngressXDPbpfProgs, tt.args.IngressTCbpfProgs, tt.args.EgressTCbpfProgs, &tt.args.Probebpfs)
 		})
 	}
 }

@@ -34,6 +34,7 @@ type NFConfigs struct {
 	IngressXDPBpfs map[string]*list.List
 	IngressTCBpfs  map[string]*list.List
 	EgressTCBpfs   map[string]*list.List
+	ProbesBpfs     list.List
 
 	HostConfig    *config.Config
 	processMon    *pCheck
@@ -64,9 +65,9 @@ func NewNFConfigs(ctx context.Context, host string, hostConf *config.Config, pMo
 	}
 
 	nfConfigs.processMon = pMon
-	nfConfigs.processMon.pCheckStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs)
+	nfConfigs.processMon.pCheckStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs, &nfConfigs.ProbesBpfs)
 	nfConfigs.bpfMetricsMon = metricsMon
-	nfConfigs.bpfMetricsMon.bpfMetricsStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs)
+	nfConfigs.bpfMetricsMon.bpfMetricsStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs, &nfConfigs.ProbesBpfs)
 	return nfConfigs, nil
 }
 
@@ -114,6 +115,15 @@ func (c *NFConfigs) Close(ctx context.Context) error {
 			}
 			delete(c.EgressTCBpfs, ifaceName)
 		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := c.StopNRemoveAllBPFProbePrograms(); err != nil {
+			log.Warn().Err(err).Msg("failed to Close Probe BPF Programs")
+		}
+
 	}()
 
 	select {
@@ -275,6 +285,22 @@ func (c *NFConfigs) StopNRemoveAllBPFPrograms(ifaceName, direction string) error
 		}
 		nextBPF := e.Next()
 		bpfList.Remove(e)
+		e = nextBPF
+	}
+
+	return nil
+}
+
+// StopNRemoveAllBPFProbePrograms Stopping all probe programs in order
+func (c *NFConfigs) StopNRemoveAllBPFProbePrograms() error {
+
+	for e := c.ProbesBpfs.Front(); e != nil; {
+		data := e.Value.(*BPF)
+		if err := data.Stop("", "", false); err != nil {
+			return fmt.Errorf("failed to stop probe program %s with err :%w", data.Program.Name, err)
+		}
+		nextBPF := e.Next()
+		c.ProbesBpfs.Remove(e)
 		e = nextBPF
 	}
 
@@ -634,6 +660,11 @@ func (c *NFConfigs) BPFDetails(iface string) []*BPF {
 			arrBPFDetails = append(arrBPFDetails, e.Value.(*BPF))
 		}
 	}
+
+	for e := c.ProbesBpfs.Front(); e != nil; e = e.Next() {
+		arrBPFDetails = append(arrBPFDetails, e.Value.(*BPF))
+	}
+
 	return arrBPFDetails
 }
 
@@ -711,6 +742,12 @@ func (c *NFConfigs) Deploy(ifaceName, HostName string, bpfProgs *models.BPFProgr
 			}
 		} else if err := c.VerifyNUpdateBPFProgram(bpfProg, ifaceName, models.EgressType); err != nil {
 			return fmt.Errorf("failed to update BPF Program: %w", err)
+		}
+	}
+
+	for _, bpfProg := range bpfProgs.Probes {
+		if err := c.PushBackAndStartProbe(bpfProg); err != nil {
+			return fmt.Errorf("failed to update Probe BPF Program: %w", err)
 		}
 	}
 
@@ -806,6 +843,11 @@ func (c *NFConfigs) EBPFPrograms(iface string) models.L3afBPFPrograms {
 		for ; e != nil; e = e.Next() {
 			BPFProgram.BpfPrograms.TCEgress = append(BPFProgram.BpfPrograms.TCEgress, &e.Value.(*BPF).Program)
 		}
+	}
+
+	e := c.ProbesBpfs.Front()
+	for ; e != nil; e = e.Next() {
+		BPFProgram.BpfPrograms.Probes = append(BPFProgram.BpfPrograms.Probes, &e.Value.(*BPF).Program)
 	}
 
 	return BPFProgram
@@ -1078,10 +1120,11 @@ func (c *NFConfigs) AddProgramWithoutChaining(ifaceName string, bpfProgs *models
 			}
 		}
 	}
+
 	return nil
 }
 
-// AddProgramsOnInterface: AddProgramsOnInterface will add given ebpf programs on given interface
+// AddProgramsOnInterface will add given ebpf programs on given interface
 func (c *NFConfigs) AddProgramsOnInterface(ifaceName, HostName string, bpfProgs *models.BPFPrograms) error {
 
 	if HostName != c.HostName {
@@ -1180,6 +1223,13 @@ func (c *NFConfigs) AddeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error {
 			}
 			return fmt.Errorf("failed to Add BPF program on iface %s with error: %w", bpfProg.Iface, err)
 		}
+		if err := c.AddProbePrograms(bpfProg.HostName, bpfProg.BpfPrograms.Probes); err != nil {
+			if err := c.SaveConfigsToConfigStore(); err != nil {
+				return fmt.Errorf("add eBPF Programs of type probes failed to save configs %w", err)
+			}
+			return fmt.Errorf("failed to Add eBPF program of type probe with error: %w", err)
+		}
+		c.ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
 		if len(c.ifaces) == 0 {
 			c.ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
 		} else {
@@ -1297,6 +1347,19 @@ func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfPro
 			c.EgressTCBpfs[ifaceName] = nil
 		}
 	}
+
+	sort.Strings(bpfProgs.Probes)
+	for e := c.ProbesBpfs.Front(); e != nil; {
+		next := e.Next()
+		data := e.Value.(*BPF)
+		if BinarySearch(bpfProgs.Probes, data.Program.Name) {
+			err := c.DeleteProgramsOnInterfaceHelper(e, ifaceName, "", &c.ProbesBpfs)
+			if err != nil {
+				return fmt.Errorf("DeleteProgramsOnInterfaceHelper function failed : %w", err)
+			}
+		}
+		e = next
+	}
 	return nil
 }
 
@@ -1367,4 +1430,54 @@ func BinarySearch(names []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func (c *NFConfigs) AddProbePrograms(HostName string, bpfProgs []*models.BPFProgram) error {
+	if HostName != c.HostName {
+		errOut := fmt.Errorf("provided bpf programs do not belong to this host")
+		log.Error().Err(errOut)
+		return errOut
+	}
+
+	if len(bpfProgs) == 0 {
+		return nil
+	}
+
+	for _, bpfProg := range bpfProgs {
+		if err := c.PushBackAndStartProbe(bpfProg); err != nil {
+			return fmt.Errorf("failed to PushBackAndStartBPF BPF Program: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// PushBackAndStartProbe method inserts the element at the end of the list
+func (c *NFConfigs) PushBackAndStartProbe(bpfProg *models.BPFProgram) error {
+	log.Info().Msgf("PushBackAndStartProbe: %s", bpfProg.Name)
+	bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig, "")
+
+	if err := c.DownloadAndStartProbes(c.ProbesBpfs.PushBack(bpf)); err != nil {
+		return fmt.Errorf("failed to download and start the BPF %s  with err: %w", bpfProg.Name, err)
+	}
+
+	return nil
+}
+
+func (c *NFConfigs) DownloadAndStartProbes(element *list.Element) error {
+	if element == nil {
+		return fmt.Errorf("element is nil pointer")
+	}
+
+	bpf := element.Value.(*BPF)
+
+	if err := bpf.VerifyAndGetArtifacts(c.HostConfig); err != nil {
+		return fmt.Errorf("failed to get artifacts %s with error: %w", bpf.Program.Artifact, err)
+	}
+
+	if err := bpf.LoadBPFProgram(""); err != nil {
+		return fmt.Errorf("failed to load bpf program %s with error: %w", bpf.Program.Name, err)
+	}
+
+	return nil
 }

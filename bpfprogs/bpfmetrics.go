@@ -26,13 +26,14 @@ func NewpBPFMetrics(chain bool, interval int) *bpfMetrics {
 	return m
 }
 
-func (c *bpfMetrics) bpfMetricsStart(xdpProgs, ingressTCProgs, egressTCProgs map[string]*list.List) {
-	go c.bpfMetricsWorker(xdpProgs, models.XDPIngressType)
-	go c.bpfMetricsWorker(ingressTCProgs, models.IngressType)
-	go c.bpfMetricsWorker(egressTCProgs, models.EgressType)
+func (c *bpfMetrics) bpfMetricsStart(xdpProgs, ingressTCProgs, egressTCProgs map[string]*list.List, probes *list.List) {
+	go c.bpfMetricsWorker(xdpProgs)
+	go c.bpfMetricsWorker(ingressTCProgs)
+	go c.bpfMetricsWorker(egressTCProgs)
+	go c.BPFMetricsProbeWorker(probes)
 }
 
-func (c *bpfMetrics) bpfMetricsWorker(bpfProgs map[string]*list.List, direction string) {
+func (c *bpfMetrics) bpfMetricsWorker(bpfProgs map[string]*list.List) {
 	for range time.NewTicker(1 * time.Second).C {
 		for ifaceName, bpfList := range bpfProgs {
 			if bpfList == nil { // no bpf programs are running
@@ -49,6 +50,24 @@ func (c *bpfMetrics) bpfMetricsWorker(bpfProgs map[string]*list.List, direction 
 				if err := bpf.MonitorMaps(ifaceName, c.Intervals); err != nil {
 					log.Error().Err(err).Msgf("pMonitor monitor maps failed - %s", bpf.Program.Name)
 				}
+			}
+		}
+	}
+}
+
+func (c *bpfMetrics) BPFMetricsProbeWorker(bpfProgs *list.List) {
+	for range time.NewTicker(1 * time.Second).C {
+		if bpfProgs == nil {
+			time.Sleep(time.Second)
+			continue
+		}
+		for e := bpfProgs.Front(); e != nil; e = e.Next() {
+			bpf := e.Value.(*BPF)
+			if bpf.Program.AdminStatus == models.Disabled {
+				continue
+			}
+			if err := bpf.MonitorMaps("", c.Intervals); err != nil {
+				log.Error().Err(err).Msgf("pMonitor probe monitor maps failed - %s", bpf.Program.Name)
 			}
 		}
 	}
