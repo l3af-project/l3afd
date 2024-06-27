@@ -47,7 +47,7 @@ cmake --build build
 - L3AFD binary & configuration that is required in the Docker image needs to be built locally and copied to build-docker directory
 - Execute below command to build the docker image
 ```
-docker build -t l3afd:r2 -f Dockerfile.l3afd .
+docker build -t l3afd:v2.0.0 -f Dockerfile .
 ```
 Requirements to run L3AFD as a Container
 - BPF, debugfs & shared-memory filesystems mount points should be available in the container
