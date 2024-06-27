@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestNewpBPFMetrics(t *testing.T) {
+func TestNewpKFMetrics(t *testing.T) {
 	type args struct {
 		chain    bool
 		interval int
@@ -37,7 +37,7 @@ func TestNewpBPFMetrics(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := NewpBPFMetrics(tt.args.chain, tt.args.interval)
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewBPFMetrics() = %v, want %v", got, tt.want)
+				t.Errorf("NewKFMetrics() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -52,6 +52,7 @@ func Test_BPFMetrics_Start(t *testing.T) {
 		IngressXDPbpfProgs map[string]*list.List
 		IngressTCbpfProgs  map[string]*list.List
 		EgressTCbpfProgs   map[string]*list.List
+		Probes             *list.List
 	}
 	tests := []struct {
 		name    string
@@ -75,7 +76,7 @@ func Test_BPFMetrics_Start(t *testing.T) {
 				Chain:     tt.fields.Chain,
 				Intervals: tt.fields.Interval,
 			}
-			c.bpfMetricsStart(tt.args.IngressXDPbpfProgs, tt.args.IngressTCbpfProgs, tt.args.EgressTCbpfProgs)
+			c.bpfMetricsStart(tt.args.IngressXDPbpfProgs, tt.args.IngressTCbpfProgs, tt.args.EgressTCbpfProgs, tt.args.Probes)
 		})
 	}
 }
