@@ -13,7 +13,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/l3af-project/l3afd/v2/kf"
+	"github.com/l3af-project/l3afd/v2/bpfprogs"
 	"github.com/l3af-project/l3afd/v2/models"
 )
 
@@ -25,7 +25,7 @@ import (
 // @Param cfgs body []models.L3afBPFPrograms true "BPF programs"
 // @Success 200
 // @Router /l3af/configs/v1/add [post]
-func AddEbpfPrograms(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFunc {
+func AddEbpfPrograms(ctx context.Context, bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		mesg := ""
@@ -61,7 +61,7 @@ func AddEbpfPrograms(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFunc 
 			return
 		}
 
-		if err := kfcfg.AddeBPFPrograms(t); err != nil {
+		if err := bpfcfg.AddeBPFPrograms(t); err != nil {
 			mesg = fmt.Sprintf("failed to AddEbpfPrograms : %v", err)
 			log.Error().Msg(mesg)
 
