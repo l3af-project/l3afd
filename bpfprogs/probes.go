@@ -25,6 +25,13 @@ func (b *BPF) LoadBPFProgramProbeType(prog *ebpf.Program, sectionName string) er
 			return fmt.Errorf("failed to link tracepoint sec name %s error %v", sectionName, err)
 		}
 		b.ProbeLinks = append(b.ProbeLinks, &tp)
+	case ebpf.Kprobe:
+		_, probeName = GetProgramSectionDetails(sectionName)
+		kp, err := link.Kprobe(probeName, prog, nil)
+		if err != nil {
+			return fmt.Errorf("failed to link kprobe sec name %s error %v", sectionName, err)
+		}
+		b.ProbeLinks = append(b.ProbeLinks, &kp)
 	default:
 		return fmt.Errorf("un-supported probe type %s ", prog.Type())
 	}
