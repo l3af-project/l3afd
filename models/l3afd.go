@@ -89,6 +89,7 @@ type BPFPrograms struct {
 	XDPIngress []*BPFProgram `json:"xdp_ingress"` // list of xdp ingress bpf programs
 	TCIngress  []*BPFProgram `json:"tc_ingress"`  // list of tc ingress bpf programs
 	TCEgress   []*BPFProgram `json:"tc_egress"`   // list of tc egress bpf programs
+	Probes     []*BPFProgram `json:"probes"`      // list of probe bpf programs
 }
 
 // L3afBPFProgramNames defines names of Bpf programs on interface
@@ -103,4 +104,5 @@ type BPFProgramNames struct {
 	XDPIngress []string `json:"xdp_ingress"` // names of the XDP ingress eBPF programs
 	TCIngress  []string `json:"tc_ingress"`  // names of the TC ingress eBPF programs
 	TCEgress   []string `json:"tc_egress"`   // names of the TC egress eBPF programs
+	Probes     []string `json:"probes"`      // names of the probe eBPF programs
 }

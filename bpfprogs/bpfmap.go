@@ -1,7 +1,7 @@
 // Copyright Contributors to the L3AF Project.
 // SPDX-License-Identifier: Apache-2.0
 
-package kf
+package bpfprogs
 
 import (
 	"container/ring"
@@ -64,7 +64,7 @@ func (b *BPFMap) Update(key, value int) error {
 func (b *MetricsBPFMap) GetValue() float64 {
 	ebpfMap, err := ebpf.NewMapFromID(b.MapID)
 	if err != nil {
-		// We have observed in smaller configuration VM's, if we restart KF's
+		// We have observed in smaller configuration VM's, if we restart BPF's
 		// Stale mapID's are reported, in such cases re-checking map id
 		log.Warn().Err(err).Msgf("GetValue : NewMapFromID failed ID %d, re-looking up of map id", b.MapID)
 		tmpBPF, err := b.BPFProg.GetBPFMap(b.Name)

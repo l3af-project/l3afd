@@ -70,7 +70,7 @@ This section is needed when bpf-chaining-enabled is set to true.
 | ingress-map-name    | `"xdp_root_array"`       | Ingress map name of xdp-root program                                     | Yes |
 | command             | `"xdp_root"`             | Command to run xdp-root program                                          | Yes |
 | version             | `"latest"`               | Version of xdp-root program                                              | Yes |
-| object-file         | `"xdp_root_kern.o"`      | File containing the object code for xdp-root program                     | Yes |
+| object-file         | `"xdp_root.bpf.o"`      | File containing the object code for xdp-root program                     | Yes |
 | entry-function-name | `"xdp_root"`             | Name of the function that begins the XDP-root program                    | Yes |
 
 
@@ -85,8 +85,8 @@ This section is needed when bpf-chaining-enabled is set to true.
 | egress-map-name             | `"tc_egress_root_array"`   | Egress map name of tc_root program,for more info about ingress/egress check [cilium](https://docs.cilium.io/en/v1.9/concepts/ebpf/intro/) | Yes |
 | command                     | `"tc_root"`                | Command to run tc_root program                                                                                                            | Yes |
 | version                     | `"latest"`                 | Version of tc_root program                                                                                                                | Yes |
-| ingress-object-file         | `"tc_root_ingress_kern.o"` | File containing the object code for tc-root ingress program                                                                               | Yes |
-| egress-object-file          | `"tc_root_egress_kern.o"`  | File containing the object code for tc-root egress program                                                                                | Yes |
+| ingress-object-file         | `"tc_root_ingress.bpf.o"` | File containing the object code for tc-root ingress program                                                                               | Yes |
+| egress-object-file          | `"tc_root_egress.bpf.o"`  | File containing the object code for tc-root egress program                                                                                | Yes |
 | ingress-entry-function-name | `"tc_ingress_root"`        | Name of the function that begins the tc-root ingress program                                                                              | Yes |
 | egress-entry-function-name  | `"tc_egress_root"`         | Name of the function that begins the tc-root egress program                                                                               | Yes |
 

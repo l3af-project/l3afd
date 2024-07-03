@@ -1,8 +1,8 @@
 // Copyright Contributors to the L3AF Project.
 // SPDX-License-Identifier: Apache-2.0
 
-// Package kf provides primitives for BPF programs / Network Functions.
-package kf
+// Package bpfprogs provides primitives for BPF programs / Network Functions.
+package bpfprogs
 
 import (
 	"archive/tar"
@@ -81,9 +81,6 @@ func NewBpfProgram(ctx context.Context, program models.BPFProgram, conf *config.
 			progMapFilePath = filepath.Join(conf.BpfMapDefaultPath, ifaceName, program.MapName)
 		} else if program.ProgType == models.TCType {
 			progMapFilePath = filepath.Join(conf.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, program.MapName)
-		} else {
-			log.Error().Msgf("unsupported program type - %s", program.ProgType)
-			return nil
 		}
 		if strings.Contains(progMapFilePath, "..") {
 			log.Error().Msgf("program map file contains relative path %s", progMapFilePath)
@@ -258,9 +255,9 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 		delete(b.MetricsBpfMaps, key)
 	}
 
-	// Stop KFconfigs
+	// Stop BPF configs
 	if len(b.Program.CmdConfig) > 0 && len(b.Program.ConfigFilePath) > 0 {
-		log.Info().Msgf("Stopping KF configs %s ", b.Program.Name)
+		log.Info().Msgf("Stopping BPF configs %s ", b.Program.Name)
 		b.Done <- true
 	}
 
@@ -292,9 +289,12 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 		}
 
 		args := make([]string, 0, len(b.Program.StopArgs)<<1)
-		args = append(args, "--iface="+ifaceName)     // detaching from iface
-		args = append(args, "--direction="+direction) // xdpingress or ingress or egress
-
+		if len(ifaceName) > 0 {
+			args = append(args, "--iface="+ifaceName) // detaching from iface
+		}
+		if len(direction) > 0 {
+			args = append(args, "--direction="+direction) // xdpingress or ingress or egress
+		}
 		for k, val := range b.Program.StopArgs {
 			if v, ok := val.(string); !ok {
 				err := fmt.Errorf("stop args is not a string for the bpf program %s", b.Program.Name)
@@ -430,11 +430,11 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		}
 	}
 
-	// KFconfigs
+	// BPFconfigs
 	if len(b.Program.CmdConfig) > 0 && len(b.Program.ConfigFilePath) > 0 {
 		log.Info().Msgf("eBPF program specific config monitoring - %s", b.Program.ConfigFilePath)
 		b.Done = make(chan bool)
-		go b.RunKFConfigs()
+		go b.RunBPFConfigs()
 	}
 
 	stats.Incr(stats.BPFStartCount, b.Program.Name, direction, ifaceName)
@@ -1072,12 +1072,6 @@ func (b *BPF) LoadXDPAttachProgram(ifaceName string) error {
 
 // UnloadProgram - Unload or detach the program from the interface and close all the program resources
 func (b *BPF) UnloadProgram(ifaceName, direction string) error {
-	_, err := net.InterfaceByName(ifaceName)
-	if err != nil {
-		log.Error().Err(err).Msgf("UnloadProgram - look up network iface %q", ifaceName)
-		return err
-	}
-
 	// Verifying program attached to the interface.
 	// SeqID will be 0 for root program or any other program without chaining
 	if b.Program.SeqID == 0 || !b.hostConfig.BpfChainingEnabled {
@@ -1209,7 +1203,7 @@ func (b *BPF) LoadBPFProgram(ifaceName string) error {
 	var mapPinPath string
 	if b.Program.ProgType == models.TCType {
 		mapPinPath = filepath.Join(b.hostConfig.BpfMapDefaultPath, models.TCMapPinPath, ifaceName)
-	} else {
+	} else if b.Program.ProgType == models.XDPType {
 		mapPinPath = filepath.Join(b.hostConfig.BpfMapDefaultPath, ifaceName)
 	}
 	collOptions := ebpf.CollectionOptions{
@@ -1231,31 +1225,33 @@ func (b *BPF) LoadBPFProgram(ifaceName string) error {
 		return fmt.Errorf("LoadBPFProgramProbeTypes failed with error %v ", err)
 	}
 
-	bpfProg := prg.Programs[b.Program.EntryFunctionName]
-	if bpfProg == nil {
-		return fmt.Errorf("%s entry function is not found in the loaded object file of the program %s", b.Program.EntryFunctionName, b.Program.Name)
-	}
+	//var bpfProg *ebpf.Program
+	if len(b.Program.EntryFunctionName) > 0 {
+		bpfProg := prg.Programs[b.Program.EntryFunctionName]
+		if bpfProg == nil {
+			return fmt.Errorf("%s entry function is not found in the loaded object file of the program %s", b.Program.EntryFunctionName, b.Program.Name)
+		}
 
-	progInfo, err := bpfProg.Info()
-	if err != nil {
-		return fmt.Errorf("%s: information of bpf program failed : %w", b.Program.Name, err)
-	}
+		progInfo, err := bpfProg.Info()
+		if err != nil {
+			return fmt.Errorf("%s: information of bpf program failed : %w", b.Program.Name, err)
+		}
 
-	ok := false
-	b.ProgID, ok = progInfo.ID()
-	if !ok {
-		log.Warn().Msgf("Program ID fetch failed: %s", b.Program.Name)
-	}
+		ok := false
+		b.ProgID, ok = progInfo.ID()
+		if !ok {
+			log.Warn().Msgf("Program ID fetch failed: %s", b.Program.Name)
+		}
 
-	// Initialise metric maps
-	if err := b.InitialiseMetricMaps(); err != nil {
-		return fmt.Errorf("initialising metric maps failed %w", err)
-	}
+		// Initialise metric maps
+		if err := b.InitialiseMetricMaps(); err != nil {
+			return fmt.Errorf("initialising metric maps failed %w", err)
+		}
 
-	if err := b.PinBpfMaps(ifaceName); err != nil {
-		return err
+		if err := b.PinBpfMaps(ifaceName); err != nil {
+			return err
+		}
 	}
-
 	return nil
 }
 
@@ -1377,8 +1373,12 @@ func (b *BPF) StartUserProgram(ifaceName, direction string, chain bool) error {
 	}
 
 	args := make([]string, 0, len(b.Program.StartArgs)<<1)
-	args = append(args, "--iface="+ifaceName)     // attaching to interface
-	args = append(args, "--direction="+direction) // direction xdpingress or ingress or egress
+	if len(ifaceName) > 0 {
+		args = append(args, "--iface="+ifaceName) // attaching to interface
+	}
+	if len(direction) > 0 {
+		args = append(args, "--direction="+direction) // direction xdpingress or ingress or egress
+	}
 
 	if chain && b.ProgMapCollection == nil {
 		// chaining from user program
@@ -1440,12 +1440,15 @@ func (b *BPF) CreateMapPinDirectory(ifaceName string) error {
 	} else if b.Program.ProgType == models.TCType {
 		mapPathDir = filepath.Join(b.hostConfig.BpfMapDefaultPath, models.TCMapPinPath, ifaceName)
 	}
-	// codeQL Check
-	if strings.Contains(mapPathDir, "..") {
-		return fmt.Errorf("%s contains relative path is not supported - %s", mapPathDir, b.Program.Name)
-	}
-	if err := os.MkdirAll(mapPathDir, 0750); err != nil {
-		return fmt.Errorf("%s failed to create map dir path of %s program %s with err : %w", mapPathDir, b.Program.ProgType, b.Program.Name, err)
+	// Create map dir for XDP and TC programs only
+	if len(mapPathDir) > 0 {
+		// codeQL Check
+		if strings.Contains(mapPathDir, "..") {
+			return fmt.Errorf("%s contains relative path is not supported - %s", mapPathDir, b.Program.Name)
+		}
+		if err := os.MkdirAll(mapPathDir, 0750); err != nil {
+			return fmt.Errorf("%s failed to create map dir path of %s program %s with err : %w", mapPathDir, b.Program.ProgType, b.Program.Name, err)
+		}
 	}
 	return nil
 }
@@ -1543,46 +1546,4 @@ func (b *BPF) LoadBPFProgramChain(ifaceName, direction string) error {
 	}
 	log.Info().Msgf("eBPF program %s loaded on interface %s direction %s successfully", b.Program.Name, ifaceName, direction)
 	return nil
-}
-
-// LoadBPFProgramProbeTypes - Load the BPF programs of probe types - TracePoint
-func (b *BPF) LoadBPFProgramProbeTypes(objSpec *ebpf.CollectionSpec) error {
-	for i, prog := range b.ProgMapCollection.Programs {
-		if i == b.Program.EntryFunctionName {
-			// skipping XDP/TC programs
-			continue
-		}
-		if err := b.LoadBPFProgramProbeType(prog, objSpec.Programs[i].SectionName); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (b *BPF) LoadBPFProgramProbeType(prog *ebpf.Program, sectionName string) error {
-	switch prog.Type() {
-	case ebpf.TracePoint:
-		group, probeName := GetProgramSectionDetails(sectionName)
-		tp, err := link.Tracepoint(group, probeName, prog, nil)
-		if err != nil {
-			return fmt.Errorf("failed to link tracepoint sec name %s error %v", sectionName, err)
-		}
-		b.ProbeLinks = append(b.ProbeLinks, &tp)
-	default:
-		return fmt.Errorf("un-supported probe type %s ", prog.Type())
-	}
-	return nil
-}
-
-// GetProgramSectionDetails returns group and name details
-// Section name format /prob type/group/name
-// e.g.: tracepoint/sock/inet_sock_set_state
-// e.g.: kprobe/sys_execve
-func GetProgramSectionDetails(sectionName string) (string, string) {
-	sections := strings.Split(sectionName, "/")
-	length := len(sections)
-	if length > 1 {
-		return sections[length-2], sections[length-1]
-	}
-	return "", ""
 }

@@ -1,8 +1,8 @@
 // Copyright Contributors to the L3AF Project.
 // SPDX-License-Identifier: Apache-2.0
 
-// Package kf provides primitives for BPF process monitoring.
-package kf
+// Package bpfprogs provides primitives for BPF process monitoring.
+package bpfprogs
 
 import (
 	"container/list"
@@ -10,7 +10,6 @@ import (
 
 	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/l3af-project/l3afd/v2/stats"
-
 	"github.com/rs/zerolog/log"
 )
 
@@ -29,10 +28,11 @@ func NewpCheck(rc int, chain bool, interval time.Duration) *pCheck {
 	return c
 }
 
-func (c *pCheck) pCheckStart(xdpProgs, ingressTCProgs, egressTCProgs map[string]*list.List) {
+func (c *pCheck) pCheckStart(xdpProgs, ingressTCProgs, egressTCProgs map[string]*list.List, probes *list.List) {
 	go c.pMonitorWorker(xdpProgs, models.XDPIngressType)
 	go c.pMonitorWorker(ingressTCProgs, models.IngressType)
 	go c.pMonitorWorker(egressTCProgs, models.EgressType)
+	go c.pMonitorProbeWorker(probes)
 }
 
 func (c *pCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string) {
@@ -82,6 +82,55 @@ func (c *pCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string
 				} else {
 					stats.SetWithVersion(0.0, stats.BPFRunning, bpf.Program.Name, bpf.Program.Version, direction, ifaceName)
 				}
+			}
+		}
+	}
+}
+
+func (c *pCheck) pMonitorProbeWorker(bpfProgs *list.List) {
+	for range time.NewTicker(c.retryMonitorDelay).C {
+		if bpfProgs == nil {
+			time.Sleep(time.Second)
+			continue
+		}
+		for e := bpfProgs.Front(); e != nil; e = e.Next() {
+			bpf := e.Value.(*BPF)
+			if bpf.Program.AdminStatus == models.Disabled {
+				continue
+			}
+			userProgram, bpfProgram, _ := bpf.isRunning()
+			if userProgram && bpfProgram {
+				stats.SetWithVersion(1.0, stats.BPFRunning, bpf.Program.Name, bpf.Program.Version, "", "")
+				continue
+			}
+
+			// Not running trying to restart
+			if bpf.RestartCount < c.MaxRetryCount && bpf.Program.AdminStatus == models.Enabled {
+				bpf.RestartCount++
+				log.Warn().Msgf("pMonitorProbeWorker: BPF Program is not running. Restart attempt: %d, program name: %s, iface: %s",
+					bpf.RestartCount, bpf.Program.Name, "")
+				//  User program is a daemon and not running, but the BPF program is loaded
+				if !userProgram && bpfProgram {
+					if err := bpf.StartUserProgram("", "", c.Chain); err != nil {
+						log.Error().Err(err).Msgf("pMonitorProbeWorker: BPF Program start user program failed for program %s", bpf.Program.Name)
+					}
+				}
+				// BPF program is not loaded.
+				// if user program is daemon then stop it and restart both the programs
+				if !bpfProgram {
+					log.Warn().Msgf("%s BPF program is not loaded, %s program reloading ...", bpf.Program.EntryFunctionName, bpf.Program.Name)
+					// User program is a daemon and running, stop before reloading the BPF program
+					if bpf.Program.UserProgramDaemon && userProgram {
+						if err := bpf.Stop("", "", c.Chain); err != nil {
+							log.Error().Err(err).Msgf("pMonitorProbeWorker: BPF Program stop failed for program %s", bpf.Program.Name)
+						}
+					}
+					if err := bpf.Start("", "", c.Chain); err != nil {
+						log.Error().Err(err).Msgf("pMonitorProbeWorker: BPF Program start failed for program %s", bpf.Program.Name)
+					}
+				}
+			} else {
+				stats.SetWithVersion(0.0, stats.BPFRunning, bpf.Program.Name, bpf.Program.Version, "", "")
 			}
 		}
 	}
