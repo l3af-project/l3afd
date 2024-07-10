@@ -453,16 +453,18 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 // UpdateBPFMaps - Update the config ebpf maps via map arguments
 func (b *BPF) UpdateBPFMaps(ifaceName, direction string) error {
 	for _, val := range b.Program.MapArgs {
+		bpfMap, ok := b.BpfMaps[val.Name]
+		if !ok {
+			if err := b.AddBPFMap(val.Name); err != nil {
+				return err
+			}
+			bpfMap = b.BpfMaps[val.Name]
+		}
+		if err := bpfMap.DeleteAllEntries(); err != nil {
+			return fmt.Errorf("failed to delete all the entries of map %s with err %w", val.Name, err)
+		}
 		for _, v := range val.Args {
 			log.Info().Msgf("Update map args key %v val %v", v.Key, v.Value)
-
-			bpfMap, ok := b.BpfMaps[val.Name]
-			if !ok {
-				if err := b.AddBPFMap(val.Name); err != nil {
-					return err
-				}
-				bpfMap = b.BpfMaps[val.Name]
-			}
 			bpfMap.Update(v.Key, v.Value)
 		}
 	}

@@ -5,6 +5,7 @@ package bpfprogs
 
 import (
 	"container/ring"
+	"errors"
 	"fmt"
 	"math"
 	"unsafe"
@@ -31,6 +32,32 @@ type MetricsBPFMap struct {
 	lastValue  float64
 }
 
+// The DeleteAllEntries function is used to delete all entries of eBPF maps, which are used by network functions.
+func (b *BPFMap) DeleteAllEntries() error {
+	ebpfMap, err := ebpf.NewMapFromID(b.MapID)
+	if err != nil {
+		return fmt.Errorf("access new map from ID failed %w", err)
+	}
+	defer ebpfMap.Close()
+
+	var key, nextKey interface{}
+	for {
+		err := ebpfMap.NextKey(unsafe.Pointer(&key), unsafe.Pointer(&nextKey))
+		if err != nil {
+			if errors.Is(err, ebpf.ErrKeyNotExist) {
+				break
+			} else {
+				return fmt.Errorf("Get next key failed with error %w, mapid %d", err, b.MapID)
+			}
+		}
+		key = nextKey
+		if err := ebpfMap.Delete(unsafe.Pointer(&key)); err != nil {
+			return fmt.Errorf("Delete key failed with error %w, mapid %d", err, b.MapID)
+		}
+	}
+	return nil
+}
+
 // The update function is used to update eBPF maps, which are used by network functions.
 func (b *BPFMap) Update(key, value int) error {
 
@@ -40,15 +67,6 @@ func (b *BPFMap) Update(key, value int) error {
 		return fmt.Errorf("access new map from ID failed %w", err)
 	}
 	defer ebpfMap.Close()
-
-	entries := ebpfMap.Iterate()
-	for entries.Next(unsafe.Pointer(&key), unsafe.Pointer(&value)) {
-		// Order of keys is non-deterministic due to randomized map seed
-		if err := ebpfMap.Delete(unsafe.Pointer(&key)); err != nil {
-			log.Warn().Err(err).Msgf("delete hash map for key %d failed", key)
-		}
-	}
-
 	log.Info().Msgf("updating map %s key %d mapid %d", b.Name, key, b.MapID)
 	if err := ebpfMap.Update(unsafe.Pointer(&key), unsafe.Pointer(&value), 0); err != nil {
 		return fmt.Errorf("update hash map element failed for key %d error %w", key, err)
