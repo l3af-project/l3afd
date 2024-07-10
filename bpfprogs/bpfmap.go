@@ -47,12 +47,12 @@ func (b *BPFMap) DeleteAllEntries() error {
 			if errors.Is(err, ebpf.ErrKeyNotExist) {
 				break
 			} else {
-				return fmt.Errorf("Get next key failed with error %w, mapid %d", err, b.MapID)
+				return fmt.Errorf("get next key failed with error %w, mapid %d", err, b.MapID)
 			}
 		}
 		key = nextKey
 		if err := ebpfMap.Delete(unsafe.Pointer(&key)); err != nil {
-			return fmt.Errorf("Delete key failed with error %w, mapid %d", err, b.MapID)
+			return fmt.Errorf("delete key failed with error %w, mapid %d", err, b.MapID)
 		}
 	}
 	return nil
