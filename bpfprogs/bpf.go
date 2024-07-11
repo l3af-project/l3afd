@@ -465,7 +465,7 @@ func (b *BPF) UpdateBPFMaps(ifaceName, direction string) error {
 			bpfMap.Update(v.Key, v.Value)
 		}
 		if err := bpfMap.RemoveMissingKeys(val.Args); err != nil {
-			return fmt.Errorf("failed to delete all the entries of map %s with err %w", val.Name, err)
+			return fmt.Errorf("failed to remove missing entries of map %s with err %w", val.Name, err)
 		}
 	}
 	stats.Incr(stats.BPFUpdateCount, b.Program.Name, direction, ifaceName)

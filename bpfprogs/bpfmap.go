@@ -57,7 +57,7 @@ func (b *BPFMap) RemoveMissingKeys(args []models.KeyValue) error {
 		key = nextKey
 		_, IsKeyExists := KeyValueMap[key]
 		if !IsKeyExists {
-			fmt.Printf("removing key %v because it is missing\n", key)
+			log.Info().Msgf("removing key %v because it is missing\n", key)
 			if err := ebpfMap.Delete(unsafe.Pointer(&key)); err != nil {
 				return fmt.Errorf("delete key failed with error %w, mapid %d", err, b.MapID)
 			}
