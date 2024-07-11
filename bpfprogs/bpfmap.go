@@ -11,6 +11,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/ebpf"
+	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/rs/zerolog/log"
 )
 
@@ -32,15 +33,18 @@ type MetricsBPFMap struct {
 	lastValue  float64
 }
 
-// The DeleteAllEntries function is used to delete all entries of eBPF maps, which are used by network functions.
-func (b *BPFMap) DeleteAllEntries() error {
+// The RemoveMissingKeys function is used to delete all entries of eBPF maps, which are used by network functions.
+func (b *BPFMap) RemoveMissingKeys(args []models.KeyValue) error {
 	ebpfMap, err := ebpf.NewMapFromID(b.MapID)
 	if err != nil {
 		return fmt.Errorf("access new map from ID failed %w", err)
 	}
 	defer ebpfMap.Close()
-
-	var key, nextKey interface{}
+	KeyValueMap := make(map[int]bool, 0)
+	for _, k := range args {
+		KeyValueMap[k.Key] = true
+	}
+	var key, nextKey int
 	for {
 		err := ebpfMap.NextKey(unsafe.Pointer(&key), unsafe.Pointer(&nextKey))
 		if err != nil {
@@ -51,8 +55,12 @@ func (b *BPFMap) DeleteAllEntries() error {
 			}
 		}
 		key = nextKey
-		if err := ebpfMap.Delete(unsafe.Pointer(&key)); err != nil {
-			return fmt.Errorf("delete key failed with error %w, mapid %d", err, b.MapID)
+		_, IsKeyExists := KeyValueMap[key]
+		if !IsKeyExists {
+			fmt.Printf("removing key %v because it is missing\n", key)
+			if err := ebpfMap.Delete(unsafe.Pointer(&key)); err != nil {
+				return fmt.Errorf("delete key failed with error %w, mapid %d", err, b.MapID)
+			}
 		}
 	}
 	return nil

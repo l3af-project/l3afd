@@ -460,12 +460,12 @@ func (b *BPF) UpdateBPFMaps(ifaceName, direction string) error {
 			}
 			bpfMap = b.BpfMaps[val.Name]
 		}
-		if err := bpfMap.DeleteAllEntries(); err != nil {
-			return fmt.Errorf("failed to delete all the entries of map %s with err %w", val.Name, err)
-		}
 		for _, v := range val.Args {
 			log.Info().Msgf("Update map args key %v val %v", v.Key, v.Value)
 			bpfMap.Update(v.Key, v.Value)
+		}
+		if err := bpfMap.RemoveMissingKeys(val.Args); err != nil {
+			return fmt.Errorf("failed to delete all the entries of map %s with err %w", val.Name, err)
 		}
 	}
 	stats.Incr(stats.BPFUpdateCount, b.Program.Name, direction, ifaceName)
