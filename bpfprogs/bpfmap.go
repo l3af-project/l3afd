@@ -66,7 +66,7 @@ func (b *BPFMap) RemoveMissingKeys(args []models.KeyValue) error {
 	return nil
 }
 
-// The update function is used to update eBPF maps, which are used by network functions.
+// The update function is used to update eBPF maps, which are used by eBPF programs.
 func (b *BPFMap) Update(key, value int) error {
 
 	log.Debug().Msgf("update map name %s ID %d", b.Name, b.MapID)
