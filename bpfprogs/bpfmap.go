@@ -33,14 +33,14 @@ type MetricsBPFMap struct {
 	lastValue  float64
 }
 
-// The RemoveMissingKeys function is used to delete all entries of eBPF maps, which are used by network functions.
+// The RemoveMissingKeys function is used to delete missing entries of eBPF maps, which are used by network functions.
 func (b *BPFMap) RemoveMissingKeys(args []models.KeyValue) error {
 	ebpfMap, err := ebpf.NewMapFromID(b.MapID)
 	if err != nil {
 		return fmt.Errorf("access new map from ID failed %w", err)
 	}
 	defer ebpfMap.Close()
-	KeyValueMap := make(map[int]bool, 0)
+	KeyValueMap := make(map[int]bool, len(args))
 	for _, k := range args {
 		KeyValueMap[k.Key] = true
 	}
