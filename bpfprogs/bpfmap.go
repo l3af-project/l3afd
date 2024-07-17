@@ -5,13 +5,13 @@ package bpfprogs
 
 import (
 	"container/ring"
+	"errors"
 	"fmt"
 	"math"
-	"strconv"
-	"strings"
 	"unsafe"
 
 	"github.com/cilium/ebpf"
+	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/rs/zerolog/log"
 )
 
@@ -33,25 +33,41 @@ type MetricsBPFMap struct {
 	lastValue  float64
 }
 
-// The update function is used to update eBPF maps, which are used by network functions.
-// Supported types are Array and Hash
-// Multiple values are comma separated
-// Hashmap can be multiple values or single values.
-// If hash map entries then key will be values and value will be set to 1
-// In case of Array then key will be index starting from 0 and values are stored.
-// for e.g.
-//
-//	HashMap scenario 1. --ports="80,443" values are stored in rl_ports_map BPF map
-//		key => 80 value => 1
-//		key => 443 value => 1
-//	HashMap scenario 2. --ports="443" value is stored in rl_ports_map BPF map
-//		key => 443 value => 1
-//	Array scenario 1. --ports="80,443" values are stored in rl_ports_map BPF map
-//		key => 0 value => 80
-//		key => 1 value => 443
-//	Array scenario 2. --rate="10000" value is stored in rl_config_map BPF map
-//		key => 0 value => 10000
-func (b *BPFMap) Update(value string) error {
+// The RemoveMissingKeys function is used to delete missing entries of eBPF maps, which are used by eBPF Programs.
+func (b *BPFMap) RemoveMissingKeys(args []models.KeyValue) error {
+	ebpfMap, err := ebpf.NewMapFromID(b.MapID)
+	if err != nil {
+		return fmt.Errorf("access new map from ID failed %w", err)
+	}
+	defer ebpfMap.Close()
+	KeyValueMap := make(map[int]bool, len(args))
+	for _, k := range args {
+		KeyValueMap[k.Key] = true
+	}
+	var key, nextKey int
+	for {
+		err := ebpfMap.NextKey(unsafe.Pointer(&key), unsafe.Pointer(&nextKey))
+		if err != nil {
+			if errors.Is(err, ebpf.ErrKeyNotExist) {
+				break
+			} else {
+				return fmt.Errorf("get next key failed with error %w, mapid %d", err, b.MapID)
+			}
+		}
+		key = nextKey
+		_, IsKeyExists := KeyValueMap[key]
+		if !IsKeyExists {
+			log.Info().Msgf("removing key %v because it is missing\n", key)
+			if err := ebpfMap.Delete(unsafe.Pointer(&key)); err != nil {
+				return fmt.Errorf("delete key failed with error %w, mapid %d", err, b.MapID)
+			}
+		}
+	}
+	return nil
+}
+
+// The update function is used to update eBPF maps, which are used by eBPF programs.
+func (b *BPFMap) Update(key, value int) error {
 
 	log.Debug().Msgf("update map name %s ID %d", b.Name, b.MapID)
 	ebpfMap, err := ebpf.NewMapFromID(b.MapID)
@@ -59,40 +75,9 @@ func (b *BPFMap) Update(value string) error {
 		return fmt.Errorf("access new map from ID failed %w", err)
 	}
 	defer ebpfMap.Close()
-
-	// check values are single or multiple
-	s := strings.Split(value, ",")
-
-	if b.Type == ebpf.Hash {
-		// clear map elements
-		key := 0
-		val := 0
-		entries := ebpfMap.Iterate()
-		for entries.Next(unsafe.Pointer(&key), unsafe.Pointer(&val)) {
-			// Order of keys is non-deterministic due to randomized map seed
-			if err := ebpfMap.Delete(unsafe.Pointer(&key)); err != nil {
-				log.Warn().Err(err).Msgf("delete hash map for key %d failed", key)
-			}
-		}
-
-		for key, val := range s {
-			v, _ := strconv.ParseInt(val, 10, 64)
-			x := 1
-			log.Info().Msgf("updating map %s key %d mapid %d", b.Name, v, b.MapID)
-			if err := ebpfMap.Update(unsafe.Pointer(&v), unsafe.Pointer(&x), 0); err != nil {
-				return fmt.Errorf("update hash map element failed for key %d error %w", key, err)
-			}
-		}
-	} else if b.Type == ebpf.Array {
-		for key, val := range s {
-			v, _ := strconv.ParseInt(val, 10, 64)
-			log.Info().Msgf("updating map %s key %d mapid %d", b.Name, v, b.MapID)
-			if err := ebpfMap.Update(unsafe.Pointer(&key), unsafe.Pointer(&v), 0); err != nil {
-				return fmt.Errorf("update array map index %d %w", key, err)
-			}
-		}
-	} else {
-		return fmt.Errorf("unsupported map type")
+	log.Info().Msgf("updating map %s key %d mapid %d", b.Name, key, b.MapID)
+	if err := ebpfMap.Update(unsafe.Pointer(&key), unsafe.Pointer(&value), 0); err != nil {
+		return fmt.Errorf("update hash map element failed for key %d error %w", key, err)
 	}
 	return nil
 }
