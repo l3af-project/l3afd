@@ -989,10 +989,12 @@ func (c *NFConfigs) RemoveMissingBPFProgramsInConfig(bpfProg models.L3afBPFProgr
 	return nil
 }
 
+var netInterfaces = net.Interfaces
+
 // getHostInterfaces - return host network interfaces
 func getHostInterfaces() (map[string]bool, error) {
 	var hostIfaces = make(map[string]bool, 0)
-	ifaces, err := net.Interfaces()
+	ifaces, err := netInterfaces()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get net interfaces: %w", err)
 	}
