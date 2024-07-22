@@ -64,7 +64,6 @@ func UpdateConfig(ctx context.Context, bpfcfg *bpfprogs.NFConfigs) http.HandlerF
 		if err := bpfcfg.DeployeBPFPrograms(t); err != nil {
 			mesg = fmt.Sprintf("failed to deploy ebpf programs: %v", err)
 			log.Error().Msg(mesg)
-
 			statusCode = http.StatusInternalServerError
 			return
 		}

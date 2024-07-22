@@ -17,10 +17,9 @@ import (
 	"syscall"
 	"unsafe"
 
+	"github.com/Atul-source/go-tc"
+	"github.com/Atul-source/go-tc/core"
 	"github.com/l3af-project/l3afd/v2/models"
-
-	"github.com/florianl/go-tc"
-	"github.com/florianl/go-tc/core"
 	"github.com/rs/zerolog/log"
 	"github.com/safchain/ethtool"
 	"golang.org/x/sys/unix"
@@ -212,7 +211,8 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 	}
 
 	// verify and add attribute clsact
-	tcgo, err := tc.Open(&tc.Config{})
+	tcgo, err, fd := tc.Open(&tc.Config{})
+	fmt.Printf("FDDDDD of tc socket is %v", fd)
 	if err != nil {
 		return fmt.Errorf("could not open rtnetlink socket for interface %s : %w", ifaceName, err)
 	}
@@ -353,7 +353,7 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 		return fmt.Errorf("could not attach filter to interface %s for eBPF program %s : %w", ifaceName, b.Program.Name, err)
 	}
 
-	if b.hostConfig.BpfChainingEnabled {
+	if b.HostConfig.BpfChainingEnabled {
 		if err = b.UpdateProgramMap(ifaceName); err != nil {
 			return err
 		}
@@ -369,7 +369,8 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 		return err
 	}
 
-	tcgo, err := tc.Open(&tc.Config{})
+	tcgo, err, fd := tc.Open(&tc.Config{})
+	log.Info().Msgf("I am getting fd is %v", fd)
 	if err != nil {
 		log.Error().Err(err).Msgf("UnloadTCProgram - Unable to tc.Open(&tc.Config{}):  %q", ifaceName)
 		return err

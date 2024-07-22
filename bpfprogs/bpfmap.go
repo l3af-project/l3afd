@@ -27,10 +27,10 @@ type BPFMap struct {
 // This stores Metrics map details.
 type MetricsBPFMap struct {
 	BPFMap
-	key        int
+	Key        int
 	Values     *ring.Ring
-	aggregator string
-	lastValue  float64
+	Aggregator string
+	LastValue  float64
 }
 
 // The RemoveMissingKeys function is used to delete missing entries of eBPF maps, which are used by eBPF Programs.
@@ -109,28 +109,28 @@ func (b *MetricsBPFMap) GetValue() float64 {
 	defer ebpfMap.Close()
 
 	var value int64
-	if err = ebpfMap.Lookup(unsafe.Pointer(&b.key), unsafe.Pointer(&value)); err != nil {
+	if err = ebpfMap.Lookup(unsafe.Pointer(&b.Key), unsafe.Pointer(&value)); err != nil {
 		log.Warn().Err(err).Msgf("GetValue Lookup failed : Name %s ID %d", b.Name, b.MapID)
 		return 0
 	}
 
 	var retVal float64
-	switch b.aggregator {
+	switch b.Aggregator {
 	case "scalar":
 		retVal = float64(value)
 	case "max-rate":
 		b.Values = b.Values.Next()
-		b.Values.Value = math.Abs(float64(float64(value) - b.lastValue))
-		b.lastValue = float64(value)
+		b.Values.Value = math.Abs(float64(float64(value) - b.LastValue))
+		b.LastValue = float64(value)
 		retVal = b.MaxValue()
 	case "avg":
 		b.Values.Value = value
 		b.Values = b.Values.Next()
 		retVal = b.AvgValue()
 	default:
-		log.Warn().Msgf("unsupported aggregator %s and value %d", b.aggregator, value)
+		log.Warn().Msgf("unsupported aggregator %s and value %d", b.Aggregator, value)
 	}
-
+	log.Info().Msgf("METTT : %v", retVal)
 	return retVal
 }
 

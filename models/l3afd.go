@@ -3,6 +3,8 @@
 
 package models
 
+import "net"
+
 // l3afd constants
 const (
 	Enabled  = "enabled"
@@ -106,3 +108,86 @@ type BPFProgramNames struct {
 	TCEgress   []string `json:"tc_egress"`   // names of the TC egress eBPF programs
 	Probes     []string `json:"probes"`      // names of the probe eBPF programs
 }
+
+type MetaBpfMap struct {
+	Name  string
+	MapID uint32
+	Type  uint32
+}
+type MetaProgMap struct {
+	ProgID uint32
+}
+
+type MetaColl struct {
+	Programs map[string]MetaProgMap
+	Maps     map[string]MetaBpfMap
+}
+
+type MetaMetricsBPFMap struct {
+	MetaBpfMap
+	Key        int
+	Values     []float64
+	Aggregator string
+	LastValue  float64
+}
+
+type L3AFMetaData struct {
+	Program BPFProgram
+	// Cmd               *exec.Cmd                 `json:"-"`
+	FilePath        string
+	RestartCount    int    // To track restart count
+	PrevMapNamePath string // Previous Map name with path to link
+	MapNamePath     string // Map name with path
+	ProgID          uint32 // eBPF Program ID
+	BpfMaps         map[string]MetaBpfMap
+	MetricsBpfMaps  map[string]MetaMetricsBPFMap // Metrics map name+key+aggregator is key
+	// Ctx               context.Context           `json:"-"`
+	// Done              chan bool                 `json:"-"`
+	ProgMapCollection MetaColl // eBPF Collection reference
+	ProgMapID         uint32   // Prog map id
+	PrevProgMapID     uint32   // Prev prog map id
+	//hostConfig        *config.Config  recreate and read the file again
+	//TCFilter   *tc.Filter `json:"-"` // handle to tc filter
+	XDPLink    int   // handle xdp link object filedescriptor index in extra files for child process
+	ProbeLinks []int // have file descriptors indexes in extra files for child process
+}
+
+type MetaPcheck struct {
+	MaxRetryCount     int
+	Chain             bool
+	RetryMonitorDelay int
+}
+
+type MetaBpfMetric struct {
+	Chain     bool
+	Intervals int
+}
+type L3AFALLHOSTDATA struct {
+	//ctx            context.Context
+	HostName       string
+	HostInterfaces map[string]bool
+	//	configs        sync.Map // key: string, val: *models.L3afDNFConfigDetail
+	// These holds bpf programs in the list
+	// map keys are network iface names index's are seq_id, position in the chain
+	// root element will be root program
+	IngressXDPBpfs map[string][]*L3AFMetaData
+	IngressTCBpfs  map[string][]*L3AFMetaData
+	EgressTCBpfs   map[string][]*L3AFMetaData
+	ProbesBpfs     []L3AFMetaData
+
+	//HostConfig    *config.Config
+	ProcessMon    MetaPcheck
+	BpfMetricsMon MetaBpfMetric
+
+	// keep track of interfaces
+	Ifaces map[string]string
+
+	// mu *sync.Mutex
+}
+
+type FDer interface {
+	FD() int
+}
+
+var AllNetListeners map[string]*net.TCPListener
+var CurrentFdIdx int
