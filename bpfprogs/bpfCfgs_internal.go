@@ -4,16 +4,16 @@
 //go:build !configs
 // +build !configs
 
-// This file is used for walmart internal to run KF specific configs.
+// This file is used for walmart internal to run BPF specific configs.
 // We will be removing this file in future.
 
-package kf
+package bpfprogs
 
 import (
 	"github.com/rs/zerolog/log"
 )
 
-func (b *BPF) RunKFConfigs() error {
-	log.Warn().Msg("Implement custom KF specific configs")
+func (b *BPF) RunBPFConfigs() error {
+	log.Warn().Msg("Implement custom BPF specific configs")
 	return nil
 }

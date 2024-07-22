@@ -50,7 +50,7 @@ type BPFProgram struct {
 	StopArgs          L3afDNFArgs         `json:"stop_args"`             // Map of arguments to stop command
 	StatusArgs        L3afDNFArgs         `json:"status_args"`           // Map of arguments to status command
 	UpdateArgs        L3afDNFArgs         `json:"update_args"`           // Map of arguments to update command
-	MapArgs           L3afDNFArgs         `json:"map_args"`              // Config BPF Map of arguments
+	MapArgs           []L3afDMapArg       `json:"map_args"`              // Config BPF Map of arguments
 	ConfigArgs        L3afDNFArgs         `json:"config_args"`           // Map of arguments to config command
 	MonitorMaps       []L3afDNFMetricsMap `json:"monitor_maps"`          // Metrics BPF maps
 	EPRURL            string              `json:"ebpf_package_repo_url"` // Download url for Program
@@ -65,6 +65,18 @@ type L3afDNFMetricsMap struct {
 	Aggregator string `json:"aggregator"` // Aggregation function names
 }
 
+// KeyValue defines struct for key and value
+type KeyValue struct {
+	Key   int `json:"key"`   // Key
+	Value int `json:"value"` // Value
+}
+
+// L3afDMapArg defines map arg
+type L3afDMapArg struct {
+	Name string     `json:"name"` // BPF map name
+	Args []KeyValue `json:"args"` // BPF map arguments
+}
+
 // L3afBPFPrograms defines configs for a node
 type L3afBPFPrograms struct {
 	HostName    string       `json:"host_name"`    // Host name or pod name
@@ -77,6 +89,7 @@ type BPFPrograms struct {
 	XDPIngress []*BPFProgram `json:"xdp_ingress"` // list of xdp ingress bpf programs
 	TCIngress  []*BPFProgram `json:"tc_ingress"`  // list of tc ingress bpf programs
 	TCEgress   []*BPFProgram `json:"tc_egress"`   // list of tc egress bpf programs
+	Probes     []*BPFProgram `json:"probes"`      // list of probe bpf programs
 }
 
 // L3afBPFProgramNames defines names of Bpf programs on interface
@@ -91,4 +104,5 @@ type BPFProgramNames struct {
 	XDPIngress []string `json:"xdp_ingress"` // names of the XDP ingress eBPF programs
 	TCIngress  []string `json:"tc_ingress"`  // names of the TC ingress eBPF programs
 	TCEgress   []string `json:"tc_egress"`   // names of the TC egress eBPF programs
+	Probes     []string `json:"probes"`      // names of the probe eBPF programs
 }

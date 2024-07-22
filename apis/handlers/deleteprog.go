@@ -13,7 +13,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/l3af-project/l3afd/v2/kf"
+	"github.com/l3af-project/l3afd/v2/bpfprogs"
 	"github.com/l3af-project/l3afd/v2/models"
 )
 
@@ -25,7 +25,7 @@ import (
 // @Param cfgs body []models.L3afBPFProgramNames true "BPF program names"
 // @Success 200
 // @Router /l3af/configs/v1/delete [post]
-func DeleteEbpfPrograms(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFunc {
+func DeleteEbpfPrograms(ctx context.Context, bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		mesg := ""
@@ -61,7 +61,7 @@ func DeleteEbpfPrograms(ctx context.Context, kfcfg *kf.NFConfigs) http.HandlerFu
 			return
 		}
 
-		if err := kfcfg.DeleteEbpfPrograms(t); err != nil {
+		if err := bpfcfg.DeleteEbpfPrograms(t); err != nil {
 			mesg = fmt.Sprintf("failed to DeleteEbpfPrograms : %v", err)
 			log.Error().Msg(mesg)
 

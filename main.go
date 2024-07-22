@@ -18,8 +18,8 @@ import (
 
 	"github.com/l3af-project/l3afd/v2/apis"
 	"github.com/l3af-project/l3afd/v2/apis/handlers"
+	"github.com/l3af-project/l3afd/v2/bpfprogs"
 	"github.com/l3af-project/l3afd/v2/config"
-	"github.com/l3af-project/l3afd/v2/kf"
 	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/l3af-project/l3afd/v2/pidfile"
 	"github.com/l3af-project/l3afd/v2/stats"
@@ -131,12 +131,12 @@ func main() {
 	}
 
 	if conf.EBPFChainDebugEnabled {
-		kf.SetupKFDebug(conf.EBPFChainDebugAddr, ebpfConfigs)
+		bpfprogs.SetupBPFDebug(conf.EBPFChainDebugAddr, ebpfConfigs)
 	}
 	select {}
 }
 
-func SetupNFConfigs(ctx context.Context, conf *config.Config) (*kf.NFConfigs, error) {
+func SetupNFConfigs(ctx context.Context, conf *config.Config) (*bpfprogs.NFConfigs, error) {
 	// Get Hostname
 	machineHostname, err := os.Hostname()
 	if err != nil {
@@ -146,10 +146,10 @@ func SetupNFConfigs(ctx context.Context, conf *config.Config) (*kf.NFConfigs, er
 	// setup Metrics endpoint
 	stats.SetupMetrics(machineHostname, daemonName, conf.MetricsAddr)
 
-	pMon := kf.NewpCheck(conf.MaxEBPFReStartCount, conf.BpfChainingEnabled, conf.EBPFPollInterval)
-	kfM := kf.NewpKFMetrics(conf.BpfChainingEnabled, conf.NMetricSamples)
+	pMon := bpfprogs.NewpCheck(conf.MaxEBPFReStartCount, conf.BpfChainingEnabled, conf.EBPFPollInterval)
+	bpfM := bpfprogs.NewpBPFMetrics(conf.BpfChainingEnabled, conf.NMetricSamples)
 
-	nfConfigs, err := kf.NewNFConfigs(ctx, machineHostname, conf, pMon, kfM)
+	nfConfigs, err := bpfprogs.NewNFConfigs(ctx, machineHostname, conf, pMon, bpfM)
 	if err != nil {
 		return nil, fmt.Errorf("error in NewNFConfigs setup: %v", err)
 	}
