@@ -31,7 +31,6 @@ import (
 	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/l3af-project/l3afd/v2/stats"
 
-	tc "github.com/Atul-source/go-tc"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/rlimit"
@@ -68,8 +67,7 @@ type BPF struct {
 	ProgMapID         ebpf.MapID                // Prog map id
 	PrevProgMapID     ebpf.MapID                // Prev prog map id
 	HostConfig        *config.Config
-	TCFilter          *tc.Filter `json:"-"` // handle to tc filter
-	XDPLink           link.Link  `json:"-"` // handle xdp link object
+	XDPLink           link.Link `json:"-"` // handle xdp link object
 	ProbeLinks        []*link.Link
 }
 

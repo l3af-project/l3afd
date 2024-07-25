@@ -161,7 +161,6 @@ type L3AFMetaData struct {
 	ProgMapID         uint32   // Prog map id
 	PrevProgMapID     uint32   // Prev prog map id
 	//hostConfig        *config.Config  recreate and read the file again
-	//TCFilter   *tc.Filter `json:"-"` // handle to tc filter
 	XDPLink    int   // handle xdp link object filedescriptor index in extra files for child process
 	ProbeLinks []int // have file descriptors indexes in extra files for child process
 }
