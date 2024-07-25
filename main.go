@@ -29,6 +29,7 @@ import (
 	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/l3af-project/l3afd/v2/pidfile"
 	"github.com/l3af-project/l3afd/v2/stats"
+	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/rs/zerolog"
@@ -137,6 +138,7 @@ func ConvertIfaceMaps(ctx context.Context, input map[string][]*models.L3AFMetaDa
 			g.MapNamePath = r.MapNamePath
 			g.PrevMapNamePath = r.PrevMapNamePath
 			g.PrevProgMapID = ebpf.MapID(r.PrevProgMapID)
+			g.ProgMapID = ebpf.MapID(r.ProgMapID)
 			g.ProgID = ebpf.ProgramID(r.ProgID)
 			g.Ctx = ctx
 			g.HostConfig = hostconfig
@@ -158,18 +160,55 @@ func ConvertIfaceMaps(ctx context.Context, input map[string][]*models.L3AFMetaDa
 				models.CurrentFdIdx++
 			}
 			for _, a := range r.ProbeLinks {
-				ln, kerr := link.NewLinkFromFD(a)
-				if kerr != nil {
-					return fmt.Errorf("getting fd from problink failed %w", kerr)
+				if a >= 3 {
+					ln, kerr := link.NewLinkFromFD(a)
+					if kerr != nil {
+						return fmt.Errorf("getting fd from problink failed %w", kerr)
+					}
+					g.ProbeLinks = append(g.ProbeLinks, &ln)
+					models.CurrentFdIdx++
 				}
-				g.ProbeLinks = append(g.ProbeLinks, &ln)
-				models.CurrentFdIdx++
 			}
 			l.PushBack(g)
 		}
 		(*output)[k] = l
 	}
 	return nil
+}
+func GetValueofLabel(l string, t []models.Label) string {
+	for _, f := range t {
+		if f.Name == l {
+			return f.Value
+		}
+	}
+	return ""
+}
+
+func GetCountVecByMetricName(name string) *prometheus.CounterVec {
+	switch name {
+	case "l3afd_BPFUpdateCount":
+		return stats.BPFUpdateCount
+	case "l3afd_BPFStartCount":
+		return stats.BPFStartCount
+	case "l3afd_BPFStopCount":
+		return stats.BPFStopCount
+	case "l3afd_BPFUpdateFailedCount":
+		return stats.BPFUpdateFailedCount
+	default:
+		return nil
+	}
+}
+func GetGaugeVecByMetricName(name string) *prometheus.GaugeVec {
+	switch name {
+	case "l3afd_BPFRunning":
+		return stats.BPFRunning
+	case "l3afd_BPFStartTime":
+		return stats.BPFStartTime
+	case "l3afd_BPFMonitorMap":
+		return stats.BPFMonitorMap
+	default:
+		return nil
+	}
 }
 func Convert(ctx context.Context, t models.L3AFALLHOSTDATA, hostconfig *config.Config) (*bpfprogs.NFConfigs, error) {
 	D := &bpfprogs.NFConfigs{}
@@ -191,6 +230,27 @@ func Convert(ctx context.Context, t models.L3AFALLHOSTDATA, hostconfig *config.C
 	return D, nil
 }
 
+// Setting up Metrics
+func SetMetrics(t models.L3AFALLHOSTDATA) {
+	for _, f := range t.AllStats {
+		if f.Type == 0 {
+			stats.Add(f.Value, GetCountVecByMetricName(f.MetricName), GetValueofLabel("ebpf_program", f.Labels),
+				GetValueofLabel("direction", f.Labels), GetValueofLabel("interface_name", f.Labels))
+		} else {
+			if len(GetValueofLabel("version", f.Labels)) > 0 {
+				stats.SetWithVersion(f.Value, GetGaugeVecByMetricName(f.MetricName), GetValueofLabel("ebpf_program", f.Labels),
+					GetValueofLabel("version", f.Labels), GetValueofLabel("direction", f.Labels), GetValueofLabel("interface_name", f.Labels))
+			} else if len(GetValueofLabel("map_name", f.Labels)) > 0 {
+				stats.SetValue(f.Value, GetGaugeVecByMetricName(f.MetricName), GetValueofLabel("ebpf_program", f.Labels),
+					GetValueofLabel("map_name", f.Labels), GetValueofLabel("interface_name", f.Labels))
+			} else {
+				stats.Set(f.Value, GetGaugeVecByMetricName(f.MetricName), GetValueofLabel("ebpf_program", f.Labels),
+					GetValueofLabel("direction", f.Labels), GetValueofLabel("interface_name", f.Labels))
+			}
+		}
+	}
+}
+
 func getnetlistener(fd int) (*net.TCPListener, error) {
 	file := os.NewFile(uintptr(fd), "DupFD"+strconv.Itoa(models.CurrentFdIdx))
 	l, err := net.FileListener(file)
@@ -201,12 +261,13 @@ func getnetlistener(fd int) (*net.TCPListener, error) {
 	if !e {
 		return nil, fmt.Errorf("not able to covert to tcp listner")
 	}
+	file.Close()
 	return lf, nil
 }
 
 func main() {
 	setupLogging()
-	models.CurrentFdIdx = 3
+	models.CurrentFdIdx = 5
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	log.Info().Msgf("%s started.", daemonName)
@@ -220,13 +281,16 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msgf("Unable to parse config %q", confPath)
 	}
-
+	if conf.EBPFChainDebugEnabled {
+		models.CurrentFdIdx++
+	}
 	if conf.FileLogLocation != "" {
 		log.Info().Msgf("Saving logs to file: %s", conf.FileLogLocation)
 		saveLogsToFile(conf)
 	}
 
 	if conf.HotReloadEnabled {
+		models.CurrentFdIdx = 3
 		bodyBuffer, err := os.ReadFile("/var/l3afd/l3af_meta.json")
 		if err != nil {
 			log.Info().Msgf("not able to read meta data file")
@@ -237,11 +301,11 @@ func main() {
 			log.Error().Msg(mesg)
 			return
 		}
-		nfConfigs, err := Convert(ctx, t, conf)
 		if err != nil {
 			log.Fatal().Msgf("coversion of state failed %w", err)
 		}
 		l, err := getnetlistener(models.CurrentFdIdx)
+		log.Info().Msgf("stat_http : %v", models.CurrentFdIdx)
 		if err != nil {
 			log.Fatal().Msgf("getting listner failed %w", err)
 		}
@@ -250,6 +314,7 @@ func main() {
 		models.CurrentFdIdx += 1
 
 		l, err = getnetlistener(models.CurrentFdIdx)
+		log.Info().Msgf("main_http : %v", models.CurrentFdIdx)
 		if err != nil {
 			log.Fatal().Msgf("getting listner failed %w", err)
 		}
@@ -257,6 +322,7 @@ func main() {
 		models.CurrentFdIdx += 1
 
 		if conf.EBPFChainDebugEnabled {
+			log.Info().Msgf("debug_http : %v", models.CurrentFdIdx)
 			l, err = getnetlistener(models.CurrentFdIdx)
 			if err != nil {
 				log.Fatal().Msgf("getting listner failed %w", err)
@@ -264,7 +330,16 @@ func main() {
 			models.AllNetListeners["debug_http"] = l
 			models.CurrentFdIdx += 1
 		}
-		models.CurrentFdIdx = 3
+		nfConfigs, err := Convert(ctx, t, conf)
+
+		log.Info().Msgf("Starting Printing nfconfig linklist")
+		for _, v := range nfConfigs.IngressXDPBpfs {
+			for e := v.Front(); e != nil; e = e.Next() {
+				bpf := e.Value.(*bpfprogs.BPF)
+				log.Info().Msgf("now printing mapID %v and prev map id %v ,", bpf.ProgMapID, bpf.PrevProgMapID)
+			}
+		}
+		log.Info().Msgf("Done Printing nfconfig linklist")
 		// Get Hostname
 		machineHostname, err := os.Hostname()
 		if err != nil {
@@ -272,6 +347,7 @@ func main() {
 		}
 		// setup Metrics endpoint
 		stats.SetupMetrics(machineHostname, daemonName, conf.MetricsAddr)
+		SetMetrics(t)
 
 		if err := apis.StartConfigWatcher(ctx, machineHostname, daemonName, conf, nfConfigs); err != nil {
 			log.Fatal().Msgf("starting config watched failed %w", err)
@@ -279,6 +355,13 @@ func main() {
 		if err := handlers.InitConfigs(nfConfigs); err != nil {
 			log.Fatal().Err(err).Msg("L3afd failed to initialise configs")
 		}
+		models.CurrentFdIdx = 5
+		if conf.EBPFChainDebugEnabled {
+			bpfprogs.SetupBPFDebug(conf.EBPFChainDebugAddr, nfConfigs)
+			models.CurrentFdIdx++
+		}
+		nfConfigs.ProcessMon.PCheckStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs, &nfConfigs.ProbesBpfs)
+		nfConfigs.BpfMetricsMon.BpfMetricsStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs, &nfConfigs.ProbesBpfs)
 		select {}
 	}
 	if err = pidfile.CheckPIDConflict(conf.PIDFilename); err != nil {

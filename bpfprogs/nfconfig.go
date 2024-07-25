@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/l3af-project/l3afd/v2/config"
 	"github.com/l3af-project/l3afd/v2/models"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/rs/zerolog/log"
 )
@@ -750,7 +752,6 @@ func (c *NFConfigs) Deploy(ifaceName, HostName string, bpfProgs *models.BPFProgr
 			return fmt.Errorf("failed to update Probe BPF Program: %w", err)
 		}
 	}
-
 	return nil
 }
 
@@ -1519,9 +1520,11 @@ func (c *NFConfigs) GetL3AFHOSTDATA() models.L3AFALLHOSTDATA {
 				models.CurrentFdIdx++
 			}
 			tmp.ProbeLinks = make([]int, 0)
-			for i := 1; i <= len(bpf.ProbeLinks); i++ {
-				tmp.ProbeLinks = append(tmp.ProbeLinks, models.CurrentFdIdx)
-				models.CurrentFdIdx++
+			for i := 0; i < len(bpf.ProbeLinks); i++ {
+				if bpf.ProbeLinks[i] != nil {
+					tmp.ProbeLinks = append(tmp.ProbeLinks, models.CurrentFdIdx)
+					models.CurrentFdIdx++
+				}
 			}
 			tmp.ProgMapCollection = models.MetaColl{
 				Programs: make(map[string]models.MetaProgMap),
@@ -1569,6 +1572,33 @@ func (c *NFConfigs) GetL3AFHOSTDATA() models.L3AFALLHOSTDATA {
 			ls = append(ls, tmp)
 		}
 		result.IngressXDPBpfs[k] = ls
+	}
+	metrics, _ := prometheus.DefaultGatherer.Gather()
+	result.AllStats = make([]models.MetricVec, 0)
+	listofMetrics := []string{"l3afd_BPFStartCount", "l3afd_BPFStopCount", "l3afd_BPFUpdateCount", "l3afd_BPFUpdateFailedCount", "l3afd_BPFRunning", "l3afd_BPFStartTime", "l3afd_BPFMonitorMap"}
+	for _, metric := range metrics {
+		name := *metric.Name
+		tp := metric.Type.Number()
+		if slices.Index(listofMetrics, name) != -1 {
+			for _, m := range metric.Metric {
+				r := models.MetricVec{}
+				lt := m.GetLabel()
+				for _, y := range lt {
+					r.Labels = append(r.Labels, models.Label{
+						Name:  *y.Name,
+						Value: *y.Value,
+					})
+				}
+				r.MetricName = name
+				r.Type = int32(tp)
+				if r.Type == 0 {
+					r.Value = m.GetCounter().GetValue()
+				} else {
+					r.Value = m.Gauge.GetValue()
+				}
+				result.AllStats = append(result.AllStats, r)
+			}
+		}
 	}
 	return result
 }

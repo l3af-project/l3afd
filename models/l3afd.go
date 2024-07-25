@@ -3,7 +3,9 @@
 
 package models
 
-import "net"
+import (
+	"net"
+)
 
 // l3afd constants
 const (
@@ -131,6 +133,18 @@ type MetaMetricsBPFMap struct {
 	LastValue  float64
 }
 
+type Label struct {
+	Name  string
+	Value string
+}
+
+type MetricVec struct {
+	MetricName string
+	Labels     []Label
+	Value      float64
+	Type       int32
+}
+
 type L3AFMetaData struct {
 	Program BPFProgram
 	// Cmd               *exec.Cmd                 `json:"-"`
@@ -183,6 +197,7 @@ type L3AFALLHOSTDATA struct {
 	Ifaces map[string]string
 
 	// mu *sync.Mutex
+	AllStats []MetricVec
 }
 
 type FDer interface {

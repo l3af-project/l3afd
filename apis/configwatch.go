@@ -85,7 +85,6 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 		if conf.SwaggerApiEnabled {
 			r.Mount("/swagger", httpSwagger.WrapHandler)
 		}
-
 		s.l3afdServer.Handler = r
 
 		// As per design discussion when mTLS flag is not set and not listening on loopback or localhost
@@ -154,7 +153,6 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 			}
 		} else {
 			log.Info().Msgf("l3afd server listening - %s ", conf.L3afConfigsRestAPIAddr)
-
 			if err := s.l3afdServer.Serve(models.AllNetListeners["main_http"]); err != nil {
 				log.Fatal().Err(err).Msgf("failed to start L3AFD server")
 			}
@@ -166,7 +164,6 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 
 func (s *Server) GracefulStop(shutdownTimeout time.Duration) error {
 	log.Info().Msg("L3afd graceful stop initiated")
-
 	exitCode := 0
 	if len(s.BPFRTConfigs.IngressXDPBpfs) > 0 || len(s.BPFRTConfigs.IngressTCBpfs) > 0 || len(s.BPFRTConfigs.EgressTCBpfs) > 0 || s.BPFRTConfigs.ProbesBpfs.Len() > 0 {
 		ctx, cancelfunc := context.WithTimeout(context.Background(), shutdownTimeout)
@@ -176,7 +173,9 @@ func (s *Server) GracefulStop(shutdownTimeout time.Duration) error {
 			exitCode = 1
 		}
 	}
-
+	// for _, l := range models.AllNetListeners {
+	// 	l.Close()
+	// }
 	os.Exit(exitCode)
 	return nil
 }

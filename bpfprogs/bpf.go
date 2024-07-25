@@ -87,6 +87,7 @@ func NewBpfProgram(ctx context.Context, program models.BPFProgram, conf *config.
 			return nil
 		}
 	}
+
 	bpf := &BPF{
 		Program:        program,
 		RestartCount:   0,
@@ -943,6 +944,7 @@ func (b *BPF) RemoveNextProgFD() error {
 
 // RemovePrevProgFD Delete the entry if the last element
 func (b *BPF) RemovePrevProgFD() error {
+	log.Info().Msgf("----->  Failing for Program  %s , prevmap ID : %v", b.Program.Name, b.PrevProgMapID)
 	ebpfMap, err := ebpf.NewMapFromID(b.PrevProgMapID)
 	if err != nil {
 		return fmt.Errorf("unable to access pinned prev prog map %s %w", b.PrevMapNamePath, err)

@@ -66,7 +66,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 			Name:      "BPFUpdateFailedCount",
 			Help:      "The count of Failed eBPF programs updates",
 		},
-		[]string{"host", "bpf_program", "direction", "interface_name"},
+		[]string{"host", "ebpf_program", "direction", "interface_name"},
 	)
 
 	BPFUpdateFailedCount = bpfUpdateFailedCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
@@ -160,6 +160,27 @@ func Incr(counterVec *prometheus.CounterVec, ebpfProgram, direction, ifaceName s
 		return
 	}
 	bpfCounter.Inc()
+}
+
+func Add(value float64, counterVec *prometheus.CounterVec, ebpfProgram, direction, ifaceName string) {
+
+	if counterVec == nil {
+		log.Warn().Msg("Metrics: counter vector is nil and needs to be initialized before Incr")
+		return
+	}
+	bpfCounter, err := counterVec.GetMetricWith(
+		prometheus.Labels(map[string]string{
+			"ebpf_program":   ebpfProgram,
+			"direction":      direction,
+			"interface_name": ifaceName,
+		}),
+	)
+	if err != nil {
+		log.Warn().Msgf("Metrics: unable to fetch counter with fields: ebpf_program: %s, direction: %s, interface_name: %s",
+			ebpfProgram, direction, ifaceName)
+		return
+	}
+	bpfCounter.Add(value)
 }
 
 func Set(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, direction, ifaceName string) {

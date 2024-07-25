@@ -55,29 +55,54 @@ func HandleRestart(ctx context.Context, bpfcfg *bpfprogs.NFConfigs) http.Handler
 		}
 		var files []*os.File
 		cnt := 1
+		if lis, ok := models.AllNetListeners["stat_http"]; ok {
+			lf, err := lis.File()
+			if err != nil {
+				log.Error().Msgf("%v", err)
+				statusCode = http.StatusInternalServerError
+				return
+			}
+			newFile := os.NewFile(uintptr(lf.Fd()), "dupFdlistner"+strconv.Itoa(cnt))
+			cnt = cnt + 1
+			files = append(files, newFile)
+		}
+
+		if lis, ok := models.AllNetListeners["main_http"]; ok {
+			lf, err := lis.File()
+			if err != nil {
+				log.Error().Msgf("%v", err)
+				statusCode = http.StatusInternalServerError
+				return
+			}
+			newFile := os.NewFile(uintptr(lf.Fd()), "dupFdlistner"+strconv.Itoa(cnt))
+			cnt = cnt + 1
+			files = append(files, newFile)
+		}
+
+		if lis, ok := models.AllNetListeners["debug_http"]; ok {
+			lf, err := lis.File()
+			if err != nil {
+				log.Error().Msgf("%v", err)
+				statusCode = http.StatusInternalServerError
+				return
+			}
+			newFile := os.NewFile(uintptr(lf.Fd()), "dupFdlistner"+strconv.Itoa(cnt))
+			cnt = cnt + 1
+			files = append(files, newFile)
+		}
+
 		for _, a := range bpfcfg.IngressXDPBpfs {
 			for e := a.Front(); e != nil; e = e.Next() {
 				b := e.Value.(*bpfprogs.BPF)
 				if b.XDPLink != nil {
-					fd := b.XDPLink.(models.FDer)
-					newFile := os.NewFile(uintptr(fd.FD()), "dupFd"+strconv.Itoa(cnt))
+					lf := b.XDPLink.(models.FDer)
+					newFile := os.NewFile(uintptr(lf.FD()), "dupFdlink"+strconv.Itoa(cnt))
 					cnt += 1
 					files = append(files, newFile)
 				}
 			}
 		}
 		// we have added
-		for _, l := range models.AllNetListeners {
-			lf, err := l.File()
-			if err != nil {
-				log.Error().Msgf("%v", err)
-				statusCode = http.StatusInternalServerError
-				return
-			}
-			newFile := os.NewFile(uintptr(lf.Fd()), "dupFd"+strconv.Itoa(cnt))
-			cnt = cnt + 1
-			files = append(files, newFile)
-		}
 
 		cmd := exec.Command("/root/test/l3afd", "--config", "/root/test/l3afd_reload.cfg")
 		cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -94,14 +119,24 @@ func HandleRestart(ctx context.Context, bpfcfg *bpfprogs.NFConfigs) http.Handler
 			statusCode = http.StatusInternalServerError
 			return
 		}
-
+		time.Sleep(time.Second * 60)
 		log.Info().Msg("Started chiled Process")
+		// for _, l := range models.AllNetListeners {
+		// 	l.Close()
+		// }
+		// for _, a := range bpfcfg.IngressXDPBpfs {
+		// 	for e := a.Front(); e != nil; e = e.Next() {
+		// 		b := e.Value.(*bpfprogs.BPF)
+		// 		if b.XDPLink != nil {
+		// 			b.XDPLink.Close()
+		// 		}
+		// 	}
+		// }
 		// if err := os.Remove("/var/l3afd/l3af_meta.json"); err != nil {
 		// 	if !os.IsNotExist(err) {
 		// 		log.Warn().Msgf("Meta json file: %s program type %s map file remove unsuccessfully - %s err - %#v", "/var/l3afd/l3af_meta.json", err)
 		// 	}
 		// }
-		time.Sleep(time.Second * 10)
 		os.Exit(0)
 	}
 }
