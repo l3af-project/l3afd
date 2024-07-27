@@ -3,7 +3,7 @@ module github.com/l3af-project/l3afd/v2
 go 1.21
 
 require (
-	github.com/cilium/ebpf v0.12.3
+	github.com/cilium/ebpf v0.16.0
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/prometheus/client_golang v1.19.1
@@ -42,7 +42,7 @@ require (
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/swaggo/files v1.0.1 // indirect
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
-	golang.org/x/net v0.20.0 // indirect
+	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/sync v0.4.0 // indirect
 	golang.org/x/tools v0.14.0 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
