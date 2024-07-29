@@ -1614,12 +1614,12 @@ func (c *NFConfigs) StartAllUserProgramsAndProbes(t models.L3AFALLHOSTDATA) erro
 				// Stopping User Program
 				process, err := os.FindProcess(l[idx].UserProgramPID)
 				if err != nil {
-					log.Warn().Msgf("user program is not running for %v in direction", l[idx].Program.MapName, l[idx].Program.ProgType)
+					log.Warn().Msgf("user program is not running for %v in direction %v", l[idx].Program.MapName, l[idx].Program.ProgType)
 					continue
 				}
 				err = process.Signal(syscall.SIGTERM)
 				if err != nil {
-					log.Warn().Msgf("failed to stop userprogram for %v in direction", l[idx].Program.MapName, l[idx].Program.ProgType)
+					log.Warn().Msgf("failed to stop userprogram for %v in direction %v", l[idx].Program.MapName, l[idx].Program.ProgType)
 					continue
 				}
 				// Starting User Program
@@ -1644,12 +1644,12 @@ func (c *NFConfigs) StartAllUserProgramsAndProbes(t models.L3AFALLHOSTDATA) erro
 				// Stopping User Program
 				process, err := os.FindProcess(l[idx].UserProgramPID)
 				if err != nil {
-					log.Warn().Msgf("user program is not running for %v in direction", l[idx].Program.MapName, l[idx].Program.ProgType)
+					log.Warn().Msgf("user program is not running for %v in direction %v", l[idx].Program.MapName, l[idx].Program.ProgType)
 					continue
 				}
 				err = process.Signal(syscall.SIGTERM)
 				if err != nil {
-					log.Warn().Msgf("failed to stop userprogram for %v in direction", l[idx].Program.MapName, l[idx].Program.ProgType)
+					log.Warn().Msgf("failed to stop userprogram for %v in direction %v", l[idx].Program.MapName, l[idx].Program.ProgType)
 					continue
 				}
 				// Starting User Program
@@ -1674,12 +1674,12 @@ func (c *NFConfigs) StartAllUserProgramsAndProbes(t models.L3AFALLHOSTDATA) erro
 				// Stopping User Program
 				process, err := os.FindProcess(l[idx].UserProgramPID)
 				if err != nil {
-					log.Warn().Msgf("user program is not running for %v in direction", l[idx].Program.MapName, l[idx].Program.ProgType)
+					log.Warn().Msgf("user program is not running for %v in direction %v", l[idx].Program.MapName, l[idx].Program.ProgType)
 					continue
 				}
 				err = process.Signal(syscall.SIGTERM)
 				if err != nil {
-					log.Warn().Msgf("failed to stop userprogram for %v in direction", l[idx].Program.MapName, l[idx].Program.ProgType)
+					log.Warn().Msgf("failed to stop userprogram for %v in direction %v", l[idx].Program.MapName, l[idx].Program.ProgType)
 					continue
 				}
 				// Starting User Program
