@@ -145,6 +145,7 @@ type L3AFMetaData struct {
 	ProgMapID         uint32
 	PrevProgMapID     uint32
 	XDPLink           bool
+	UserProgramPID    int
 }
 
 type L3AFALLHOSTDATA struct {

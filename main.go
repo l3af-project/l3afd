@@ -79,7 +79,7 @@ func saveLogsToFile(conf *config.Config) {
 		Out: multi, TimeFormat: time.RFC3339Nano})
 }
 
-func covertBPFMap(in []string, g *bpfprogs.BPF, output *map[string]bpfprogs.BPFMap, iface string) error {
+func convertBPFMap(in []string, g *bpfprogs.BPF, output *map[string]bpfprogs.BPFMap, iface string) error {
 	for _, v := range in {
 		var pinnedPath string
 		if g.Program.ProgType == models.XDPType {
@@ -97,9 +97,10 @@ func covertBPFMap(in []string, g *bpfprogs.BPF, output *map[string]bpfprogs.BPFM
 		}
 		id, _ := info.ID()
 		(*output)[v] = bpfprogs.BPFMap{
-			Name:  info.Name,
-			MapID: id,
-			Type:  info.Type,
+			Name:    v,
+			MapID:   id,
+			Type:    info.Type,
+			BPFProg: g,
 		}
 	}
 	return nil
@@ -130,18 +131,41 @@ func getCollection(input models.MetaColl, output **ebpf.Collection, b *bpfprogs.
 	return nil
 }
 
-func getMetricsMaps(input map[string]models.MetaMetricsBPFMap, b *bpfprogs.BPF, conf *config.Config, output *map[string]*bpfprogs.MetricsBPFMap) {
+func getMetricsMaps(input map[string]models.MetaMetricsBPFMap, b *bpfprogs.BPF, conf *config.Config, output *map[string]*bpfprogs.MetricsBPFMap, iface string) error {
 	for k, v := range input {
 		fg := &bpfprogs.MetricsBPFMap{}
-		fg.BPFMap = b.BpfMaps[v.MapName]
-		fg.BPFProg = b
+		var pinnedPath string
+		if b.Program.ProgType == models.XDPType {
+			pinnedPath = filepath.Join(b.HostConfig.BpfMapDefaultPath, iface, v.MapName)
+		} else {
+			pinnedPath = filepath.Join(b.HostConfig.BpfMapDefaultPath, "tc/globals", iface, v.MapName)
+		}
+		m, err := ebpf.LoadPinnedMap(pinnedPath, nil)
+		if err != nil {
+			return err
+		}
+		info, err := m.Info()
+		if err != nil {
+			return err
+		}
+		id, _ := info.ID()
+		fg.BPFMap = bpfprogs.BPFMap{
+			Name:    v.MapName,
+			MapID:   id,
+			Type:    info.Type,
+			BPFProg: b,
+		}
 		fg.Values = ring.New(conf.NMetricSamples)
 		for _, a := range v.Values {
 			fg.Values.Value = a
 			fg.Values = fg.Values.Next()
 		}
+		fg.Aggregator = v.Aggregator
+		fg.Key = v.Key
+		fg.LastValue = v.LastValue
 		(*output)[k] = fg
 	}
+	return nil
 }
 
 func DeserilazeProgram(ctx context.Context, r *models.L3AFMetaData, hostconfig *config.Config, iface string) (*bpfprogs.BPF, error) {
@@ -165,7 +189,7 @@ func DeserilazeProgram(ctx context.Context, r *models.L3AFMetaData, hostconfig *
 		return nil, err
 	}
 	g.BpfMaps = make(map[string]bpfprogs.BPFMap)
-	if err := covertBPFMap(r.BpfMaps, g, &g.BpfMaps, iface); err != nil {
+	if err := convertBPFMap(r.BpfMaps, g, &g.BpfMaps, iface); err != nil {
 		return nil, err
 	}
 	if r.XDPLink {
@@ -177,7 +201,9 @@ func DeserilazeProgram(ctx context.Context, r *models.L3AFMetaData, hostconfig *
 		}
 	}
 	g.MetricsBpfMaps = make(map[string]*bpfprogs.MetricsBPFMap)
-	getMetricsMaps(r.MetricsBpfMaps, g, hostconfig, &g.MetricsBpfMaps)
+	if err := getMetricsMaps(r.MetricsBpfMaps, g, hostconfig, &g.MetricsBpfMaps, iface); err != nil {
+		return nil, fmt.Errorf("metrics maps conversion failed")
+	}
 	return g, nil
 }
 
@@ -236,8 +262,7 @@ func Convert(ctx context.Context, t models.L3AFALLHOSTDATA, hostconfig *config.C
 		for _, r := range v {
 			f, err := DeserilazeProgram(ctx, r, hostconfig, k)
 			if err != nil {
-				fmt.Println("Ingress xdp Deserilze error")
-				fmt.Println(err)
+				log.Err(err).Msg("Deserilization failed for xdpingress")
 				return nil, err
 			}
 			l.PushBack(f)
@@ -250,8 +275,7 @@ func Convert(ctx context.Context, t models.L3AFALLHOSTDATA, hostconfig *config.C
 		for _, r := range v {
 			f, err := DeserilazeProgram(ctx, r, hostconfig, k)
 			if err != nil {
-				fmt.Println("Ingress TCBPF Deserilze error")
-				fmt.Println(err)
+				log.Err(err).Msg("Deserilization failed for tcingress")
 				return nil, err
 			}
 			l.PushBack(f)
@@ -264,11 +288,10 @@ func Convert(ctx context.Context, t models.L3AFALLHOSTDATA, hostconfig *config.C
 		for _, r := range v {
 			f, err := DeserilazeProgram(ctx, r, hostconfig, k)
 			if err != nil {
-				fmt.Println("Ingress Egress Deserilze error")
+				log.Err(err).Msg("Deserilization failed for tcegress")
 				return nil, err
 			}
 			l.PushBack(f)
-			fmt.Println(err)
 		}
 		D.EgressTCBpfs[k] = l
 	}
@@ -363,7 +386,8 @@ func main() {
 	}
 	select {
 	case <-models.CloseForRestart:
-		time.Sleep(time.Second)
+		stats.UnRegisterAll()
+		apis.CloseAllServers(ctx, ebpfConfigs.HostConfig)
 		log.Info().Msg("exiting for graceful restart")
 	}
 }
@@ -462,9 +486,7 @@ func ReadConfigsFromConfigStore(conf *config.Config) ([]models.L3afBPFPrograms, 
 	var t []models.L3afBPFPrograms
 	if err = json.Unmarshal(byteValue, &t); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal persistent config json: %v", err)
-
 	}
-
 	return t, nil
 }
 
@@ -495,8 +517,8 @@ func setupForRestart(ctx context.Context, conf *config.Config) error {
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to convert state")
 		}
-		if err := ebpfConfigs.StartAllUserPrograms(); err != nil {
-			log.Fatal().Err(err).Msg("failed to start all the user programs")
+		if err := ebpfConfigs.StartAllUserProgramsAndProbes(t); err != nil {
+			log.Fatal().Err(err).Msg("failed to start all the user programs and probes")
 		}
 		if err := apis.StartConfigWatcher(ctx, machineHostname, daemonName, conf, ebpfConfigs); err != nil {
 			log.Fatal().Err(err).Msgf("Starting config Watcher failed")
@@ -507,6 +529,8 @@ func setupForRestart(ctx context.Context, conf *config.Config) error {
 		if conf.EBPFChainDebugEnabled {
 			bpfprogs.SetupBPFDebug(conf.EBPFChainDebugAddr, ebpfConfigs)
 		}
+		ebpfConfigs.ProcessMon.PCheckStart(ebpfConfigs.IngressXDPBpfs, ebpfConfigs.IngressTCBpfs, ebpfConfigs.EgressTCBpfs, &ebpfConfigs.ProbesBpfs)
+		ebpfConfigs.BpfMetricsMon.BpfMetricsStart(ebpfConfigs.IngressXDPBpfs, ebpfConfigs.IngressTCBpfs, ebpfConfigs.EgressTCBpfs, &ebpfConfigs.ProbesBpfs)
 		t.InRestart = false
 		file, err := json.MarshalIndent(t, "", " ")
 		if err != nil {
@@ -517,7 +541,8 @@ func setupForRestart(ctx context.Context, conf *config.Config) error {
 		}
 		select {
 		case <-models.CloseForRestart:
-			time.Sleep(time.Second)
+			stats.UnRegisterAll()
+			apis.CloseAllServers(ctx, ebpfConfigs.HostConfig)
 			log.Info().Msg("exiting for graceful restart")
 		}
 	}

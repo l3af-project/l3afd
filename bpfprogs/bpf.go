@@ -942,7 +942,6 @@ func (b *BPF) RemoveNextProgFD() error {
 
 // RemovePrevProgFD Delete the entry if the last element
 func (b *BPF) RemovePrevProgFD() error {
-	log.Info().Msgf("----->  Failing for Program  %s , prevmap ID : %v", b.Program.Name, b.PrevProgMapID)
 	ebpfMap, err := ebpf.NewMapFromID(b.PrevProgMapID)
 	if err != nil {
 		return fmt.Errorf("unable to access pinned prev prog map %s %w", b.PrevMapNamePath, err)
@@ -1132,7 +1131,7 @@ func (b *BPF) RemovePinnedFiles(ifaceName string) error {
 		}
 	}
 	// remove pinned links
-	if b.Program.ProgType == models.XDPIngressType {
+	if b.XDPLink != nil {
 		if err := b.XDPLink.Unpin(); err != nil {
 			return fmt.Errorf("unable to unpin the xdp link for %s with err : %w", b.Program.Name, err)
 		}
@@ -1141,10 +1140,8 @@ func (b *BPF) RemovePinnedFiles(ifaceName string) error {
 	// remove programs pins
 	if b.ProgMapCollection != nil {
 		for _, v := range b.ProgMapCollection.Programs {
-			if v.Type() == ebpf.XDP {
-				if err := v.Unpin(); err != nil {
-					return err
-				}
+			if err := v.Unpin(); err != nil {
+				return err
 			}
 		}
 	}

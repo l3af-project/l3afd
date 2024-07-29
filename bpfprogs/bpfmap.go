@@ -130,7 +130,6 @@ func (b *MetricsBPFMap) GetValue() float64 {
 	default:
 		log.Warn().Msgf("unsupported aggregator %s and value %d", b.Aggregator, value)
 	}
-	log.Info().Msgf("METTT : %v", retVal)
 	return retVal
 }
 

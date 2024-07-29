@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/l3af-project/l3afd/v2/config"
@@ -1487,8 +1488,8 @@ func SerilazeProgram(e *list.Element) *models.L3AFMetaData {
 	tmp := &models.L3AFMetaData{}
 	bpf := e.Value.(*BPF)
 	tmp.BpfMaps = make([]string, 0)
-	for k1, _ := range bpf.BpfMaps {
-		tmp.BpfMaps = append(tmp.BpfMaps, k1)
+	for _, v := range bpf.BpfMaps {
+		tmp.BpfMaps = append(tmp.BpfMaps, v.Name)
 	}
 	tmp.FilePath = bpf.FilePath
 	tmp.MapNamePath = bpf.MapNamePath
@@ -1498,6 +1499,9 @@ func SerilazeProgram(e *list.Element) *models.L3AFMetaData {
 	tmp.Program = bpf.Program
 	tmp.ProgMapID = uint32(bpf.ProgMapID)
 	tmp.RestartCount = bpf.RestartCount
+	if bpf.Cmd != nil {
+		tmp.UserProgramPID = bpf.Cmd.Process.Pid
+	}
 	tmp.ProgMapCollection = models.MetaColl{
 		Programs: make([]string, 0),
 		Maps:     make([]string, 0),
@@ -1597,11 +1601,28 @@ func (c *NFConfigs) GetL3AFHOSTDATA() models.L3AFALLHOSTDATA {
 	return result
 }
 
-func (c *NFConfigs) StartAllUserPrograms() error {
+func (c *NFConfigs) StartAllUserProgramsAndProbes(t models.L3AFALLHOSTDATA) error {
 	for iface, v := range c.IngressXDPBpfs {
-		for e := v.Front(); e != nil; e = e.Next() {
+		l := t.IngressXDPBpfs[iface]
+		for e, idx := v.Front(), 0; e != nil; e, idx = e.Next(), idx+1 {
+			// Starting Probes
 			b := e.Value.(*BPF)
-			if b.Program.UserProgramDaemon {
+			if err := b.LoadBPFProgram(iface); err != nil {
+				return fmt.Errorf("not able to load probes %w", err)
+			}
+			if l[idx].UserProgramPID > 0 {
+				// Stopping User Program
+				process, err := os.FindProcess(l[idx].UserProgramPID)
+				if err != nil {
+					log.Warn().Msgf("user program is not running for %v in direction", l[idx].Program.MapName, l[idx].Program.ProgType)
+					continue
+				}
+				err = process.Signal(syscall.SIGTERM)
+				if err != nil {
+					log.Warn().Msgf("failed to stop userprogram for %v in direction", l[idx].Program.MapName, l[idx].Program.ProgType)
+					continue
+				}
+				// Starting User Program
 				if err := b.StartUserProgram(iface, models.XDPIngressType, c.HostConfig.BpfChainingEnabled); err != nil {
 					return err
 				}
@@ -1610,10 +1631,29 @@ func (c *NFConfigs) StartAllUserPrograms() error {
 	}
 
 	for iface, v := range c.IngressTCBpfs {
-		for e := v.Front(); e != nil; e = e.Next() {
+		l := t.IngressTCBpfs[iface]
+		for e, idx := v.Front(), 0; e != nil; e, idx = e.Next(), idx+1 {
 			b := e.Value.(*BPF)
-			if b.Program.UserProgramDaemon {
-				if err := b.StartUserProgram(iface, models.IngressType, c.HostConfig.BpfChainingEnabled); err != nil {
+			ef := b.Program.EntryFunctionName
+			b.Program.EntryFunctionName = ""
+			if err := b.LoadBPFProgram(iface); err != nil {
+				return fmt.Errorf("not able to load probes %w", err)
+			}
+			b.Program.EntryFunctionName = ef
+			if l[idx].UserProgramPID > 0 {
+				// Stopping User Program
+				process, err := os.FindProcess(l[idx].UserProgramPID)
+				if err != nil {
+					log.Warn().Msgf("user program is not running for %v in direction", l[idx].Program.MapName, l[idx].Program.ProgType)
+					continue
+				}
+				err = process.Signal(syscall.SIGTERM)
+				if err != nil {
+					log.Warn().Msgf("failed to stop userprogram for %v in direction", l[idx].Program.MapName, l[idx].Program.ProgType)
+					continue
+				}
+				// Starting User Program
+				if err := b.StartUserProgram(iface, models.XDPIngressType, c.HostConfig.BpfChainingEnabled); err != nil {
 					return err
 				}
 			}
@@ -1621,17 +1661,33 @@ func (c *NFConfigs) StartAllUserPrograms() error {
 	}
 
 	for iface, v := range c.EgressTCBpfs {
-		for e := v.Front(); e != nil; e = e.Next() {
+		l := t.EgressTCBpfs[iface]
+		for e, idx := v.Front(), 0; e != nil; e, idx = e.Next(), idx+1 {
 			b := e.Value.(*BPF)
-			if b.Program.UserProgramDaemon {
-				if err := b.StartUserProgram(iface, models.EgressType, c.HostConfig.BpfChainingEnabled); err != nil {
+			ef := b.Program.EntryFunctionName
+			b.Program.EntryFunctionName = ""
+			if err := b.LoadBPFProgram(iface); err != nil {
+				return fmt.Errorf("not able to load probes %w", err)
+			}
+			b.Program.EntryFunctionName = ef
+			if l[idx].UserProgramPID > 0 {
+				// Stopping User Program
+				process, err := os.FindProcess(l[idx].UserProgramPID)
+				if err != nil {
+					log.Warn().Msgf("user program is not running for %v in direction", l[idx].Program.MapName, l[idx].Program.ProgType)
+					continue
+				}
+				err = process.Signal(syscall.SIGTERM)
+				if err != nil {
+					log.Warn().Msgf("failed to stop userprogram for %v in direction", l[idx].Program.MapName, l[idx].Program.ProgType)
+					continue
+				}
+				// Starting User Program
+				if err := b.StartUserProgram(iface, models.XDPIngressType, c.HostConfig.BpfChainingEnabled); err != nil {
 					return err
 				}
 			}
 		}
 	}
-
-	// TODO For Implementing UserProgram for Probe Links If needed
-
 	return nil
 }
