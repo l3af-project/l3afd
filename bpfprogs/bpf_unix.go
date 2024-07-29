@@ -201,6 +201,11 @@ func VerifyNCreateTCDirs() error {
 
 // LoadTCAttachProgram - Load and attach tc root program filters or any tc program when chaining is disabled
 func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
+	// pin the program also
+	progPinPath := fmt.Sprintf("%s/progs/%s/%s_%s", b.HostConfig.BpfMapDefaultPath, ifaceName, b.Program.EntryFunctionName, b.Program.ProgType)
+	if err := b.ProgMapCollection.Programs[b.Program.EntryFunctionName].Pin(progPinPath); err != nil {
+		return err
+	}
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
 		log.Error().Err(err).Msgf("LoadTCAttachProgram - look up network iface %q", ifaceName)
@@ -506,6 +511,5 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 	if err := filterHandle.Delete(&filter); err != nil {
 		return fmt.Errorf("could not dettach tc filter for interface %s : Direction: %v, parentHandle: %v, Error:%w", ifaceName, direction, parentHandle, err)
 	}
-
 	return nil
 }

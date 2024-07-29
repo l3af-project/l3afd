@@ -5,12 +5,9 @@ package bpfprogs
 
 import (
 	"encoding/json"
-	"fmt"
-	"net"
 	"net/http"
 	"strings"
 
-	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/rs/zerolog/log"
 )
 
@@ -19,22 +16,10 @@ var bpfcfgs *NFConfigs
 func SetupBPFDebug(ebpfChainDebugAddr string, BPFConfigs *NFConfigs) {
 	bpfcfgs = BPFConfigs
 	go func() {
-		if _, ok := models.AllNetListeners["debug_http"]; !ok {
-			tcpAddr, err := net.ResolveTCPAddr("tcp", ebpfChainDebugAddr)
-			if err != nil {
-				fmt.Println("Error resolving TCP address:", err)
-				return
-			}
-			listener, err := net.ListenTCP("tcp", tcpAddr)
-			if err != nil {
-				log.Fatal().Err(err).Msgf("Not able to create net Listen")
-			}
-			models.AllNetListeners["debug_http"] = listener
-		}
 		http.HandleFunc("/bpfs/", ViewHandler)
 		// We just need to start a server.
 		log.Info().Msg("Starting BPF debug server")
-		if err := http.Serve(models.AllNetListeners["debug_http"], nil); err != nil {
+		if err := http.ListenAndServe(ebpfChainDebugAddr, nil); err != nil {
 			log.Fatal().Err(err).Msg("failed to start BPF chain debug server")
 		}
 	}()

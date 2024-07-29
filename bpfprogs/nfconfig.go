@@ -58,7 +58,7 @@ func NewNFConfigs(ctx context.Context, host string, hostConf *config.Config, pMo
 		EgressTCBpfs:   make(map[string]*list.List),
 		Mu:             new(sync.Mutex),
 	}
-	models.AllNetListeners = make(map[string]*net.TCPListener)
+
 	var err error
 	if nfConfigs.HostInterfaces, err = getHostInterfaces(); err != nil {
 		errOut := fmt.Errorf("%s failed to get network interfaces %w", host, err)
@@ -1483,96 +1483,90 @@ func (c *NFConfigs) DownloadAndStartProbes(element *list.Element) error {
 	return nil
 }
 
+func SerilazeProgram(e *list.Element) *models.L3AFMetaData {
+	tmp := &models.L3AFMetaData{}
+	bpf := e.Value.(*BPF)
+	tmp.BpfMaps = make([]string, 0)
+	for k1, _ := range bpf.BpfMaps {
+		tmp.BpfMaps = append(tmp.BpfMaps, k1)
+	}
+	tmp.FilePath = bpf.FilePath
+	tmp.MapNamePath = bpf.MapNamePath
+	tmp.PrevMapNamePath = bpf.PrevMapNamePath
+	tmp.PrevProgMapID = uint32(bpf.PrevProgMapID)
+	tmp.ProgID = uint32(bpf.ProgID)
+	tmp.Program = bpf.Program
+	tmp.ProgMapID = uint32(bpf.ProgMapID)
+	tmp.RestartCount = bpf.RestartCount
+	tmp.ProgMapCollection = models.MetaColl{
+		Programs: make([]string, 0),
+		Maps:     make([]string, 0),
+	}
+	for k, _ := range bpf.ProgMapCollection.Programs {
+		tmp.ProgMapCollection.Programs = append(tmp.ProgMapCollection.Programs, k)
+	}
+	for k, _ := range bpf.ProgMapCollection.Maps {
+		tmp.ProgMapCollection.Maps = append(tmp.ProgMapCollection.Maps, k)
+	}
+	tmp.MetricsBpfMaps = make(map[string]models.MetaMetricsBPFMap)
+	for k1, v1 := range bpf.MetricsBpfMaps {
+		values := make([]float64, 0)
+		tmpval := v1.Values
+		for i := 0; i < v1.Values.Len(); i++ {
+			if tmpval.Value != nil {
+				values = append(values, tmpval.Value.(float64))
+			}
+			tmpval = tmpval.Next()
+		}
+		tmp.MetricsBpfMaps[k1] = models.MetaMetricsBPFMap{
+			MapName:    v1.Name,
+			Key:        v1.Key,
+			Values:     values,
+			Aggregator: v1.Aggregator,
+			LastValue:  float64(v1.LastValue),
+		}
+	}
+	tmp.XDPLink = false
+	if bpf.XDPLink != nil {
+		tmp.XDPLink = true
+	}
+	return tmp
+}
+
 func (c *NFConfigs) GetL3AFHOSTDATA() models.L3AFALLHOSTDATA {
 	result := models.L3AFALLHOSTDATA{}
 	result.HostName = c.HostName
 	result.Ifaces = c.Ifaces
-	result.ProcessMon.Chain = c.ProcessMon.Chain
 	result.HostInterfaces = c.HostInterfaces
-	result.ProcessMon.RetryMonitorDelay = int(c.ProcessMon.RetryMonitorDelay)
-	result.ProcessMon.MaxRetryCount = c.ProcessMon.MaxRetryCount
-	result.BpfMetricsMon.Chain = c.BpfMetricsMon.Chain
-	result.BpfMetricsMon.Intervals = c.BpfMetricsMon.Intervals
 	result.IngressXDPBpfs = make(map[string][]*models.L3AFMetaData)
+	result.IngressTCBpfs = make(map[string][]*models.L3AFMetaData)
+	result.EgressTCBpfs = make(map[string][]*models.L3AFMetaData)
+	result.ProbesBpfs = make([]models.L3AFMetaData, 0)
 	for k, v := range c.IngressXDPBpfs {
 		ls := make([]*models.L3AFMetaData, 0)
 		for e := v.Front(); e != nil; e = e.Next() {
-			tmp := &models.L3AFMetaData{}
-			bpf := e.Value.(*BPF)
-			tmp.BpfMaps = make(map[string]models.MetaBpfMap)
-			for k1, v1 := range bpf.BpfMaps {
-				tmp.BpfMaps[k1] = models.MetaBpfMap{
-					Name:  v1.Name,
-					MapID: uint32(v1.MapID),
-					Type:  uint32(v1.Type),
-				}
-			}
-			tmp.FilePath = bpf.FilePath
-			tmp.MapNamePath = bpf.MapNamePath
-			tmp.PrevMapNamePath = bpf.PrevMapNamePath
-			tmp.PrevProgMapID = uint32(bpf.PrevProgMapID)
-			tmp.ProgID = uint32(bpf.ProgID)
-			tmp.Program = bpf.Program
-			tmp.ProgMapID = uint32(bpf.ProgMapID)
-			tmp.RestartCount = bpf.RestartCount
-			if bpf.XDPLink != nil {
-				tmp.XDPLink = models.CurrentFdIdx
-				models.CurrentFdIdx++
-			}
-			tmp.ProbeLinks = make([]int, 0)
-			for i := 0; i < len(bpf.ProbeLinks); i++ {
-				if bpf.ProbeLinks[i] != nil {
-					tmp.ProbeLinks = append(tmp.ProbeLinks, models.CurrentFdIdx)
-					models.CurrentFdIdx++
-				}
-			}
-			tmp.ProgMapCollection = models.MetaColl{
-				Programs: make(map[string]models.MetaProgMap),
-				Maps:     make(map[string]models.MetaBpfMap),
-			}
-			for k1, v1 := range bpf.ProgMapCollection.Programs {
-				o, _ := v1.Info()
-				id, _ := o.ID()
-				tmp.ProgMapCollection.Programs[k1] = models.MetaProgMap{
-					ProgID: uint32(id),
-				}
-			}
-			for k1, v1 := range bpf.ProgMapCollection.Maps {
-				o, _ := v1.Info()
-				id, _ := o.ID()
-				tmp.ProgMapCollection.Maps[k1] = models.MetaBpfMap{
-					Name:  o.Name,
-					MapID: uint32(id),
-					Type:  uint32(o.Type),
-				}
-			}
-			tmp.MetricsBpfMaps = make(map[string]models.MetaMetricsBPFMap)
-			for k1, v1 := range bpf.MetricsBpfMaps {
-				bpfmap := models.MetaBpfMap{
-					Name:  v1.BPFMap.Name,
-					MapID: uint32(v1.BPFMap.MapID),
-					Type:  uint32(v1.BPFMap.Type),
-				}
-				values := make([]float64, 0)
-				tmpval := v1.Values
-				for i := 0; i < v1.Values.Len(); i++ {
-					if tmpval.Value != nil {
-						values = append(values, tmpval.Value.(float64))
-					}
-					tmpval = tmpval.Next()
-				}
-				tmp.MetricsBpfMaps[k1] = models.MetaMetricsBPFMap{
-					MetaBpfMap: bpfmap,
-					Key:        v1.Key,
-					Values:     values,
-					Aggregator: v1.Aggregator,
-					LastValue:  float64(v1.LastValue),
-				}
-			}
-			ls = append(ls, tmp)
+			ls = append(ls, SerilazeProgram(e))
 		}
 		result.IngressXDPBpfs[k] = ls
 	}
+	for k, v := range c.IngressTCBpfs {
+		ls := make([]*models.L3AFMetaData, 0)
+		for e := v.Front(); e != nil; e = e.Next() {
+			ls = append(ls, SerilazeProgram(e))
+		}
+		result.IngressTCBpfs[k] = ls
+	}
+	for k, v := range c.EgressTCBpfs {
+		ls := make([]*models.L3AFMetaData, 0)
+		for e := v.Front(); e != nil; e = e.Next() {
+			ls = append(ls, SerilazeProgram(e))
+		}
+		result.EgressTCBpfs[k] = ls
+	}
+	for e := c.ProbesBpfs.Front(); e != nil; e = e.Next() {
+		result.ProbesBpfs = append(result.ProbesBpfs, *SerilazeProgram(e))
+	}
+
 	metrics, _ := prometheus.DefaultGatherer.Gather()
 	result.AllStats = make([]models.MetricVec, 0)
 	listofMetrics := []string{"l3afd_BPFStartCount", "l3afd_BPFStopCount", "l3afd_BPFUpdateCount", "l3afd_BPFUpdateFailedCount", "l3afd_BPFRunning", "l3afd_BPFStartTime", "l3afd_BPFMonitorMap"}
@@ -1601,4 +1595,43 @@ func (c *NFConfigs) GetL3AFHOSTDATA() models.L3AFALLHOSTDATA {
 		}
 	}
 	return result
+}
+
+func (c *NFConfigs) StartAllUserPrograms() error {
+	for iface, v := range c.IngressXDPBpfs {
+		for e := v.Front(); e != nil; e = e.Next() {
+			b := e.Value.(*BPF)
+			if b.Program.UserProgramDaemon {
+				if err := b.StartUserProgram(iface, models.XDPIngressType, c.HostConfig.BpfChainingEnabled); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	for iface, v := range c.IngressTCBpfs {
+		for e := v.Front(); e != nil; e = e.Next() {
+			b := e.Value.(*BPF)
+			if b.Program.UserProgramDaemon {
+				if err := b.StartUserProgram(iface, models.IngressType, c.HostConfig.BpfChainingEnabled); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	for iface, v := range c.EgressTCBpfs {
+		for e := v.Front(); e != nil; e = e.Next() {
+			b := e.Value.(*BPF)
+			if b.Program.UserProgramDaemon {
+				if err := b.StartUserProgram(iface, models.EgressType, c.HostConfig.BpfChainingEnabled); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	// TODO For Implementing UserProgram for Probe Links If needed
+
+	return nil
 }

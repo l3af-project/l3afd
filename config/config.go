@@ -32,7 +32,7 @@ type Config struct {
 	BpfMapDefaultPath   string
 	// Flag to enable chaining with root program
 	BpfChainingEnabled bool
-	HotReloadEnabled   bool
+	RestartDataFile    string
 
 	FileLogLocation   string
 	FileLogMaxSize    int
@@ -119,7 +119,7 @@ func ReadConfig(configPath string) (*Config, error) {
 		HttpClientTimeout:              LoadOptionalConfigDuration(confReader, "l3afd", "http-client-timeout", 30*time.Second),
 		MaxEBPFReStartCount:            LoadOptionalConfigInt(confReader, "l3afd", "max-ebpf-restart-count", 3),
 		BpfChainingEnabled:             LoadConfigBool(confReader, "l3afd", "bpf-chaining-enabled"),
-		HotReloadEnabled:               LoadOptionalConfigBool(confReader, "l3afd", "HotReloadEnabled", false),
+		RestartDataFile:                LoadOptionalConfigString(confReader, "l3afd", "RestartDataFile", "/var/l3afd/l3af_meta.json"),
 		MetricsAddr:                    LoadConfigString(confReader, "web", "metrics-addr"),
 		EBPFPollInterval:               LoadOptionalConfigDuration(confReader, "web", "ebpf-poll-interval", 30*time.Second),
 		NMetricSamples:                 LoadOptionalConfigInt(confReader, "web", "n-metric-samples", 20),

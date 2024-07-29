@@ -12,7 +12,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
-	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -27,7 +26,6 @@ import (
 
 	"github.com/l3af-project/l3afd/v2/bpfprogs"
 	"github.com/l3af-project/l3afd/v2/config"
-	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/l3af-project/l3afd/v2/routes"
 	"github.com/l3af-project/l3afd/v2/signals"
 
@@ -59,17 +57,6 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 			Addr: conf.L3afConfigsRestAPIAddr,
 		},
 		SANMatchRules: conf.MTLSSANMatchRules,
-	}
-	if _, ok := models.AllNetListeners["main_http"]; !ok {
-		tcpAddr, err := net.ResolveTCPAddr("tcp", conf.L3afConfigsRestAPIAddr)
-		if err != nil {
-			return fmt.Errorf("Error resolving TCP address:", err)
-		}
-		listener, err := net.ListenTCP("tcp", tcpAddr)
-		if err != nil {
-			return fmt.Errorf("creating tcp listner failed with %w", err)
-		}
-		models.AllNetListeners["main_http"] = listener
 	}
 	term := make(chan os.Signal, 1)
 	signal.Notify(term, signals.ShutdownSignals...)
@@ -148,12 +135,12 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 					}
 				}
 			}()
-			if err := s.l3afdServer.ServeTLS(models.AllNetListeners["main_http"], serverCertFile, serverKeyFile); err != nil {
+			if err := s.l3afdServer.ListenAndServeTLS(serverCertFile, serverKeyFile); err != nil {
 				log.Fatal().Err(err).Msgf("failed to start L3AFD server with mTLS enabled")
 			}
 		} else {
 			log.Info().Msgf("l3afd server listening - %s ", conf.L3afConfigsRestAPIAddr)
-			if err := s.l3afdServer.Serve(models.AllNetListeners["main_http"]); err != nil {
+			if err := s.l3afdServer.ListenAndServe(); err != nil {
 				log.Fatal().Err(err).Msgf("failed to start L3AFD server")
 			}
 		}

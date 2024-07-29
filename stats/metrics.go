@@ -4,11 +4,8 @@
 package stats
 
 import (
-	"fmt"
-	"net"
 	"net/http"
 
-	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -122,20 +119,8 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 	// Adding web endpoint
 	go func() {
 		// Expose the registered metrics via HTTP.
-		if _, ok := models.AllNetListeners["stat_http"]; !ok {
-			tcpAddr, err := net.ResolveTCPAddr("tcp", metricsAddr)
-			if err != nil {
-				fmt.Println("Error resolving TCP address:", err)
-				return
-			}
-			listener, err := net.ListenTCP("tcp", tcpAddr)
-			if err != nil {
-				log.Fatal().Err(err).Msgf("Not able to create net Listen")
-			}
-			models.AllNetListeners["stat_http"] = listener
-		}
 		http.Handle("/metrics", metricsHandler)
-		if err := http.Serve(models.AllNetListeners["stat_http"], nil); err != nil {
+		if err := http.ListenAndServe(metricsAddr, nil); err != nil {
 			log.Fatal().Err(err).Msgf("Failed to launch prometheus metrics endpoint")
 		}
 	}()

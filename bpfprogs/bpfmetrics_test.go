@@ -17,25 +17,25 @@ func TestNewpKFMetrics(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    *bpfMetrics
+		want    *BpfMetrics
 		wantErr bool
 	}{
 		{
 			name:    "EmptypCheck",
 			args:    args{chain: false, interval: 0},
-			want:    &bpfMetrics{Chain: false, Intervals: 0},
+			want:    &BpfMetrics{Chain: false, Intervals: 0},
 			wantErr: false,
 		},
 		{
 			name:    "ValidpCheck",
 			args:    args{chain: true, interval: 10},
-			want:    &bpfMetrics{Chain: true, Intervals: 10},
+			want:    &BpfMetrics{Chain: true, Intervals: 10},
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewpBPFMetrics(tt.args.chain, tt.args.interval)
+			got := NewpBpfMetrics(tt.args.chain, tt.args.interval)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewKFMetrics() = %v, want %v", got, tt.want)
 			}
@@ -72,11 +72,11 @@ func Test_BPFMetrics_Start(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &bpfMetrics{
+			c := &BpfMetrics{
 				Chain:     tt.fields.Chain,
 				Intervals: tt.fields.Interval,
 			}
-			c.bpfMetricsStart(tt.args.IngressXDPbpfProgs, tt.args.IngressTCbpfProgs, tt.args.EgressTCbpfProgs, tt.args.Probes)
+			c.BpfMetricsStart(tt.args.IngressXDPbpfProgs, tt.args.IngressTCbpfProgs, tt.args.EgressTCbpfProgs, tt.args.Probes)
 		})
 	}
 }
