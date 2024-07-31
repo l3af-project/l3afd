@@ -13,7 +13,6 @@ import (
 )
 
 var bpfcfgs *NFConfigs
-var DebugServer *http.Server
 
 func SetupBPFDebug(ebpfChainDebugAddr string, BPFConfigs *NFConfigs) {
 	bpfcfgs = BPFConfigs
@@ -21,10 +20,7 @@ func SetupBPFDebug(ebpfChainDebugAddr string, BPFConfigs *NFConfigs) {
 		http.HandleFunc("/bpfs/", ViewHandler)
 		// We just need to start a server.
 		log.Info().Msg("Starting BPF debug server")
-		DebugServer = &http.Server{
-			Addr: ebpfChainDebugAddr,
-		}
-		if err := DebugServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		if err := http.ListenAndServe(ebpfChainDebugAddr, nil); !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal().Err(err).Msg("failed to start BPF chain debug server")
 		}
 	}()

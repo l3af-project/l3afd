@@ -40,7 +40,7 @@ func apiRoutes(ctx context.Context, bpfcfg *bpfprogs.NFConfigs) []routes.Route {
 			HandlerFunc: handlers.DeleteEbpfPrograms(ctx, bpfcfg),
 		},
 		{
-			Method:      "POST",
+			Method:      "PUT",
 			Path:        "/l3af/configs/{version}/restart",
 			HandlerFunc: handlers.HandleRestart(ctx, bpfcfg),
 		},

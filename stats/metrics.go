@@ -23,8 +23,6 @@ var (
 	BPFMonitorMap        *prometheus.GaugeVec
 )
 
-var StatServer *http.Server
-
 func SetupMetrics(hostname, daemonName, metricsAddr string) {
 
 	bpfStartCountVec := promauto.NewCounterVec(
@@ -118,14 +116,11 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 
 	// Prometheus handler
 	metricsHandler := promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{})
-	StatServer = &http.Server{
-		Addr: metricsAddr,
-	}
 	// Adding web endpoint
 	go func() {
 		// Expose the registered metrics via HTTP.
 		http.Handle("/metrics", metricsHandler)
-		if err := StatServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		if err := http.ListenAndServe(metricsAddr, nil); !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal().Err(err).Msgf("Failed to launch prometheus metrics endpoint")
 		}
 	}()
@@ -235,14 +230,4 @@ func SetWithVersion(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, v
 		return
 	}
 	bpfGauge.Set(value)
-}
-
-func UnRegisterAll() {
-	prometheus.Unregister(BPFStartCount)
-	prometheus.Unregister(BPFStopCount)
-	prometheus.Unregister(BPFUpdateCount)
-	prometheus.Unregister(BPFUpdateFailedCount)
-	prometheus.Unregister(BPFRunning)
-	prometheus.Unregister(BPFStartTime)
-	prometheus.Unregister(BPFMonitorMap)
 }

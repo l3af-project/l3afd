@@ -190,6 +190,11 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 		if err := rootProgBPF.LoadTCAttachProgram(ifaceName, direction); err != nil {
 			return nil, fmt.Errorf("failed to load tc root program on iface \"%s\" name %s direction %s with err %w", ifaceName, rootProgBPF.Program.Name, direction, err)
 		}
+		// pin the program also
+		progPinPath := fmt.Sprintf("%s/progs/%s/%s_%s", rootProgBPF.HostConfig.BpfMapDefaultPath, ifaceName, rootProgBPF.Program.EntryFunctionName, rootProgBPF.Program.ProgType)
+		if err := rootProgBPF.ProgMapCollection.Programs[rootProgBPF.Program.EntryFunctionName].Pin(progPinPath); err != nil {
+			return nil, err
+		}
 	}
 
 	return rootProgBPF, nil
@@ -1083,6 +1088,10 @@ func (b *BPF) LoadXDPAttachProgram(ifaceName string) error {
 
 // UnloadProgram - Unload or detach the program from the interface and close all the program resources
 func (b *BPF) UnloadProgram(ifaceName, direction string) error {
+	// remove pinned files
+	if err := b.RemovePinnedFiles(ifaceName); err != nil {
+		log.Error().Err(err).Msgf("failed to remove map file for program %s => %s", ifaceName, b.Program.Name)
+	}
 	// Verifying program attached to the interface.
 	// SeqID will be 0 for root program or any other program without chaining
 	if b.Program.SeqID == 0 || !b.HostConfig.BpfChainingEnabled {
@@ -1105,12 +1114,6 @@ func (b *BPF) UnloadProgram(ifaceName, direction string) error {
 	if b.ProgMapCollection != nil {
 		b.ProgMapCollection.Close()
 	}
-
-	// remove pinned files
-	if err := b.RemovePinnedFiles(ifaceName); err != nil {
-		log.Error().Err(err).Msgf("failed to remove map file for program %s => %s", ifaceName, b.Program.Name)
-	}
-
 	return nil
 }
 
@@ -1178,6 +1181,8 @@ func (b *BPF) RemoveRootProgMapFile(ifacename string) error {
 
 // VerifyCleanupMaps - This method verifies map entries in the fs is removed
 func (b *BPF) VerifyCleanupMaps(chain bool) error {
+
+	log.Info().Msgf("We are Doing ATULL Cleanup %v", b.Program.Name)
 	// verify pinned file is removed.
 	if err := b.VerifyPinnedProgMap(chain, false); err != nil {
 		log.Error().Err(err).Msgf("stop user program - failed to remove pinned file %s", b.Program.Name)
@@ -1225,7 +1230,6 @@ func (b *BPF) LoadBPFProgram(ifaceName string) error {
 	if err := b.CreatePinDirectories(ifaceName); err != nil {
 		return err
 	}
-
 	var mapPinPath string
 	if b.Program.ProgType == models.TCType {
 		mapPinPath = filepath.Join(b.HostConfig.BpfMapDefaultPath, models.TCMapPinPath, ifaceName)

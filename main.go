@@ -85,7 +85,7 @@ func convertBPFMap(in []string, g *bpfprogs.BPF, output *map[string]bpfprogs.BPF
 		if g.Program.ProgType == models.XDPType {
 			pinnedPath = filepath.Join(g.HostConfig.BpfMapDefaultPath, iface, v)
 		} else {
-			pinnedPath = filepath.Join(g.HostConfig.BpfMapDefaultPath, "tc/globals", iface, v)
+			pinnedPath = filepath.Join(g.HostConfig.BpfMapDefaultPath, models.TCMapPinPath, iface, v)
 		}
 		m, err := ebpf.LoadPinnedMap(pinnedPath, nil)
 		if err != nil {
@@ -102,6 +102,7 @@ func convertBPFMap(in []string, g *bpfprogs.BPF, output *map[string]bpfprogs.BPF
 			Type:    info.Type,
 			BPFProg: g,
 		}
+		m.Close()
 	}
 	return nil
 }
@@ -138,7 +139,7 @@ func getMetricsMaps(input map[string]models.MetaMetricsBPFMap, b *bpfprogs.BPF, 
 		if b.Program.ProgType == models.XDPType {
 			pinnedPath = filepath.Join(b.HostConfig.BpfMapDefaultPath, iface, v.MapName)
 		} else {
-			pinnedPath = filepath.Join(b.HostConfig.BpfMapDefaultPath, "tc/globals", iface, v.MapName)
+			pinnedPath = filepath.Join(b.HostConfig.BpfMapDefaultPath, models.TCMapPinPath, iface, v.MapName)
 		}
 		m, err := ebpf.LoadPinnedMap(pinnedPath, nil)
 		if err != nil {
@@ -164,6 +165,7 @@ func getMetricsMaps(input map[string]models.MetaMetricsBPFMap, b *bpfprogs.BPF, 
 		fg.Key = v.Key
 		fg.LastValue = v.LastValue
 		(*output)[k] = fg
+		m.Close()
 	}
 	return nil
 }
@@ -181,16 +183,17 @@ func DeserilazeProgram(ctx context.Context, r *models.L3AFMetaData, hostconfig *
 	g.Ctx = ctx
 	g.HostConfig = hostconfig
 	g.Done = nil
-	g.ProgMapCollection = &ebpf.Collection{
-		Programs: make(map[string]*ebpf.Program),
-		Maps:     make(map[string]*ebpf.Map),
-	}
-	if err := getCollection(r.ProgMapCollection, &g.ProgMapCollection, g, iface); err != nil {
-		return nil, err
-	}
 	g.BpfMaps = make(map[string]bpfprogs.BPFMap)
 	if err := convertBPFMap(r.BpfMaps, g, &g.BpfMaps, iface); err != nil {
 		return nil, err
+	}
+	g.MetricsBpfMaps = make(map[string]*bpfprogs.MetricsBPFMap)
+	if err := getMetricsMaps(r.MetricsBpfMaps, g, hostconfig, &g.MetricsBpfMaps, iface); err != nil {
+		return nil, fmt.Errorf("metrics maps conversion failed")
+	}
+	g.ProgMapCollection = &ebpf.Collection{
+		Programs: make(map[string]*ebpf.Program),
+		Maps:     make(map[string]*ebpf.Map),
 	}
 	if r.XDPLink {
 		linkPinPath := fmt.Sprintf("%s/links/%s/%s_%s", hostconfig.BpfMapDefaultPath, iface, g.Program.Name, g.Program.ProgType)
@@ -200,9 +203,8 @@ func DeserilazeProgram(ctx context.Context, r *models.L3AFMetaData, hostconfig *
 			return nil, err
 		}
 	}
-	g.MetricsBpfMaps = make(map[string]*bpfprogs.MetricsBPFMap)
-	if err := getMetricsMaps(r.MetricsBpfMaps, g, hostconfig, &g.MetricsBpfMaps, iface); err != nil {
-		return nil, fmt.Errorf("metrics maps conversion failed")
+	if err := getCollection(r.ProgMapCollection, &g.ProgMapCollection, g, iface); err != nil {
+		return nil, err
 	}
 	return g, nil
 }
@@ -386,10 +388,9 @@ func main() {
 	}
 	select {
 	case <-models.CloseForRestart:
-		stats.UnRegisterAll()
-		apis.CloseAllServers(ctx, ebpfConfigs.HostConfig)
 		log.Info().Msg("exiting for graceful restart")
 	}
+	os.Exit(0)
 }
 
 func SetupNFConfigs(ctx context.Context, conf *config.Config) (*bpfprogs.NFConfigs, error) {
@@ -541,10 +542,9 @@ func setupForRestart(ctx context.Context, conf *config.Config) error {
 		}
 		select {
 		case <-models.CloseForRestart:
-			stats.UnRegisterAll()
-			apis.CloseAllServers(ctx, ebpfConfigs.HostConfig)
 			log.Info().Msg("exiting for graceful restart")
 		}
+		os.Exit(0)
 	}
 	return nil
 }

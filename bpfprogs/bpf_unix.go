@@ -209,13 +209,6 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 	if err := b.LoadBPFProgram(ifaceName); err != nil {
 		return err
 	}
-
-	// pin the program also
-	progPinPath := fmt.Sprintf("%s/progs/%s/%s_%s", b.HostConfig.BpfMapDefaultPath, ifaceName, b.Program.EntryFunctionName, b.Program.ProgType)
-	if err := b.ProgMapCollection.Programs[b.Program.EntryFunctionName].Pin(progPinPath); err != nil {
-		return err
-	}
-
 	// verify and add attribute clsact
 	tcgo, err := tc.Open(&tc.Config{})
 	if err != nil {
@@ -513,9 +506,5 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 		return fmt.Errorf("could not dettach tc filter for interface %s : Direction: %v, parentHandle: %v, Error:%w", ifaceName, direction, parentHandle, err)
 	}
 
-	// UnPin the program
-	if err := b.ProgMapCollection.Programs[b.Program.EntryFunctionName].Unpin(); err != nil {
-		return err
-	}
 	return nil
 }

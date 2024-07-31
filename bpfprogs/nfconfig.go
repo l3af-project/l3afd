@@ -19,6 +19,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cilium/ebpf"
 	"github.com/l3af-project/l3afd/v2/config"
 	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/prometheus/client_golang/prometheus"
@@ -1506,8 +1507,10 @@ func SerilazeProgram(e *list.Element) *models.L3AFMetaData {
 		Programs: make([]string, 0),
 		Maps:     make([]string, 0),
 	}
-	for k, _ := range bpf.ProgMapCollection.Programs {
-		tmp.ProgMapCollection.Programs = append(tmp.ProgMapCollection.Programs, k)
+	for k, v := range bpf.ProgMapCollection.Programs {
+		if v.Type() == ebpf.XDP || v.Type() == ebpf.SchedACT || v.Type() == ebpf.SchedCLS {
+			tmp.ProgMapCollection.Programs = append(tmp.ProgMapCollection.Programs, k)
+		}
 	}
 	for k, _ := range bpf.ProgMapCollection.Maps {
 		tmp.ProgMapCollection.Maps = append(tmp.ProgMapCollection.Maps, k)
@@ -1607,9 +1610,25 @@ func (c *NFConfigs) StartAllUserProgramsAndProbes(t models.L3AFALLHOSTDATA) erro
 		for e, idx := v.Front(), 0; e != nil; e, idx = e.Next(), idx+1 {
 			// Starting Probes
 			b := e.Value.(*BPF)
+			ef := b.Program.EntryFunctionName
+			b.Program.EntryFunctionName = ""
+			prg := b.ProgMapCollection
+			b.ProgMapCollection = nil
 			if err := b.LoadBPFProgram(iface); err != nil {
 				return fmt.Errorf("not able to load probes %w", err)
 			}
+			b.Program.EntryFunctionName = ef
+			for fk, vf := range b.ProgMapCollection.Programs {
+				if _, ok := prg.Programs[fk]; !ok {
+					prg.Programs[fk] = vf
+				} else {
+					vf.Close()
+				}
+			}
+			for _, vf := range b.ProgMapCollection.Maps {
+				vf.Close()
+			}
+			b.ProgMapCollection = prg
 			if l[idx].UserProgramPID > 0 {
 				// Stopping User Program
 				process, err := os.FindProcess(l[idx].UserProgramPID)
@@ -1636,10 +1655,23 @@ func (c *NFConfigs) StartAllUserProgramsAndProbes(t models.L3AFALLHOSTDATA) erro
 			b := e.Value.(*BPF)
 			ef := b.Program.EntryFunctionName
 			b.Program.EntryFunctionName = ""
+			prg := b.ProgMapCollection
+			b.ProgMapCollection = nil
 			if err := b.LoadBPFProgram(iface); err != nil {
 				return fmt.Errorf("not able to load probes %w", err)
 			}
 			b.Program.EntryFunctionName = ef
+			for fk, vf := range b.ProgMapCollection.Programs {
+				if _, ok := prg.Programs[fk]; !ok {
+					prg.Programs[fk] = vf
+				} else {
+					vf.Close()
+				}
+			}
+			for _, vf := range b.ProgMapCollection.Maps {
+				vf.Close()
+			}
+			b.ProgMapCollection = prg
 			if l[idx].UserProgramPID > 0 {
 				// Stopping User Program
 				process, err := os.FindProcess(l[idx].UserProgramPID)
@@ -1666,10 +1698,23 @@ func (c *NFConfigs) StartAllUserProgramsAndProbes(t models.L3AFALLHOSTDATA) erro
 			b := e.Value.(*BPF)
 			ef := b.Program.EntryFunctionName
 			b.Program.EntryFunctionName = ""
+			prg := b.ProgMapCollection
+			b.ProgMapCollection = nil
 			if err := b.LoadBPFProgram(iface); err != nil {
 				return fmt.Errorf("not able to load probes %w", err)
 			}
 			b.Program.EntryFunctionName = ef
+			for fk, vf := range b.ProgMapCollection.Programs {
+				if _, ok := prg.Programs[fk]; !ok {
+					prg.Programs[fk] = vf
+				} else {
+					vf.Close()
+				}
+			}
+			for _, vf := range b.ProgMapCollection.Maps {
+				vf.Close()
+			}
+			b.ProgMapCollection = prg
 			if l[idx].UserProgramPID > 0 {
 				// Stopping User Program
 				process, err := os.FindProcess(l[idx].UserProgramPID)

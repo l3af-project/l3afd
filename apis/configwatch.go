@@ -19,7 +19,6 @@ import (
 	"path"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -29,7 +28,6 @@ import (
 	"github.com/l3af-project/l3afd/v2/config"
 	"github.com/l3af-project/l3afd/v2/routes"
 	"github.com/l3af-project/l3afd/v2/signals"
-	"github.com/l3af-project/l3afd/v2/stats"
 
 	_ "github.com/l3af-project/l3afd/v2/docs"
 
@@ -49,13 +47,10 @@ type Server struct {
 // @description Configuration APIs to deploy and get the details of the eBPF Programs on the node
 // @host
 // @BasePath /
-
-var s *Server
-
 func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *config.Config, bpfrtconfg *bpfprogs.NFConfigs) error {
 	log.Info().Msgf("%s config server setup started on host %s", daemonName, hostname)
 
-	s = &Server{
+	s := &Server{
 		BPFRTConfigs: bpfrtconfg,
 		HostName:     hostname,
 		l3afdServer: &http.Server{
@@ -150,7 +145,6 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 			}
 		}
 	}()
-
 	return nil
 }
 
@@ -165,11 +159,6 @@ func (s *Server) GracefulStop(shutdownTimeout time.Duration) error {
 			exitCode = 1
 		}
 	}
-	stats.UnRegisterAll()
-	CloseAllServers(s.BPFRTConfigs.Ctx, s.BPFRTConfigs.HostConfig)
-	// for _, l := range models.AllNetListeners {
-	// 	l.Close()
-	// }
 	os.Exit(exitCode)
 	return nil
 }
@@ -356,35 +345,4 @@ func matchHostnamesWithRegexp(dnsName, sanMatchRule string) bool {
 	re := regexp.MustCompile(sanMatchRule)
 
 	return re.MatchString(dnsName)
-}
-
-func CloseAllServers(ctxf context.Context, conf *config.Config) {
-	shutdownCtx, shutdownRelease := context.WithTimeout(ctxf, 5*time.Second)
-	defer shutdownRelease()
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func(ctx context.Context) {
-		defer wg.Done()
-		if err := stats.StatServer.Shutdown(ctx); err != nil {
-			log.Warn().Msgf("HTTP stat shutdown error: %v", err)
-		}
-	}(shutdownCtx)
-	if conf.EBPFChainDebugEnabled {
-		wg.Add(1)
-		go func(ctx context.Context) {
-			defer wg.Done()
-			if err := bpfprogs.DebugServer.Shutdown(ctx); err != nil {
-				log.Warn().Msgf("HTTP debug shutdown error: %v", err)
-			}
-		}(shutdownCtx)
-	}
-	wg.Add(1)
-	go func(ctx context.Context) {
-		defer wg.Done()
-		if err := s.l3afdServer.Shutdown(ctx); err != nil {
-			log.Warn().Msgf("HTTP l3afdserver shutdown error: %v", err)
-		}
-	}(shutdownCtx)
-	wg.Wait()
-
 }
