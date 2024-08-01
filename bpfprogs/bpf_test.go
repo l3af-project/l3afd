@@ -625,7 +625,7 @@ func Test_assertExecute(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := AssertExecutable(tt.args.filepath); (err != nil) != tt.wantErr {
+			if err := assertExecutable(tt.args.filepath); (err != nil) != tt.wantErr {
 				t.Errorf("assertExecute() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

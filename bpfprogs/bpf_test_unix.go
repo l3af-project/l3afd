@@ -28,7 +28,7 @@ func GetTestExecutableName() string {
 }
 
 // assertExecutable checks for executable permissions
-func AssertExecutable(fPath string) error {
+func assertExecutable(fPath string) error {
 	info, err := os.Stat(fPath)
 	if err != nil {
 		return fmt.Errorf("could not stat file: %s with error: %w", fPath, err)

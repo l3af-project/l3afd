@@ -288,7 +288,7 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	} else if len(b.Program.CmdStop) > 0 && b.Program.UserProgramDaemon {
 		cmd := filepath.Join(b.FilePath, b.Program.CmdStop)
 
-		if err := AssertExecutable(cmd); err != nil {
+		if err := assertExecutable(cmd); err != nil {
 			return fmt.Errorf("no executable permissions on %s - error %w", b.Program.CmdStop, err)
 		}
 
@@ -484,7 +484,7 @@ func (b *BPF) UpdateArgs(ifaceName, direction string) error {
 
 	cmd := filepath.Join(b.FilePath, b.Program.CmdUpdate)
 	// Validate
-	if err := AssertExecutable(cmd); err != nil {
+	if err := assertExecutable(cmd); err != nil {
 		return fmt.Errorf("no executable permissions on %s - error %w", b.Program.CmdUpdate, err)
 	}
 
@@ -537,7 +537,7 @@ func (b *BPF) isRunning() (bool, bool, error) {
 	if len(b.Program.CmdStatus) > 1 {
 		cmd := filepath.Join(b.FilePath, b.Program.CmdStatus)
 
-		if err := AssertExecutable(cmd); err != nil {
+		if err := assertExecutable(cmd); err != nil {
 			userProgram = false
 		} else {
 			args := make([]string, 0, len(b.Program.StatusArgs)<<1)
@@ -1398,7 +1398,7 @@ func (b *BPF) IsLoaded() bool {
 func (b *BPF) StartUserProgram(ifaceName, direction string, chain bool) error {
 	cmd := filepath.Join(b.FilePath, b.Program.CmdStart)
 	// Validate
-	if err := AssertExecutable(cmd); err != nil {
+	if err := assertExecutable(cmd); err != nil {
 		return fmt.Errorf("no executable permissions on %s - error %w", b.Program.CmdStart, err)
 	}
 
