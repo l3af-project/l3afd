@@ -1077,11 +1077,6 @@ func (b *BPF) LoadXDPAttachProgram(ifaceName string) error {
 	if err := b.XDPLink.Pin(linkPinPath); err != nil {
 		return err
 	}
-	// // pin the program also
-	// progPinPath := fmt.Sprintf("%s/progs/%s/%s_%s", b.HostConfig.BpfMapDefaultPath, ifaceName, b.Program.EntryFunctionName, b.Program.ProgType)
-	// if err := b.ProgMapCollection.Programs[b.Program.EntryFunctionName].Pin(progPinPath); err != nil {
-	// 	return err
-	// }
 
 	if b.HostConfig.BpfChainingEnabled {
 		if err = b.UpdateProgramMap(ifaceName); err != nil {
