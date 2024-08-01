@@ -186,6 +186,11 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 		if err := rootProgBPF.LoadXDPAttachProgram(ifaceName); err != nil {
 			return nil, fmt.Errorf("failed to load xdp root program on iface \"%s\" name %s direction %s with err %w", ifaceName, rootProgBPF.Program.Name, direction, err)
 		}
+		// pin the program also
+		progPinPath := fmt.Sprintf("%s/progs/%s/%s_%s", rootProgBPF.HostConfig.BpfMapDefaultPath, ifaceName, rootProgBPF.Program.EntryFunctionName, rootProgBPF.Program.ProgType)
+		if err := rootProgBPF.ProgMapCollection.Programs[rootProgBPF.Program.EntryFunctionName].Pin(progPinPath); err != nil {
+			return nil, err
+		}
 	} else if progType == models.TCType {
 		if err := rootProgBPF.LoadTCAttachProgram(ifaceName, direction); err != nil {
 			return nil, fmt.Errorf("failed to load tc root program on iface \"%s\" name %s direction %s with err %w", ifaceName, rootProgBPF.Program.Name, direction, err)
@@ -1072,11 +1077,11 @@ func (b *BPF) LoadXDPAttachProgram(ifaceName string) error {
 	if err := b.XDPLink.Pin(linkPinPath); err != nil {
 		return err
 	}
-	// pin the program also
-	progPinPath := fmt.Sprintf("%s/progs/%s/%s_%s", b.HostConfig.BpfMapDefaultPath, ifaceName, b.Program.EntryFunctionName, b.Program.ProgType)
-	if err := b.ProgMapCollection.Programs[b.Program.EntryFunctionName].Pin(progPinPath); err != nil {
-		return err
-	}
+	// // pin the program also
+	// progPinPath := fmt.Sprintf("%s/progs/%s/%s_%s", b.HostConfig.BpfMapDefaultPath, ifaceName, b.Program.EntryFunctionName, b.Program.ProgType)
+	// if err := b.ProgMapCollection.Programs[b.Program.EntryFunctionName].Pin(progPinPath); err != nil {
+	// 	return err
+	// }
 
 	if b.HostConfig.BpfChainingEnabled {
 		if err = b.UpdateProgramMap(ifaceName); err != nil {
@@ -1505,9 +1510,19 @@ func (b *BPF) AttachBPFProgram(ifaceName, direction string) error {
 		if err := b.LoadXDPAttachProgram(ifaceName); err != nil {
 			return fmt.Errorf("failed to attach xdp program %s to inferface %s with err: %w", b.Program.Name, ifaceName, err)
 		}
+		// pin the program also
+		progPinPath := fmt.Sprintf("%s/progs/%s/%s_%s", b.HostConfig.BpfMapDefaultPath, ifaceName, b.Program.EntryFunctionName, b.Program.ProgType)
+		if err := b.ProgMapCollection.Programs[b.Program.EntryFunctionName].Pin(progPinPath); err != nil {
+			return err
+		}
 	} else if b.Program.ProgType == models.TCType {
 		if err := b.LoadTCAttachProgram(ifaceName, direction); err != nil {
 			return fmt.Errorf("failed to attach tc program %s to inferface %s direction %s with err: %w", b.Program.Name, ifaceName, direction, err)
+		}
+		// pin the program also
+		progPinPath := fmt.Sprintf("%s/progs/%s/%s_%s", b.HostConfig.BpfMapDefaultPath, ifaceName, b.Program.EntryFunctionName, b.Program.ProgType)
+		if err := b.ProgMapCollection.Programs[b.Program.EntryFunctionName].Pin(progPinPath); err != nil {
+			return err
 		}
 	}
 	return nil
