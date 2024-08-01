@@ -1181,8 +1181,6 @@ func (b *BPF) RemoveRootProgMapFile(ifacename string) error {
 
 // VerifyCleanupMaps - This method verifies map entries in the fs is removed
 func (b *BPF) VerifyCleanupMaps(chain bool) error {
-
-	log.Info().Msgf("We are Doing ATULL Cleanup %v", b.Program.Name)
 	// verify pinned file is removed.
 	if err := b.VerifyPinnedProgMap(chain, false); err != nil {
 		log.Error().Err(err).Msgf("stop user program - failed to remove pinned file %s", b.Program.Name)
@@ -1517,11 +1515,6 @@ func (b *BPF) AttachBPFProgram(ifaceName, direction string) error {
 
 // PinBpfMaps - Pinning tc and xdp maps
 func (b *BPF) PinBpfMaps(ifaceName string) error {
-	// create map path directory
-	// if err := b.CreatePinDirectories(ifaceName); err != nil {
-	// 	return err
-	// }
-
 	for k, v := range b.ProgMapCollection.Maps {
 		var mapFilename string
 		if b.Program.ProgType == models.TCType {
@@ -1600,11 +1593,4 @@ func (b *BPF) LoadBPFProgramChain(ifaceName, direction string) error {
 	}
 	log.Info().Msgf("eBPF program %s loaded on interface %s direction %s successfully", b.Program.Name, ifaceName, direction)
 	return nil
-}
-
-func ReturnFirstFifteenOrLessChars(s string) string {
-	if len(s) > 15 {
-		return s[:15]
-	}
-	return s
 }
