@@ -1512,7 +1512,7 @@ func SerilazeProgram(e *list.Element) *models.L3AFMetaData {
 			tmp.ProgMapCollection.Programs = append(tmp.ProgMapCollection.Programs, k)
 		}
 	}
-	for k, _ := range bpf.ProgMapCollection.Maps {
+	for k := range bpf.ProgMapCollection.Maps {
 		tmp.ProgMapCollection.Maps = append(tmp.ProgMapCollection.Maps, k)
 	}
 	tmp.MetricsBpfMaps = make(map[string]models.MetaMetricsBPFMap)

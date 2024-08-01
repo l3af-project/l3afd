@@ -322,7 +322,7 @@ func SetMetrics(t models.L3AFALLHOSTDATA) {
 }
 
 func main() {
-	models.CloseForRestart = make(chan int)
+	models.CloseForRestart = make(chan struct{})
 	setupLogging()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

@@ -50,6 +50,6 @@ func HandleRestart(ctx context.Context, bpfcfg *bpfprogs.NFConfigs) http.Handler
 			log.Error().Err(err).Msgf("failed write to file operation")
 			statusCode = http.StatusInternalServerError
 		}
-		models.CloseForRestart <- 1
+		models.CloseForRestart <- struct{}{}
 	}
 }

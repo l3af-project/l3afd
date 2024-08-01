@@ -160,4 +160,4 @@ type L3AFALLHOSTDATA struct {
 	InRestart      bool
 }
 
-var CloseForRestart chan int
+var CloseForRestart chan struct{}
