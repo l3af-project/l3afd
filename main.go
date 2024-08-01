@@ -386,10 +386,7 @@ func main() {
 	if conf.EBPFChainDebugEnabled {
 		bpfprogs.SetupBPFDebug(conf.EBPFChainDebugAddr, ebpfConfigs)
 	}
-	select {
-	case <-models.CloseForRestart:
-		log.Info().Msg("exiting for graceful restart")
-	}
+	<-models.CloseForRestart
 	os.Exit(0)
 }
 
@@ -540,10 +537,7 @@ func setupForRestart(ctx context.Context, conf *config.Config) error {
 		if err = os.WriteFile(conf.RestartDataFile, file, 0644); err != nil {
 			log.Error().Err(err).Msgf("failed write to file operation")
 		}
-		select {
-		case <-models.CloseForRestart:
-			log.Info().Msg("exiting for graceful restart")
-		}
+		<-models.CloseForRestart
 		os.Exit(0)
 	}
 	return nil

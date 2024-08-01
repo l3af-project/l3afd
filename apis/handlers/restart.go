@@ -16,14 +16,14 @@ import (
 	"github.com/l3af-project/l3afd/v2/models"
 )
 
-// DeleteEbpfPrograms   remove eBPF programs on node
-// @Summary Removes eBPF Programs on node
-// @Description Removes eBPF Programs on node
+// HandleRestart Store meta data about ebpf programs and exit
+// @Summary Store meta data about ebpf programs and exit
+// @Description Store meta data about ebpf programs and exit
 // @Accept  json
 // @Produce  json
-// @Param cfgs body []models.L3afBPFProgramNames true "BPF program names"
+// @Param cfgs body []models.L3afBPFPrograms true "BPF programs"
 // @Success 200
-// @Router /l3af/configs/v1/restart [post]
+// @Router /l3af/configs/v1/restart [put]
 func HandleRestart(ctx context.Context, bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		mesg := ""
