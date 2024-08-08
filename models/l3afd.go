@@ -3,6 +3,11 @@
 
 package models
 
+import (
+	"net"
+	"sync"
+)
+
 // l3afd constants
 const (
 	Enabled  = "enabled"
@@ -161,3 +166,9 @@ type L3AFALLHOSTDATA struct {
 }
 
 var CloseForRestart chan struct{}
+
+var AllNetListeners map[string]*net.TCPListener
+
+var CurrentWriteReq int
+var StateLock sync.Mutex
+var IsReadOnly bool

@@ -16,10 +16,10 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
 	"github.com/l3af-project/l3afd/v2/config"
 	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/prometheus/client_golang/prometheus"
@@ -1604,10 +1604,9 @@ func (c *NFConfigs) GetL3AFHOSTDATA() models.L3AFALLHOSTDATA {
 	return result
 }
 
-func (c *NFConfigs) StartAllUserProgramsAndProbes(t models.L3AFALLHOSTDATA) error {
+func (c *NFConfigs) StartAllUserProgramsAndProbes() error {
 	for iface, v := range c.IngressXDPBpfs {
-		l := t.IngressXDPBpfs[iface]
-		for e, idx := v.Front(), 0; e != nil; e, idx = e.Next(), idx+1 {
+		for e := v.Front(); e != nil; e = e.Next() {
 			// Starting Probes
 			b := e.Value.(*BPF)
 			ef := b.Program.EntryFunctionName
@@ -1629,18 +1628,13 @@ func (c *NFConfigs) StartAllUserProgramsAndProbes(t models.L3AFALLHOSTDATA) erro
 				vf.Close()
 			}
 			b.ProgMapCollection = prg
-			if l[idx].UserProgramPID > 0 {
-				// Stopping User Program
-				process, err := os.FindProcess(l[idx].UserProgramPID)
-				if err != nil {
-					log.Warn().Msgf("user program is not running for %v in direction %v", l[idx].Program.MapName, l[idx].Program.ProgType)
-					continue
+			if len(b.Program.CmdStart) > 0 {
+				// Verify other instance is running
+				if err := StopExternalRunningProcess(b.Program.CmdStart); err != nil {
+					return fmt.Errorf("failed to stop external instance of the program %s with error : %w", b.Program.CmdStart, err)
 				}
-				err = process.Signal(syscall.SIGTERM)
-				if err != nil {
-					log.Warn().Msgf("failed to stop userprogram for %v in direction %v", l[idx].Program.MapName, l[idx].Program.ProgType)
-					continue
-				}
+			}
+			if b.Program.UserProgramDaemon {
 				// Starting User Program
 				if err := b.StartUserProgram(iface, models.XDPIngressType, c.HostConfig.BpfChainingEnabled); err != nil {
 					return err
@@ -1650,8 +1644,7 @@ func (c *NFConfigs) StartAllUserProgramsAndProbes(t models.L3AFALLHOSTDATA) erro
 	}
 
 	for iface, v := range c.IngressTCBpfs {
-		l := t.IngressTCBpfs[iface]
-		for e, idx := v.Front(), 0; e != nil; e, idx = e.Next(), idx+1 {
+		for e := v.Front(); e != nil; e = e.Next() {
 			b := e.Value.(*BPF)
 			ef := b.Program.EntryFunctionName
 			b.Program.EntryFunctionName = ""
@@ -1672,18 +1665,13 @@ func (c *NFConfigs) StartAllUserProgramsAndProbes(t models.L3AFALLHOSTDATA) erro
 				vf.Close()
 			}
 			b.ProgMapCollection = prg
-			if l[idx].UserProgramPID > 0 {
-				// Stopping User Program
-				process, err := os.FindProcess(l[idx].UserProgramPID)
-				if err != nil {
-					log.Warn().Msgf("user program is not running for %v in direction %v", l[idx].Program.MapName, l[idx].Program.ProgType)
-					continue
+			if len(b.Program.CmdStart) > 0 {
+				// Verify other instance is running
+				if err := StopExternalRunningProcess(b.Program.CmdStart); err != nil {
+					return fmt.Errorf("failed to stop external instance of the program %s with error : %w", b.Program.CmdStart, err)
 				}
-				err = process.Signal(syscall.SIGTERM)
-				if err != nil {
-					log.Warn().Msgf("failed to stop userprogram for %v in direction %v", l[idx].Program.MapName, l[idx].Program.ProgType)
-					continue
-				}
+			}
+			if b.Program.UserProgramDaemon {
 				// Starting User Program
 				if err := b.StartUserProgram(iface, models.XDPIngressType, c.HostConfig.BpfChainingEnabled); err != nil {
 					return err
@@ -1693,8 +1681,7 @@ func (c *NFConfigs) StartAllUserProgramsAndProbes(t models.L3AFALLHOSTDATA) erro
 	}
 
 	for iface, v := range c.EgressTCBpfs {
-		l := t.EgressTCBpfs[iface]
-		for e, idx := v.Front(), 0; e != nil; e, idx = e.Next(), idx+1 {
+		for e := v.Front(); e != nil; e = e.Next() {
 			b := e.Value.(*BPF)
 			ef := b.Program.EntryFunctionName
 			b.Program.EntryFunctionName = ""
@@ -1715,18 +1702,13 @@ func (c *NFConfigs) StartAllUserProgramsAndProbes(t models.L3AFALLHOSTDATA) erro
 				vf.Close()
 			}
 			b.ProgMapCollection = prg
-			if l[idx].UserProgramPID > 0 {
-				// Stopping User Program
-				process, err := os.FindProcess(l[idx].UserProgramPID)
-				if err != nil {
-					log.Warn().Msgf("user program is not running for %v in direction %v", l[idx].Program.MapName, l[idx].Program.ProgType)
-					continue
+			if len(b.Program.CmdStart) > 0 {
+				// Verify other instance is running
+				if err := StopExternalRunningProcess(b.Program.CmdStart); err != nil {
+					return fmt.Errorf("failed to stop external instance of the program %s with error : %w", b.Program.CmdStart, err)
 				}
-				err = process.Signal(syscall.SIGTERM)
-				if err != nil {
-					log.Warn().Msgf("failed to stop userprogram for %v in direction %v", l[idx].Program.MapName, l[idx].Program.ProgType)
-					continue
-				}
+			}
+			if b.Program.UserProgramDaemon {
 				// Starting User Program
 				if err := b.StartUserProgram(iface, models.XDPIngressType, c.HostConfig.BpfChainingEnabled); err != nil {
 					return err
@@ -1735,4 +1717,37 @@ func (c *NFConfigs) StartAllUserProgramsAndProbes(t models.L3AFALLHOSTDATA) erro
 		}
 	}
 	return nil
+}
+
+func (c *NFConfigs) StopAllProbes() {
+	for _, v := range c.IngressXDPBpfs {
+		for e := v.Front(); e != nil; e = e.Next() {
+			// Starting Probes
+			b := e.Value.(*BPF)
+			for _, pb := range b.ProbeLinks {
+				(*pb).Close()
+			}
+			b.ProbeLinks = make([]*link.Link, 0)
+		}
+	}
+	for _, v := range c.IngressTCBpfs {
+		for e := v.Front(); e != nil; e = e.Next() {
+			// Starting Probes
+			b := e.Value.(*BPF)
+			for _, pb := range b.ProbeLinks {
+				(*pb).Close()
+			}
+			b.ProbeLinks = make([]*link.Link, 0)
+		}
+	}
+	for _, v := range c.EgressTCBpfs {
+		for e := v.Front(); e != nil; e = e.Next() {
+			// Starting Probes
+			b := e.Value.(*BPF)
+			for _, pb := range b.ProbeLinks {
+				(*pb).Close()
+			}
+			b.ProbeLinks = make([]*link.Link, 0)
+		}
+	}
 }

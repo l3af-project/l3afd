@@ -5,15 +5,18 @@ package main
 
 import (
 	"context"
+	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/l3af-project/l3afd/v2/apis"
@@ -21,7 +24,6 @@ import (
 	"github.com/l3af-project/l3afd/v2/bpfprogs"
 	"github.com/l3af-project/l3afd/v2/config"
 	"github.com/l3af-project/l3afd/v2/models"
-	"github.com/l3af-project/l3afd/v2/pidfile"
 	"github.com/l3af-project/l3afd/v2/restart"
 	"github.com/l3af-project/l3afd/v2/stats"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -75,6 +77,10 @@ func saveLogsToFile(conf *config.Config) {
 
 func main() {
 	models.CloseForRestart = make(chan struct{})
+	models.IsReadOnly = false
+	models.CurrentWriteReq = 0
+	models.StateLock = sync.Mutex{}
+	models.AllNetListeners = make(map[string]*net.TCPListener)
 	setupLogging()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -94,12 +100,12 @@ func main() {
 		saveLogsToFile(conf)
 	}
 
-	if err = pidfile.CheckPIDConflict(conf.PIDFilename); err != nil {
-		log.Fatal().Err(err).Msgf("The PID file: %s, is in an unacceptable state", conf.PIDFilename)
-	}
-	if err = pidfile.CreatePID(conf.PIDFilename); err != nil {
-		log.Fatal().Err(err).Msgf("The PID file: %s, could not be created", conf.PIDFilename)
-	}
+	// if err = pidfile.CheckPIDConflict(conf.PIDFilename); err != nil {
+	// 	log.Fatal().Err(err).Msgf("The PID file: %s, is in an unacceptable state", conf.PIDFilename)
+	// }
+	// if err = pidfile.CreatePID(conf.PIDFilename); err != nil {
+	// 	log.Fatal().Err(err).Msgf("The PID file: %s, could not be created", conf.PIDFilename)
+	// }
 
 	if runtime.GOOS == "linux" {
 		if err = checkKernelVersion(conf); err != nil {
@@ -240,57 +246,94 @@ func ReadConfigsFromConfigStore(conf *config.Config) ([]models.L3afBPFPrograms, 
 	return t, nil
 }
 
+func HandleErr(e error, msg string) {
+	if e == nil {
+		return
+	}
+	log.Fatal().Err(e).Msgf(msg)
+	sendState("Failed")
+	os.Exit(0)
+}
 func setupForRestart(ctx context.Context, conf *config.Config) error {
-	bodyBuffer, err := os.ReadFile(conf.RestartDataFile)
-	if err != nil {
-		return fmt.Errorf("not able to read file")
+	if _, err := os.Stat("/tmp/l3afd.sock"); os.IsNotExist(err) {
+		return err
 	}
+	models.IsReadOnly = true
+	// Now you need to write client side code
+	conn, err := net.Dial("unix", "/tmp/l3afd.sock")
+	defer conn.Close()
+	HandleErr(err, "not able to dial unix domain socket")
+	decoder := gob.NewDecoder(conn)
 	var t models.L3AFALLHOSTDATA
-	if err := json.Unmarshal(bodyBuffer, &t); err != nil {
-		return fmt.Errorf("failed to unmarshal payload: %v", err)
+	err = decoder.Decode(&t)
+	HandleErr(err, "not able to decode")
+	machineHostname, err := os.Hostname()
+	HandleErr(err, "not able to fetch the hostname")
+
+	models.AllNetListeners = make(map[string]*net.TCPListener)
+	l, err := restart.Getnetlistener(3, "stat_server")
+	HandleErr(err, "getting stat_server listener failed")
+	models.AllNetListeners["stat_http"] = l
+
+	l, err = restart.Getnetlistener(4, "main_server")
+	HandleErr(err, "getting main_server listener failed")
+	models.AllNetListeners["main_http"] = l
+
+	if conf.EBPFChainDebugEnabled {
+		l, err = restart.Getnetlistener(5, "debug_server")
+		HandleErr(err, "getting main_server listener failed")
+		models.AllNetListeners["debug_http"] = l
 	}
-	if t.InRestart {
-		// Get Hostname
-		machineHostname, err := os.Hostname()
-		if err != nil {
-			log.Fatal().Err(err).Msg("Could not get hostname from OS")
-		}
-		// setup Metrics endpoint
-		stats.SetupMetrics(machineHostname, daemonName, conf.MetricsAddr)
-		restart.SetMetrics(t)
-		pMon := bpfprogs.NewPCheck(conf.MaxEBPFReStartCount, conf.BpfChainingEnabled, conf.EBPFPollInterval)
-		bpfM := bpfprogs.NewpBpfMetrics(conf.BpfChainingEnabled, conf.NMetricSamples)
-		log.Info().Msgf("Restoring Previous State Graceful Restart")
-		ebpfConfigs, err := restart.Convert(ctx, t, conf)
-		ebpfConfigs.BpfMetricsMon = bpfM
-		ebpfConfigs.ProcessMon = pMon
-		if err != nil {
-			log.Fatal().Err(err).Msg("Failed to convert state")
-		}
-		if err := ebpfConfigs.StartAllUserProgramsAndProbes(t); err != nil {
-			log.Fatal().Err(err).Msg("failed to start all the user programs and probes")
-		}
-		if err := apis.StartConfigWatcher(ctx, machineHostname, daemonName, conf, ebpfConfigs); err != nil {
-			log.Fatal().Err(err).Msgf("Starting config Watcher failed")
-		}
-		if err := handlers.InitConfigs(ebpfConfigs); err != nil {
-			log.Fatal().Err(err).Msg("L3afd failed to initialise configs")
-		}
-		if conf.EBPFChainDebugEnabled {
-			bpfprogs.SetupBPFDebug(conf.EBPFChainDebugAddr, ebpfConfigs)
-		}
-		ebpfConfigs.ProcessMon.PCheckStart(ebpfConfigs.IngressXDPBpfs, ebpfConfigs.IngressTCBpfs, ebpfConfigs.EgressTCBpfs, &ebpfConfigs.ProbesBpfs)
-		ebpfConfigs.BpfMetricsMon.BpfMetricsStart(ebpfConfigs.IngressXDPBpfs, ebpfConfigs.IngressTCBpfs, ebpfConfigs.EgressTCBpfs, &ebpfConfigs.ProbesBpfs)
-		t.InRestart = false
-		file, err := json.MarshalIndent(t, "", " ")
-		if err != nil {
-			log.Error().Err(err).Msgf("failed to marshal configs to save")
-		}
-		if err = os.WriteFile(conf.RestartDataFile, file, 0644); err != nil {
-			log.Error().Err(err).Msgf("failed write to file operation")
-		}
-		<-models.CloseForRestart
-		os.Exit(0)
+	// setup Metrics endpoint
+	stats.SetupMetrics(machineHostname, daemonName, conf.MetricsAddr)
+	restart.SetMetrics(t)
+	pMon := bpfprogs.NewPCheck(conf.MaxEBPFReStartCount, conf.BpfChainingEnabled, conf.EBPFPollInterval)
+	bpfM := bpfprogs.NewpBpfMetrics(conf.BpfChainingEnabled, conf.NMetricSamples)
+	log.Info().Msgf("Restoring Previous State Graceful Restart")
+	ebpfConfigs, err := restart.Convert(ctx, t, conf)
+	ebpfConfigs.BpfMetricsMon = bpfM
+	ebpfConfigs.ProcessMon = pMon
+	HandleErr(err, "Failed to convert deserilaze the state")
+	err = ebpfConfigs.StartAllUserProgramsAndProbes()
+	HandleErr(err, "failed to start all the user programs and probes")
+	err = apis.StartConfigWatcher(ctx, machineHostname, daemonName, conf, ebpfConfigs)
+	HandleErr(err, "Starting config Watcher failed")
+	err = handlers.InitConfigs(ebpfConfigs)
+	HandleErr(err, "L3afd failed to initialise configs")
+	if conf.EBPFChainDebugEnabled {
+		bpfprogs.SetupBPFDebug(conf.EBPFChainDebugAddr, ebpfConfigs)
 	}
+	ebpfConfigs.ProcessMon.PCheckStart(ebpfConfigs.IngressXDPBpfs, ebpfConfigs.IngressTCBpfs, ebpfConfigs.EgressTCBpfs, &ebpfConfigs.ProbesBpfs)
+	ebpfConfigs.BpfMetricsMon.BpfMetricsStart(ebpfConfigs.IngressXDPBpfs, ebpfConfigs.IngressTCBpfs, ebpfConfigs.EgressTCBpfs, &ebpfConfigs.ProbesBpfs)
+	// we need to write code to send ready status
+	sendState("Ready")
+	models.IsReadOnly = false
+	<-models.CloseForRestart
+	os.Exit(0)
 	return nil
+}
+
+func sendState(s string) {
+	ln, err := net.Listen("unix", "/tmp/l3afstate.sock")
+	if err != nil {
+		log.Err(err)
+		os.Exit(0)
+		return
+	}
+	conn, err := ln.Accept()
+	if err != nil {
+		log.Err(err)
+		ln.Close()
+		os.Exit(0)
+		return
+	}
+	encoder := gob.NewEncoder(conn)
+	err = encoder.Encode(s)
+	if err != nil {
+		log.Err(err)
+		conn.Close()
+		ln.Close()
+		os.Exit(0)
+		return
+	}
 }

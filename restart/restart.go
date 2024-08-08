@@ -5,6 +5,8 @@ import (
 	"container/ring"
 	"context"
 	"fmt"
+	"net"
+	"os"
 	"path/filepath"
 	"sync"
 
@@ -258,4 +260,18 @@ func SetMetrics(t models.L3AFALLHOSTDATA) {
 			}
 		}
 	}
+}
+
+func Getnetlistener(fd int, fname string) (*net.TCPListener, error) {
+	file := os.NewFile(uintptr(fd), "DupFd"+fname)
+	l, err := net.FileListener(file)
+	if err != nil {
+		return nil, err
+	}
+	lf, e := l.(*net.TCPListener)
+	if !e {
+		return nil, fmt.Errorf("not able to covert to tcp listner")
+	}
+	file.Close()
+	return lf, nil
 }

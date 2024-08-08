@@ -1604,3 +1604,49 @@ func (b *BPF) LoadBPFProgramChain(ifaceName, direction string) error {
 	log.Info().Msgf("eBPF program %s loaded on interface %s direction %s successfully", b.Program.Name, ifaceName, direction)
 	return nil
 }
+
+func (b *BPF) StopUserProgram(ifaceName, direction string) error {
+	// Stop User Programs if any
+	if len(b.Program.CmdStop) < 1 && b.Program.UserProgramDaemon {
+		// Loaded using user program
+		if err := b.ProcessTerminate(); err != nil {
+			return fmt.Errorf("BPFProgram %s process terminate failed with error: %w", b.Program.Name, err)
+		}
+		if b.Cmd != nil {
+			if err := b.Cmd.Wait(); err != nil {
+				log.Error().Err(err).Msgf("cmd wait at stopping bpf program %s errored", b.Program.Name)
+			}
+			b.Cmd = nil
+		}
+	} else if len(b.Program.CmdStop) > 0 && b.Program.UserProgramDaemon {
+		cmd := filepath.Join(b.FilePath, b.Program.CmdStop)
+
+		if err := assertExecutable(cmd); err != nil {
+			return fmt.Errorf("no executable permissions on %s - error %w", b.Program.CmdStop, err)
+		}
+
+		args := make([]string, 0, len(b.Program.StopArgs)<<1)
+		if len(ifaceName) > 0 {
+			args = append(args, "--iface="+ifaceName) // detaching from iface
+		}
+		if len(direction) > 0 {
+			args = append(args, "--direction="+direction) // xdpingress or ingress or egress
+		}
+		for k, val := range b.Program.StopArgs {
+			if v, ok := val.(string); !ok {
+				err := fmt.Errorf("stop args is not a string for the bpf program %s", b.Program.Name)
+				log.Error().Err(err).Msgf("failed to convert stop args value into string for program %s", b.Program.Name)
+				return err
+			} else {
+				args = append(args, "--"+k+" ="+v)
+			}
+		}
+		log.Info().Msgf("bpf user program stop command : %s %v", cmd, args)
+		prog := execCommand(cmd, args...)
+		if err := prog.Run(); err != nil {
+			log.Warn().Err(err).Msgf("l3afd : Failed to stop the user program %s", b.Program.CmdStop)
+		}
+		b.Cmd = nil
+	}
+	return nil
+}
