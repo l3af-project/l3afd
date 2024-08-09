@@ -4,9 +4,10 @@
 package handlers
 
 import (
-	"context"
 	"encoding/gob"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/l3af-project/l3afd/v2/bpfprogs"
 	"github.com/l3af-project/l3afd/v2/models"
+	"github.com/l3af-project/l3afd/v2/pidfile"
 )
 
 // HandleRestart Store meta data about ebpf programs and exit
@@ -30,7 +32,7 @@ import (
 // @Param cfgs body []models.L3afBPFPrograms true "BPF programs"
 // @Success 200
 // @Router /l3af/configs/v1/restart [put]
-func HandleRestart(ctx context.Context, bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
+func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		mesg := ""
 		statusCode := http.StatusOK
@@ -42,6 +44,31 @@ func HandleRestart(ctx context.Context, bpfcfg *bpfprogs.NFConfigs) http.Handler
 				log.Warn().Msgf("Failed to write response bytes: %v", err)
 			}
 		}(&mesg, &statusCode)
+		if models.IsReadOnly {
+			log.Warn().Msgf("We are in Between Restart Please try after some time")
+			mesg = "We are in Between Restart Please try after some time"
+			statusCode = http.StatusInternalServerError
+			return
+		}
+		if r.Body == nil {
+			log.Warn().Msgf("Empty request body")
+			statusCode = http.StatusInternalServerError
+			return
+		}
+		bodyBuffer, err := io.ReadAll(r.Body)
+		if err != nil {
+			mesg = fmt.Sprintf("failed to read request body: %v", err)
+			log.Error().Msg(mesg)
+			statusCode = http.StatusInternalServerError
+			return
+		}
+		var t models.RestartConfig
+		if err := json.Unmarshal(bodyBuffer, &t); err != nil {
+			mesg = fmt.Sprintf("failed to unmarshal payload: %v", err)
+			log.Error().Msg(mesg)
+			statusCode = http.StatusInternalServerError
+			return
+		}
 		defer func() {
 			models.IsReadOnly = false
 		}()
@@ -58,8 +85,9 @@ func HandleRestart(ctx context.Context, bpfcfg *bpfprogs.NFConfigs) http.Handler
 		// Now our system is in Readonly state
 		bpfProgs := bpfcfg.GetL3AFHOSTDATA()
 		bpfProgs.InRestart = true
-		ln, err := net.Listen("unix", "/tmp/l3afd.sock")
+		ln, err := net.Listen("unix", bpfcfg.HostConfig.HostSock)
 		if err != nil {
+			log.Err(err)
 			statusCode = http.StatusInternalServerError
 			return
 		}
@@ -68,16 +96,16 @@ func HandleRestart(ctx context.Context, bpfcfg *bpfprogs.NFConfigs) http.Handler
 			defer ln.Close()
 			conn, err := ln.Accept()
 			if err != nil {
-				srverror <- err
 				log.Err(err)
+				srverror <- err
 				return
 			}
 			defer conn.Close()
 			encoder := gob.NewEncoder(conn)
 			err = encoder.Encode(bpfProgs)
 			if err != nil {
-				srverror <- err
 				log.Err(err)
+				srverror <- err
 				return
 			}
 		}()
@@ -98,14 +126,13 @@ func HandleRestart(ctx context.Context, bpfcfg *bpfprogs.NFConfigs) http.Handler
 			files[idx] = newFile
 		}
 		// we have added
-		cmd := exec.Command("/root/test/l3afd", "--config", "/root/test/l3afd_reload.cfg")
+		cmd := exec.Command(t.BinPath, "--config", t.CfgPath)
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Setsid: true,
 		}
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.ExtraFiles = files
-		log.Info().Msg("Starting chiled Process")
 		// checking srv error
 		if len(srverror) == 1 {
 			statusCode = http.StatusInternalServerError
@@ -113,11 +140,20 @@ func HandleRestart(ctx context.Context, bpfcfg *bpfprogs.NFConfigs) http.Handler
 			return
 		}
 		bpfcfg.StopAllProbes()
+		log.Info().Msg("Starting child Process")
 		err = cmd.Start()
 		if err != nil {
 			log.Error().Msgf("%v", err)
 			statusCode = http.StatusInternalServerError
+			err = cmd.Process.Kill()
+			if err != nil {
+				fmt.Println(err)
+			}
 			err = bpfcfg.StartAllUserProgramsAndProbes()
+			if err != nil {
+				log.Error().Msgf("%v", err)
+			}
+			err = pidfile.CreatePID(bpfcfg.HostConfig.PIDFilename)
 			if err != nil {
 				log.Error().Msgf("%v", err)
 			}
@@ -129,8 +165,8 @@ func HandleRestart(ctx context.Context, bpfcfg *bpfprogs.NFConfigs) http.Handler
 			var err error
 			var conn net.Conn
 			f := false
-			for i := 1; i <= 10; i++ {
-				conn, err = net.Dial("unix", "/tmp/l3afstate.sock")
+			for i := 1; i <= 7; i++ {
+				conn, err = net.Dial("unix", bpfcfg.HostConfig.StateSock)
 				if err == nil {
 					f = true
 					break
@@ -153,7 +189,7 @@ func HandleRestart(ctx context.Context, bpfcfg *bpfprogs.NFConfigs) http.Handler
 			NewProcessStatus <- data
 		}()
 		// time to bootup
-		for i := 0; i < 10; i++ {
+		for i := 0; i < 7; i++ {
 			if len(srverror) == 1 {
 				statusCode = http.StatusInternalServerError
 				log.Err(<-srverror)
@@ -164,7 +200,15 @@ func HandleRestart(ctx context.Context, bpfcfg *bpfprogs.NFConfigs) http.Handler
 		st := <-NewProcessStatus
 		if st == "Failed" {
 			// write a function a to do cleanup of other process if necessary
+			err = cmd.Process.Kill()
+			if err != nil {
+				fmt.Println(err)
+			}
 			err = bpfcfg.StartAllUserProgramsAndProbes()
+			if err != nil {
+				log.Error().Msgf("%v", err)
+			}
+			err = pidfile.CreatePID(bpfcfg.HostConfig.PIDFilename)
 			if err != nil {
 				log.Error().Msgf("%v", err)
 			}

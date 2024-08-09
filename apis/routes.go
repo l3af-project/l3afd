@@ -42,7 +42,7 @@ func apiRoutes(ctx context.Context, bpfcfg *bpfprogs.NFConfigs) []routes.Route {
 		{
 			Method:      "PUT",
 			Path:        "/l3af/configs/{version}/restart",
-			HandlerFunc: handlers.HandleRestart(ctx, bpfcfg),
+			HandlerFunc: handlers.HandleRestart(bpfcfg),
 		},
 	}
 

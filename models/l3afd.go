@@ -150,7 +150,6 @@ type L3AFMetaData struct {
 	ProgMapID         uint32
 	PrevProgMapID     uint32
 	XDPLink           bool
-	UserProgramPID    int
 }
 
 type L3AFALLHOSTDATA struct {
@@ -163,6 +162,11 @@ type L3AFALLHOSTDATA struct {
 	Ifaces         map[string]string
 	AllStats       []MetricVec
 	InRestart      bool
+}
+
+type RestartConfig struct {
+	BinPath string `json:"binpath"` // new binary path
+	CfgPath string `json:"cfgpath"` // new cfg path
 }
 
 var CloseForRestart chan struct{}

@@ -1500,9 +1500,6 @@ func SerilazeProgram(e *list.Element) *models.L3AFMetaData {
 	tmp.Program = bpf.Program
 	tmp.ProgMapID = uint32(bpf.ProgMapID)
 	tmp.RestartCount = bpf.RestartCount
-	if bpf.Cmd != nil {
-		tmp.UserProgramPID = bpf.Cmd.Process.Pid
-	}
 	tmp.ProgMapCollection = models.MetaColl{
 		Programs: make([]string, 0),
 		Maps:     make([]string, 0),

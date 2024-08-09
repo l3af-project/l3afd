@@ -24,6 +24,7 @@ import (
 	"github.com/l3af-project/l3afd/v2/bpfprogs"
 	"github.com/l3af-project/l3afd/v2/config"
 	"github.com/l3af-project/l3afd/v2/models"
+	"github.com/l3af-project/l3afd/v2/pidfile"
 	"github.com/l3af-project/l3afd/v2/restart"
 	"github.com/l3af-project/l3afd/v2/stats"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -33,6 +34,8 @@ import (
 )
 
 const daemonName = "l3afd"
+
+var stateSockPath string
 
 func setupLogging() {
 	const logLevelEnvName = "L3AF_LOG_LEVEL"
@@ -100,12 +103,16 @@ func main() {
 		saveLogsToFile(conf)
 	}
 
-	// if err = pidfile.CheckPIDConflict(conf.PIDFilename); err != nil {
-	// 	log.Fatal().Err(err).Msgf("The PID file: %s, is in an unacceptable state", conf.PIDFilename)
-	// }
-	// if err = pidfile.CreatePID(conf.PIDFilename); err != nil {
-	// 	log.Fatal().Err(err).Msgf("The PID file: %s, could not be created", conf.PIDFilename)
-	// }
+	if err = pidfile.CheckPIDConflict(conf.PIDFilename); err != nil {
+		if err = setupForRestart(ctx, conf); err != nil {
+			log.Warn().Msg("Doing Normal Startup")
+		} else {
+			log.Fatal().Err(err).Msgf("The PID file: %s, is in an unacceptable state", conf.PIDFilename)
+		}
+	}
+	if err = pidfile.CreatePID(conf.PIDFilename); err != nil {
+		log.Fatal().Err(err).Msgf("The PID file: %s, could not be created", conf.PIDFilename)
+	}
 
 	if runtime.GOOS == "linux" {
 		if err = checkKernelVersion(conf); err != nil {
@@ -115,10 +122,6 @@ func main() {
 
 	if err = registerL3afD(conf); err != nil {
 		log.Error().Err(err).Msg("L3afd registration failed")
-	}
-
-	if err = setupForRestart(ctx, conf); err != nil {
-		log.Warn().Msg("Doing Normal Startup")
 	}
 
 	ebpfConfigs, err := SetupNFConfigs(ctx, conf)
@@ -167,7 +170,6 @@ func SetupNFConfigs(ctx context.Context, conf *config.Config) (*bpfprogs.NFConfi
 	if err := apis.StartConfigWatcher(ctx, machineHostname, daemonName, conf, nfConfigs); err != nil {
 		return nil, fmt.Errorf("error in version announcer: %v", err)
 	}
-
 	return nfConfigs, nil
 }
 
@@ -255,12 +257,13 @@ func HandleErr(e error, msg string) {
 	os.Exit(0)
 }
 func setupForRestart(ctx context.Context, conf *config.Config) error {
-	if _, err := os.Stat("/tmp/l3afd.sock"); os.IsNotExist(err) {
+	if _, err := os.Stat(conf.HostSock); os.IsNotExist(err) {
 		return err
 	}
+	stateSockPath = conf.StateSock
 	models.IsReadOnly = true
 	// Now you need to write client side code
-	conn, err := net.Dial("unix", "/tmp/l3afd.sock")
+	conn, err := net.Dial("unix", conf.HostSock)
 	defer conn.Close()
 	HandleErr(err, "not able to dial unix domain socket")
 	decoder := gob.NewDecoder(conn)
@@ -305,6 +308,8 @@ func setupForRestart(ctx context.Context, conf *config.Config) error {
 	}
 	ebpfConfigs.ProcessMon.PCheckStart(ebpfConfigs.IngressXDPBpfs, ebpfConfigs.IngressTCBpfs, ebpfConfigs.EgressTCBpfs, &ebpfConfigs.ProbesBpfs)
 	ebpfConfigs.BpfMetricsMon.BpfMetricsStart(ebpfConfigs.IngressXDPBpfs, ebpfConfigs.IngressTCBpfs, ebpfConfigs.EgressTCBpfs, &ebpfConfigs.ProbesBpfs)
+	err = pidfile.CreatePID(conf.PIDFilename)
+	HandleErr(err, fmt.Sprintf("The PID file: %s, could not be created", conf.PIDFilename))
 	// we need to write code to send ready status
 	sendState("Ready")
 	models.IsReadOnly = false
@@ -314,7 +319,7 @@ func setupForRestart(ctx context.Context, conf *config.Config) error {
 }
 
 func sendState(s string) {
-	ln, err := net.Listen("unix", "/tmp/l3afstate.sock")
+	ln, err := net.Listen("unix", stateSockPath)
 	if err != nil {
 		log.Err(err)
 		os.Exit(0)
@@ -336,4 +341,6 @@ func sendState(s string) {
 		os.Exit(0)
 		return
 	}
+	conn.Close()
+	ln.Close()
 }

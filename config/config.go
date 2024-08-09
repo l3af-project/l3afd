@@ -32,7 +32,6 @@ type Config struct {
 	BpfMapDefaultPath   string
 	// Flag to enable chaining with root program
 	BpfChainingEnabled bool
-	RestartDataFile    string
 
 	FileLogLocation   string
 	FileLogMaxSize    int
@@ -89,6 +88,10 @@ type Config struct {
 	MTLSServerKeyFilename     string
 	MTLSCertExpiryWarningDays int
 	MTLSSANMatchRules         []string
+
+	// RestartConfig
+	HostSock  string
+	StateSock string
 }
 
 // ReadConfig - Initializes configuration from file
@@ -119,7 +122,6 @@ func ReadConfig(configPath string) (*Config, error) {
 		HttpClientTimeout:              LoadOptionalConfigDuration(confReader, "l3afd", "http-client-timeout", 30*time.Second),
 		MaxEBPFReStartCount:            LoadOptionalConfigInt(confReader, "l3afd", "max-ebpf-restart-count", 3),
 		BpfChainingEnabled:             LoadConfigBool(confReader, "l3afd", "bpf-chaining-enabled"),
-		RestartDataFile:                LoadOptionalConfigString(confReader, "l3afd", "RestartDataFile", "/var/l3afd/l3af_meta.json"),
 		MetricsAddr:                    LoadConfigString(confReader, "web", "metrics-addr"),
 		EBPFPollInterval:               LoadOptionalConfigDuration(confReader, "web", "ebpf-poll-interval", 30*time.Second),
 		NMetricSamples:                 LoadOptionalConfigInt(confReader, "web", "n-metric-samples", 20),
@@ -156,6 +158,8 @@ func ReadConfig(configPath string) (*Config, error) {
 		MTLSServerKeyFilename:          LoadOptionalConfigString(confReader, "mtls", "server-key-filename", "server.key"),
 		MTLSCertExpiryWarningDays:      LoadOptionalConfigInt(confReader, "mtls", "cert-expiry-warning-days", 30),
 		MTLSSANMatchRules:              strings.Split(LoadOptionalConfigString(confReader, "mtls", "san-match-rules", ""), ","),
+		HostSock:                       LoadOptionalConfigString(confReader, "restart-config", "hostsock", "/tmp/l3afd.sock"),
+		StateSock:                      LoadOptionalConfigString(confReader, "restart-config", "statesock", "/tmp/l3afstate.sock"),
 	}, nil
 }
 

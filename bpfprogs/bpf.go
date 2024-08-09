@@ -273,7 +273,7 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	// Reset ProgID
 	b.ProgID = 0
 
-	stats.Incr(stats.BPFStopCount, b.Program.Name, direction, ifaceName)
+	stats.Add(1, stats.BPFStopCount, b.Program.Name, direction, ifaceName)
 
 	// Setting NFRunning to 0, indicates not running
 	stats.SetWithVersion(0.0, stats.BPFRunning, b.Program.Name, b.Program.Version, direction, ifaceName)
@@ -446,7 +446,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		go b.RunBPFConfigs()
 	}
 
-	stats.Incr(stats.BPFStartCount, b.Program.Name, direction, ifaceName)
+	stats.Add(1, stats.BPFStartCount, b.Program.Name, direction, ifaceName)
 	stats.Set(float64(time.Now().Unix()), stats.BPFStartTime, b.Program.Name, direction, ifaceName)
 
 	userProgram, bpfProgram, err := b.isRunning()
@@ -477,7 +477,7 @@ func (b *BPF) UpdateBPFMaps(ifaceName, direction string) error {
 			return fmt.Errorf("failed to remove missing entries of map %s with err %w", val.Name, err)
 		}
 	}
-	stats.Incr(stats.BPFUpdateCount, b.Program.Name, direction, ifaceName)
+	stats.Add(1, stats.BPFUpdateCount, b.Program.Name, direction, ifaceName)
 	return nil
 }
 
@@ -515,18 +515,18 @@ func (b *BPF) UpdateArgs(ifaceName, direction string) error {
 	log.Info().Msgf("BPF Program update command : %s %v", cmd, args)
 	UpdateCmd := execCommand(cmd, args...)
 	if err := UpdateCmd.Start(); err != nil {
-		stats.Incr(stats.BPFUpdateFailedCount, b.Program.Name, direction, ifaceName)
+		stats.Add(1, stats.BPFUpdateFailedCount, b.Program.Name, direction, ifaceName)
 		customerr := fmt.Errorf("failed to start : %s %v %w", cmd, args, err)
 		log.Warn().Err(customerr).Msgf("user mode BPF program failed - %s", b.Program.Name)
 		return customerr
 	}
 
 	if err := UpdateCmd.Wait(); err != nil {
-		stats.Incr(stats.BPFUpdateFailedCount, b.Program.Name, direction, ifaceName)
+		stats.Add(1, stats.BPFUpdateFailedCount, b.Program.Name, direction, ifaceName)
 		return fmt.Errorf("cmd wait at starting of bpf program returned with error %w", err)
 	}
 
-	stats.Incr(stats.BPFUpdateCount, b.Program.Name, direction, ifaceName)
+	stats.Add(1, stats.BPFUpdateCount, b.Program.Name, direction, ifaceName)
 
 	log.Info().Msgf("BPF program - %s config updated", b.Program.Name)
 	return nil
