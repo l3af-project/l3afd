@@ -19,25 +19,25 @@ func TestNewpCheck(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    *pCheck
+		want    *PCheck
 		wantErr bool
 	}{
 		{
 			name:    "EmptypCheck",
 			args:    args{rc: 0, chain: false, interval: 0},
-			want:    &pCheck{MaxRetryCount: 0},
+			want:    &PCheck{MaxRetryCount: 0},
 			wantErr: false,
 		},
 		{
 			name:    "ValidpCheck",
 			args:    args{rc: 3, chain: true, interval: 10},
-			want:    &pCheck{MaxRetryCount: 3},
+			want:    &PCheck{MaxRetryCount: 3},
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewpCheck(tt.args.rc, false, 0)
+			got := NewPCheck(tt.args.rc, false, 0)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewpCheck() = %v, want %v", got, tt.want)
 			}
@@ -75,12 +75,12 @@ func Test_pCheck_pCheckStart(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &pCheck{
+			c := &PCheck{
 				MaxRetryCount:     tt.fields.MaxRetryCount,
 				Chain:             tt.fields.chain,
-				retryMonitorDelay: tt.fields.retryMonitorDelay,
+				RetryMonitorDelay: tt.fields.retryMonitorDelay,
 			}
-			c.pCheckStart(tt.args.IngressXDPbpfProgs, tt.args.IngressTCbpfProgs, tt.args.EgressTCbpfProgs, &tt.args.Probebpfs)
+			c.PCheckStart(tt.args.IngressXDPbpfProgs, tt.args.IngressTCbpfProgs, tt.args.EgressTCbpfProgs, &tt.args.Probebpfs)
 		})
 	}
 }

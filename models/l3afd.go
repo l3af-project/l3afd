@@ -3,6 +3,11 @@
 
 package models
 
+import (
+	"net"
+	"sync"
+)
+
 // l3afd constants
 const (
 	Enabled  = "enabled"
@@ -106,3 +111,68 @@ type BPFProgramNames struct {
 	TCEgress   []string `json:"tc_egress"`   // names of the TC egress eBPF programs
 	Probes     []string `json:"probes"`      // names of the probe eBPF programs
 }
+
+type MetaColl struct {
+	Programs []string
+	Maps     []string
+}
+
+type MetaMetricsBPFMap struct {
+	MapName    string
+	Key        int
+	Values     []float64
+	Aggregator string
+	LastValue  float64
+}
+
+type Label struct {
+	Name  string
+	Value string
+}
+
+type MetricVec struct {
+	MetricName string
+	Labels     []Label
+	Value      float64
+	Type       int32
+}
+
+type L3AFMetaData struct {
+	Program           BPFProgram
+	FilePath          string
+	RestartCount      int
+	PrevMapNamePath   string
+	MapNamePath       string
+	ProgID            uint32
+	BpfMaps           []string
+	MetricsBpfMaps    map[string]MetaMetricsBPFMap
+	ProgMapCollection MetaColl
+	ProgMapID         uint32
+	PrevProgMapID     uint32
+	XDPLink           bool
+}
+
+type L3AFALLHOSTDATA struct {
+	HostName       string
+	HostInterfaces map[string]bool
+	IngressXDPBpfs map[string][]*L3AFMetaData
+	IngressTCBpfs  map[string][]*L3AFMetaData
+	EgressTCBpfs   map[string][]*L3AFMetaData
+	ProbesBpfs     []L3AFMetaData
+	Ifaces         map[string]string
+	AllStats       []MetricVec
+	InRestart      bool
+}
+
+type RestartConfig struct {
+	BinPath string `json:"binpath"` // new binary path
+	CfgPath string `json:"cfgpath"` // new cfg path
+}
+
+var CloseForRestart chan struct{}
+
+var AllNetListeners map[string]*net.TCPListener
+
+var CurrentWriteReq int
+var StateLock sync.Mutex
+var IsReadOnly bool

@@ -40,7 +40,13 @@ func UpdateConfig(ctx context.Context, bpfcfg *bpfprogs.NFConfigs) http.HandlerF
 				log.Warn().Msgf("Failed to write response bytes: %v", err)
 			}
 		}(&mesg, &statusCode)
-
+		if models.IsReadOnly {
+			log.Warn().Msgf("We are in Between Restart Please try after some time")
+			mesg = "We are in Between Restart Please try after some time"
+			return
+		}
+		defer DecWriteReq()
+		IncWriteReq()
 		if r.Body == nil {
 			log.Warn().Msgf("Empty request body")
 			return
@@ -64,7 +70,6 @@ func UpdateConfig(ctx context.Context, bpfcfg *bpfprogs.NFConfigs) http.HandlerF
 		if err := bpfcfg.DeployeBPFPrograms(t); err != nil {
 			mesg = fmt.Sprintf("failed to deploy ebpf programs: %v", err)
 			log.Error().Msg(mesg)
-
 			statusCode = http.StatusInternalServerError
 			return
 		}

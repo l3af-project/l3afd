@@ -43,9 +43,9 @@ func TestMetricsBPFMapMaxValue(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			metricsMap := &MetricsBPFMap{
 				Values:     TestValues,
-				key:        0,
-				aggregator: tt.args.aggregator,
-				lastValue:  0,
+				Key:        0,
+				Aggregator: tt.args.aggregator,
+				LastValue:  0,
 			}
 			got := (metricsMap.MaxValue())
 			if !reflect.DeepEqual(got, tt.want) {
@@ -79,9 +79,9 @@ func TestMetricsBPFMapAvgValue(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			metricsMap := &MetricsBPFMap{
 				Values:     TestValues,
-				key:        0,
-				aggregator: tt.args.aggregator,
-				lastValue:  0,
+				Key:        0,
+				Aggregator: tt.args.aggregator,
+				LastValue:  0,
 			}
 			got := (metricsMap.AvgValue())
 			if !reflect.DeepEqual(got, tt.want) {

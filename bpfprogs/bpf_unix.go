@@ -17,10 +17,9 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/l3af-project/l3afd/v2/models"
-
 	"github.com/florianl/go-tc"
 	"github.com/florianl/go-tc/core"
+	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/rs/zerolog/log"
 	"github.com/safchain/ethtool"
 	"golang.org/x/sys/unix"
@@ -210,7 +209,6 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 	if err := b.LoadBPFProgram(ifaceName); err != nil {
 		return err
 	}
-
 	// verify and add attribute clsact
 	tcgo, err := tc.Open(&tc.Config{})
 	if err != nil {
@@ -227,6 +225,7 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 	if err != nil {
 		return fmt.Errorf("could not get qdiscs for interface %s : %w", ifaceName, err)
 	}
+
 	for _, qdisc := range qdiscs {
 		iface, err := net.InterfaceByIndex(int(qdisc.Ifindex))
 		if err != nil {
@@ -347,13 +346,13 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 	}
 
 	// Storing Filter handle
-	b.TCFilter = tcgo.Filter()
+	filterHandle := tcgo.Filter()
 	// Attaching / Adding as filter
-	if err := b.TCFilter.Add(&filter); err != nil {
+	if err := filterHandle.Add(&filter); err != nil {
 		return fmt.Errorf("could not attach filter to interface %s for eBPF program %s : %w", ifaceName, b.Program.Name, err)
 	}
 
-	if b.hostConfig.BpfChainingEnabled {
+	if b.HostConfig.BpfChainingEnabled {
 		if err = b.UpdateProgramMap(ifaceName); err != nil {
 			return err
 		}
@@ -409,7 +408,8 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 	}
 
 	bpfRootProg := b.ProgMapCollection.Programs[b.Program.EntryFunctionName]
-
+	// Storing Filter handle
+	filterHandle := tcgo.Filter()
 	var parent uint32
 	var filter tc.Object
 
@@ -420,7 +420,7 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 			parent = tc.HandleMinEgress
 		}
 
-		tcfilts, err := b.TCFilter.Get(&tc.Msg{
+		tcfilts, err := filterHandle.Get(&tc.Msg{
 			Family:  unix.AF_UNSPEC,
 			Ifindex: uint32(iface.Index),
 			Handle:  0x0,
@@ -459,7 +459,7 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 		} else if direction == models.IngressType {
 			parentHandle = ingressHandle
 		}
-		tcfilts, err := b.TCFilter.Get(&tc.Msg{
+		tcfilts, err := filterHandle.Get(&tc.Msg{
 			Family:  unix.AF_UNSPEC,
 			Ifindex: uint32(iface.Index),
 			Handle:  0x0,
@@ -502,7 +502,7 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 	}
 
 	// Detaching / Deleting filter
-	if err := b.TCFilter.Delete(&filter); err != nil {
+	if err := filterHandle.Delete(&filter); err != nil {
 		return fmt.Errorf("could not dettach tc filter for interface %s : Direction: %v, parentHandle: %v, Error:%w", ifaceName, direction, parentHandle, err)
 	}
 

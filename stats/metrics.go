@@ -4,8 +4,12 @@
 package stats
 
 import (
+	"errors"
+	"fmt"
+	"net"
 	"net/http"
 
+	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -63,7 +67,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 			Name:      "BPFUpdateFailedCount",
 			Help:      "The count of Failed eBPF programs updates",
 		},
-		[]string{"host", "bpf_program", "direction", "interface_name"},
+		[]string{"host", "ebpf_program", "direction", "interface_name"},
 	)
 
 	BPFUpdateFailedCount = bpfUpdateFailedCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
@@ -115,18 +119,29 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 
 	// Prometheus handler
 	metricsHandler := promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{})
-
 	// Adding web endpoint
 	go func() {
 		// Expose the registered metrics via HTTP.
+		if _, ok := models.AllNetListeners["stat_http"]; !ok {
+			tcpAddr, err := net.ResolveTCPAddr("tcp", metricsAddr)
+			if err != nil {
+				fmt.Println("Error resolving TCP address:", err)
+				return
+			}
+			listener, err := net.ListenTCP("tcp", tcpAddr)
+			if err != nil {
+				log.Fatal().Err(err).Msgf("Not able to create net Listen")
+			}
+			models.AllNetListeners["stat_http"] = listener
+		}
 		http.Handle("/metrics", metricsHandler)
-		if err := http.ListenAndServe(metricsAddr, nil); err != nil {
+		if err := http.Serve(models.AllNetListeners["stat_http"], nil); !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal().Err(err).Msgf("Failed to launch prometheus metrics endpoint")
 		}
 	}()
 }
 
-func Incr(counterVec *prometheus.CounterVec, ebpfProgram, direction, ifaceName string) {
+func Add(value float64, counterVec *prometheus.CounterVec, ebpfProgram, direction, ifaceName string) {
 
 	if counterVec == nil {
 		log.Warn().Msg("Metrics: counter vector is nil and needs to be initialized before Incr")
@@ -144,7 +159,7 @@ func Incr(counterVec *prometheus.CounterVec, ebpfProgram, direction, ifaceName s
 			ebpfProgram, direction, ifaceName)
 		return
 	}
-	bpfCounter.Inc()
+	bpfCounter.Add(value)
 }
 
 func Set(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, direction, ifaceName string) {
@@ -168,6 +183,7 @@ func Set(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, direction, i
 	bpfGauge.Set(value)
 }
 
+// Set gaugevec metrics value with given mapName and other fields
 func SetValue(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, mapName, ifaceName string) {
 
 	if gaugeVec == nil {

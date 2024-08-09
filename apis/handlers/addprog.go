@@ -40,7 +40,13 @@ func AddEbpfPrograms(ctx context.Context, bpfcfg *bpfprogs.NFConfigs) http.Handl
 				log.Warn().Msgf("Failed to write response bytes: %v", err)
 			}
 		}(&mesg, &statusCode)
-
+		if models.IsReadOnly {
+			log.Warn().Msgf("We are in Between Restart Please try after some time")
+			mesg = "We are in Between Restart Please try after some time"
+			return
+		}
+		defer DecWriteReq()
+		IncWriteReq()
 		if r.Body == nil {
 			log.Warn().Msgf("Empty request body")
 			return
@@ -69,4 +75,15 @@ func AddEbpfPrograms(ctx context.Context, bpfcfg *bpfprogs.NFConfigs) http.Handl
 			return
 		}
 	}
+}
+
+func IncWriteReq() {
+	models.StateLock.Lock()
+	models.CurrentWriteReq++
+	models.StateLock.Unlock()
+}
+func DecWriteReq() {
+	models.StateLock.Lock()
+	models.CurrentWriteReq--
+	models.StateLock.Unlock()
 }

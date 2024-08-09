@@ -12,6 +12,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/l3af-project/l3afd/v2/bpfprogs"
 	"github.com/l3af-project/l3afd/v2/config"
+	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/l3af-project/l3afd/v2/routes"
 	"github.com/l3af-project/l3afd/v2/signals"
 
@@ -58,7 +60,17 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 		},
 		SANMatchRules: conf.MTLSSANMatchRules,
 	}
-
+	if _, ok := models.AllNetListeners["main_http"]; !ok {
+		tcpAddr, err := net.ResolveTCPAddr("tcp", conf.L3afConfigsRestAPIAddr)
+		if err != nil {
+			return fmt.Errorf("Error resolving TCP address:%w", err)
+		}
+		listener, err := net.ListenTCP("tcp", tcpAddr)
+		if err != nil {
+			return fmt.Errorf("creating tcp listner failed with %w", err)
+		}
+		models.AllNetListeners["main_http"] = listener
+	}
 	term := make(chan os.Signal, 1)
 	signal.Notify(term, signals.ShutdownSignals...)
 	go func() {
@@ -73,7 +85,6 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 		if conf.SwaggerApiEnabled {
 			r.Mount("/swagger", httpSwagger.WrapHandler)
 		}
-
 		s.l3afdServer.Handler = r
 
 		// As per design discussion when mTLS flag is not set and not listening on loopback or localhost
@@ -137,25 +148,21 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 					}
 				}
 			}()
-
-			if err := s.l3afdServer.ListenAndServeTLS(serverCertFile, serverKeyFile); err != nil {
+			if err := s.l3afdServer.ServeTLS(models.AllNetListeners["main_http"], serverCertFile, serverKeyFile); !errors.Is(err, http.ErrServerClosed) {
 				log.Fatal().Err(err).Msgf("failed to start L3AFD server with mTLS enabled")
 			}
 		} else {
 			log.Info().Msgf("l3afd server listening - %s ", conf.L3afConfigsRestAPIAddr)
-
-			if err := s.l3afdServer.ListenAndServe(); err != nil {
+			if err := s.l3afdServer.Serve(models.AllNetListeners["main_http"]); !errors.Is(err, http.ErrServerClosed) {
 				log.Fatal().Err(err).Msgf("failed to start L3AFD server")
 			}
 		}
 	}()
-
 	return nil
 }
 
 func (s *Server) GracefulStop(shutdownTimeout time.Duration) error {
 	log.Info().Msg("L3afd graceful stop initiated")
-
 	exitCode := 0
 	if len(s.BPFRTConfigs.IngressXDPBpfs) > 0 || len(s.BPFRTConfigs.IngressTCBpfs) > 0 || len(s.BPFRTConfigs.EgressTCBpfs) > 0 {
 		ctx, cancelfunc := context.WithTimeout(context.Background(), shutdownTimeout)
@@ -165,7 +172,6 @@ func (s *Server) GracefulStop(shutdownTimeout time.Duration) error {
 			exitCode = 1
 		}
 	}
-
 	os.Exit(exitCode)
 	return nil
 }
