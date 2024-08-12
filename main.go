@@ -264,8 +264,8 @@ func setupForRestart(ctx context.Context, conf *config.Config) error {
 	models.IsReadOnly = true
 	// Now you need to write client side code
 	conn, err := net.Dial("unix", conf.HostSock)
-	defer conn.Close()
 	HandleErr(err, "not able to dial unix domain socket")
+	defer conn.Close()
 	decoder := gob.NewDecoder(conn)
 	var t models.L3AFALLHOSTDATA
 	err = decoder.Decode(&t)

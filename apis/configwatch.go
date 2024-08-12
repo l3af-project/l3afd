@@ -63,7 +63,7 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 	if _, ok := models.AllNetListeners["main_http"]; !ok {
 		tcpAddr, err := net.ResolveTCPAddr("tcp", conf.L3afConfigsRestAPIAddr)
 		if err != nil {
-			return fmt.Errorf("Error resolving TCP address:%w", err)
+			return fmt.Errorf("error resolving TCP address:%w", err)
 		}
 		listener, err := net.ListenTCP("tcp", tcpAddr)
 		if err != nil {
