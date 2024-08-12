@@ -164,11 +164,6 @@ type L3AFALLHOSTDATA struct {
 	InRestart      bool
 }
 
-type RestartConfig struct {
-	BinPath string `json:"binpath"` // new binary path
-	CfgPath string `json:"cfgpath"` // new cfg path
-}
-
 var CloseForRestart chan struct{}
 
 var AllNetListeners map[string]*net.TCPListener

@@ -1621,8 +1621,10 @@ func (c *NFConfigs) StartAllUserProgramsAndProbes() error {
 					vf.Close()
 				}
 			}
-			for _, vf := range b.ProgMapCollection.Maps {
-				vf.Close()
+			for fk, vf := range b.ProgMapCollection.Maps {
+				if _, ok := prg.Maps[fk]; !ok {
+					prg.Maps[fk] = vf
+				}
 			}
 			b.ProgMapCollection = prg
 			if len(b.Program.CmdStart) > 0 {

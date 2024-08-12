@@ -37,6 +37,10 @@ func (c *PCheck) PCheckStart(xdpProgs, ingressTCProgs, egressTCProgs map[string]
 
 func (c *PCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string) {
 	for range time.NewTicker(c.RetryMonitorDelay).C {
+		if models.IsReadOnly {
+			log.Info().Msgf("Not monitoring because we are in readonly state")
+			return
+		}
 		for ifaceName, bpfList := range bpfProgs {
 			if bpfList == nil { // no bpf programs are running
 				continue

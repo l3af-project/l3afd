@@ -5,9 +5,7 @@ package handlers
 
 import (
 	"encoding/gob"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -47,25 +45,6 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 		if models.IsReadOnly {
 			log.Warn().Msgf("We are in Between Restart Please try after some time")
 			mesg = "We are in Between Restart Please try after some time"
-			statusCode = http.StatusInternalServerError
-			return
-		}
-		if r.Body == nil {
-			log.Warn().Msgf("Empty request body")
-			statusCode = http.StatusInternalServerError
-			return
-		}
-		bodyBuffer, err := io.ReadAll(r.Body)
-		if err != nil {
-			mesg = fmt.Sprintf("failed to read request body: %v", err)
-			log.Error().Msg(mesg)
-			statusCode = http.StatusInternalServerError
-			return
-		}
-		var t models.RestartConfig
-		if err := json.Unmarshal(bodyBuffer, &t); err != nil {
-			mesg = fmt.Sprintf("failed to unmarshal payload: %v", err)
-			log.Error().Msg(mesg)
 			statusCode = http.StatusInternalServerError
 			return
 		}
@@ -126,7 +105,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			files[idx] = newFile
 		}
 		// we have added
-		cmd := exec.Command(t.BinPath, "--config", t.CfgPath)
+		cmd := exec.Command("/root/test/l3afd", "--config", "/Users/a0p0ie5/lima-dev/l3afd/l3afd.cfg")
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Setsid: true,
 		}
