@@ -105,7 +105,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			files[idx] = newFile
 		}
 		// we have added
-		cmd := exec.Command("/root/test/l3afd", "--config", "/Users/a0p0ie5/lima-dev/l3afd/l3afd.cfg")
+		cmd := exec.Command(bpfcfg.HostConfig.BaseBinPath+"/l3afd", "--config", bpfcfg.HostConfig.BaseCfgPath+"/l3afd.cfg")
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Setsid: true,
 		}

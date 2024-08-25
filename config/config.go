@@ -90,8 +90,10 @@ type Config struct {
 	MTLSSANMatchRules         []string
 
 	// RestartConfig
-	HostSock  string
-	StateSock string
+	HostSock    string
+	StateSock   string
+	BaseBinPath string
+	BaseCfgPath string
 }
 
 // ReadConfig - Initializes configuration from file
@@ -160,6 +162,8 @@ func ReadConfig(configPath string) (*Config, error) {
 		MTLSSANMatchRules:              strings.Split(LoadOptionalConfigString(confReader, "mtls", "san-match-rules", ""), ","),
 		HostSock:                       LoadOptionalConfigString(confReader, "restart-config", "hostsock", "/tmp/l3afd.sock"),
 		StateSock:                      LoadOptionalConfigString(confReader, "restart-config", "statesock", "/tmp/l3afstate.sock"),
+		BaseBinPath:                    LoadOptionalConfigString(confReader, "restart-config", "basebinpath", "/root/test"),
+		BaseCfgPath:                    LoadOptionalConfigString(confReader, "restart-config", "basecfgpath", "/Users/a0p0ie5/lima-dev/l3afd"),
 	}, nil
 }
 
