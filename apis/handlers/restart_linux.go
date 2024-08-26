@@ -9,7 +9,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"runtime"
 	"strconv"
 	"syscall"
 	"time"
@@ -108,10 +107,8 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 		}
 		// we have added
 		cmd := exec.Command(bpfcfg.HostConfig.BaseBinPath+"/l3afd", "--config", bpfcfg.HostConfig.BaseCfgPath+"/l3afd.cfg")
-		if runtime.GOOS == "linux" {
-			cmd.SysProcAttr = &syscall.SysProcAttr{
-				Setsid: true,
-			}
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Setsid: true,
 		}
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
