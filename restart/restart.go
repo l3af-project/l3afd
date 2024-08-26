@@ -150,9 +150,6 @@ func DeserilazeProgram(ctx context.Context, r *models.L3AFMetaData, hostconfig *
 	return g, nil
 }
 
-func ConvertIfaceMaps(ctx context.Context, input map[string][]*models.L3AFMetaData, output *map[string]*list.List, hostconfig *config.Config) error {
-	return nil
-}
 func GetValueofLabel(l string, t []models.Label) string {
 	for _, f := range t {
 		if f.Name == l {

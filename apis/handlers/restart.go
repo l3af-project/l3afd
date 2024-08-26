@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"syscall"
 	"time"
@@ -60,6 +61,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 				break
 			}
 			models.StateLock.Unlock()
+			time.Sleep(time.Millisecond)
 		}
 		// Now our system is in Readonly state
 		bpfProgs := bpfcfg.GetL3AFHOSTDATA()
@@ -106,8 +108,10 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 		}
 		// we have added
 		cmd := exec.Command(bpfcfg.HostConfig.BaseBinPath+"/l3afd", "--config", bpfcfg.HostConfig.BaseCfgPath+"/l3afd.cfg")
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			Setsid: true,
+		if runtime.GOOS == "linux" {
+			cmd.SysProcAttr = &syscall.SysProcAttr{
+				Setsid: true,
+			}
 		}
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -144,7 +148,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			var err error
 			var conn net.Conn
 			f := false
-			for i := 1; i <= 7; i++ {
+			for i := 1; i <= bpfcfg.HostConfig.TimetoRestart; i++ {
 				conn, err = net.Dial("unix", bpfcfg.HostConfig.StateSock)
 				if err == nil {
 					f = true
@@ -168,7 +172,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			NewProcessStatus <- data
 		}()
 		// time to bootup
-		for i := 0; i < 7; i++ {
+		for i := 0; i < bpfcfg.HostConfig.TimetoRestart; i++ {
 			if len(srverror) == 1 {
 				statusCode = http.StatusInternalServerError
 				log.Err(<-srverror)
