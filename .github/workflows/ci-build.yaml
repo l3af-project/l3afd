@@ -83,9 +83,17 @@ jobs:
           sudo docker build -t l3afd:latest -f ./build-docker/Dockerfile ./build-docker
           sudo docker save l3afd:latest > l3afd-docker-img-linux-x86_64.tar
 
-      - name: push the docker image
-        id: push-docker-image
-        run: docker push linuxfoundationl3af/l3afd:latest
+      - name: login to docker registry
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567
+        with:
+          username: ${{secrets.DOCKER_USERNAME}}
+          password: ${{secrets.DOCKER_TOKEN}}
+
+      - name: build and push docker image to registry
+        uses: docker/build-push-action@v5
+        with:
+          push: true
+          tags: linuxfoundationl3af/l3afd:latest
 
       - uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a
         with:
