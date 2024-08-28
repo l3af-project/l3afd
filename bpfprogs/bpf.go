@@ -1092,14 +1092,14 @@ func (b *BPF) UnloadProgram(ifaceName, direction string) error {
 		(*LinkObject).Close()
 	}
 
-	// Release all the resources of the epbf program
-	if b.ProgMapCollection != nil {
-		b.ProgMapCollection.Close()
-	}
-
 	// remove pinned map file
 	if err := b.RemoveMapFiles(ifaceName); err != nil {
 		log.Error().Err(err).Msgf("failed to remove map file for program %s => %s", ifaceName, b.Program.Name)
+	}
+
+	// Release all the resources of the epbf program
+	if b.ProgMapCollection != nil {
+		b.ProgMapCollection.Close()
 	}
 
 	return nil

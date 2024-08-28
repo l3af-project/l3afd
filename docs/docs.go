@@ -222,11 +222,10 @@ const docTemplate = `{
                 },
                 "map_args": {
                     "description": "Config BPF Map of arguments",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/models.L3afDNFArgs"
-                        }
-                    ]
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.L3afDMapArg"
+                    }
                 },
                 "map_name": {
                     "description": "BPF map to store next program fd",
@@ -375,6 +374,19 @@ const docTemplate = `{
                 }
             }
         },
+        "models.KeyValue": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "description": "Key",
+                    "type": "integer"
+                },
+                "value": {
+                    "description": "Value",
+                    "type": "integer"
+                }
+            }
+        },
         "models.L3afBPFProgramNames": {
             "type": "object",
             "properties": {
@@ -413,6 +425,22 @@ const docTemplate = `{
                 },
                 "iface": {
                     "description": "Interface name",
+                    "type": "string"
+                }
+            }
+        },
+        "models.L3afDMapArg": {
+            "type": "object",
+            "properties": {
+                "args": {
+                    "description": "BPF map arguments",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.KeyValue"
+                    }
+                },
+                "name": {
+                    "description": "BPF map name",
                     "type": "string"
                 }
             }
