@@ -161,7 +161,6 @@ type L3AFALLHOSTDATA struct {
 	ProbesBpfs     []L3AFMetaData
 	Ifaces         map[string]string
 	AllStats       []MetricVec
-	InRestart      bool
 }
 
 var CloseForRestart chan struct{}
@@ -171,3 +170,17 @@ var AllNetListeners map[string]*net.TCPListener
 var CurrentWriteReq int
 var StateLock sync.Mutex
 var IsReadOnly bool
+
+const HttpScheme string = "http"
+const HttpsScheme string = "https"
+const FileScheme string = "file"
+
+// Please Do not changes because they are means of communication between graceful restarts
+const HostSock string = "/tmp/l3afd.sock"
+const StateSock string = "/tmp/l3afstate.sock"
+
+type RestartConfig struct {
+	HostName    string `json:"hostname"`
+	Version     string `json:"version"`
+	ArtifactURL string `json:"artifacturl"`
+}

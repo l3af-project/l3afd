@@ -1,13 +1,16 @@
 package restart
 
 import (
+	"bytes"
 	"container/list"
 	"container/ring"
 	"context"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/cilium/ebpf"
@@ -271,4 +274,111 @@ func Getnetlistener(fd int, fname string) (*net.TCPListener, error) {
 	}
 	file.Close()
 	return lf, nil
+}
+
+func AddSymlink(sPath, symlink string) error {
+	err := os.Symlink(sPath, symlink)
+	return err
+}
+
+func RemoveSymlink(symlink string) error {
+	err := os.Remove(symlink)
+	return err
+}
+
+func ReadSymlink(symlink string) (error, string) {
+	originalPath, err := os.Readlink(symlink)
+	if err != nil {
+		return err, ""
+	}
+	return nil, originalPath
+}
+
+func GetNewVersion(urlpath string, oldVersion, newVersion string, conf *config.Config) error {
+	if oldVersion == newVersion {
+		return nil
+	}
+	newVersionPath := conf.BasePath + "/" + newVersion
+	err := os.RemoveAll(newVersionPath)
+	if err != nil {
+		return fmt.Errorf("Error while deleting directory: %w", err)
+	}
+	err = os.MkdirAll(newVersionPath, 0750)
+	if err != nil {
+		return fmt.Errorf("Error while creating directory: %w", err)
+	}
+	// now I need to download artifacts
+	URL, err := url.Parse(urlpath)
+	if err != nil {
+		return fmt.Errorf("unknown url format : %w", err)
+	}
+	buf := &bytes.Buffer{}
+	err = bpfprogs.DownloadArtifact(URL, conf.HttpClientTimeout, buf)
+	if err != nil {
+		return fmt.Errorf("not able to download artifacts %w", err)
+	}
+	sp := strings.Split(urlpath, "/")
+	artifactName := sp[len(sp)-1]
+	err = bpfprogs.ExtractArtifact(artifactName, buf, newVersionPath)
+	dir := strings.Split(artifactName, ".")[0]
+	if err != nil {
+		return fmt.Errorf("not able to extract artifacts %w", err)
+	}
+	// you need to store the old path for rollback purposes
+	// we will remove simlink
+	err = RemoveSymlink(conf.BasePath + "/latest/l3afd")
+	if err != nil {
+		return fmt.Errorf("not able to remove simlink %w", err)
+	}
+	err = RemoveSymlink(conf.BasePath + "/latest/l3afd.cfg")
+	if err != nil {
+		return fmt.Errorf("not able to remove simlink %w", err)
+	}
+	// add new simlink
+
+	err = AddSymlink(newVersionPath+"/"+dir+"/l3afd", conf.BasePath+"/latest/l3afd")
+	if err != nil {
+		return fmt.Errorf("not able to add simlink %w", err)
+	}
+
+	err = AddSymlink(newVersionPath+"/"+dir+"/l3afd.cfg", conf.BasePath+"/latest/l3afd.cfg")
+	if err != nil {
+		return fmt.Errorf("not able to add simlink %w", err)
+	}
+	// now we are good
+	return nil
+}
+
+func RollBackSymlink(oldCfgPath, oldBinPath string, oldVersion, newVersion string, conf *config.Config) error {
+	if oldVersion == newVersion {
+		return nil
+	}
+	// you need to store the old path for rollback purposes
+	// we will remove simlink
+	err := RemoveSymlink(conf.BasePath + "/latest/l3afd")
+	if err != nil {
+		return fmt.Errorf("not able to remove simlink %w", err)
+	}
+	err = RemoveSymlink(conf.BasePath + "/latest/l3afd.cfg")
+	if err != nil {
+		return fmt.Errorf("not able to remove simlink %w", err)
+	}
+	// add new simlink
+
+	err = AddSymlink(oldBinPath, conf.BasePath+"/latest/l3afd")
+	if err != nil {
+		return fmt.Errorf("not able to add simlink %w", err)
+	}
+
+	err = AddSymlink(oldCfgPath, conf.BasePath+"/latest/l3afd.cfg")
+	if err != nil {
+		return fmt.Errorf("not able to add simlink %w", err)
+	}
+
+	newVersionPath := conf.BasePath + "/" + newVersion
+	err = os.RemoveAll(newVersionPath)
+	if err != nil {
+		return fmt.Errorf("Error while deleting directory: %w", err)
+	}
+	return nil
 }

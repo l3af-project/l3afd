@@ -46,9 +46,6 @@ var (
 //lint:ignore U1000 avoid false linter error on windows, since this variable is only used in linux code
 const executePerm uint32 = 0111
 const bpfStatus string = "RUNNING"
-const httpScheme string = "http"
-const httpsScheme string = "https"
-const fileScheme string = "file"
 
 // BPF defines run time details for BPFProgram.
 type BPF struct {
@@ -629,10 +626,22 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 
 	URL.Path = path.Join(URL.Path, b.Program.Name, b.Program.Version, platform, b.Program.Artifact)
 	log.Info().Msgf("Retrieving artifact - %s", URL)
+	err = DownloadArtifact(URL, conf.HttpClientTimeout, buf)
+	tempDir := filepath.Join(conf.BPFDir, b.Program.Name, b.Program.Version)
+	err = ExtractArtifact(b.Program.Artifact, buf, tempDir)
+	if err != nil {
+		return fmt.Errorf("not able to extract artifact %w", err)
+	}
+	newDir := strings.Split(b.Program.Artifact, ".")
+	b.FilePath = filepath.Join(tempDir, newDir[0])
+	return nil
+}
+
+func DownloadArtifact(URL *url.URL, timeout time.Duration, buf *bytes.Buffer) error {
 	switch URL.Scheme {
-	case httpsScheme, httpScheme:
+	case models.HttpScheme, models.HttpsScheme:
 		{
-			timeOut := time.Duration(conf.HttpClientTimeout) * time.Second
+			timeOut := time.Duration(timeout) * time.Second
 			var netTransport = &http.Transport{
 				ResponseHeaderTimeout: timeOut,
 			}
@@ -649,8 +658,9 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 				return fmt.Errorf("get request returned unexpected status code: %d (%s), %d was expected\n\tResponse Body: %s", resp.StatusCode, http.StatusText(resp.StatusCode), http.StatusOK, buf.Bytes())
 			}
 			buf.ReadFrom(resp.Body)
+			return nil
 		}
-	case fileScheme:
+	case models.FileScheme:
 		{
 			if fileExists(URL.Path) {
 				f, err := os.Open(URL.Path)
@@ -662,10 +672,14 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 			} else {
 				return fmt.Errorf("artifact is not found")
 			}
+			return nil
 		}
+	default:
+		return fmt.Errorf("unknown url scheme")
 	}
-
-	switch artifact := b.Program.Artifact; {
+}
+func ExtractArtifact(artifactName string, buf *bytes.Buffer, tempDir string) error {
+	switch artifact := artifactName; {
 	case strings.HasSuffix(artifact, ".zip"):
 		{
 			c := bytes.NewReader(buf.Bytes())
@@ -673,8 +687,6 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 			if err != nil {
 				return fmt.Errorf("failed to create zip reader: %w", err)
 			}
-			tempDir := filepath.Join(conf.BPFDir, b.Program.Name, b.Program.Version)
-
 			for _, file := range zipReader.File {
 
 				zippedFile, err := file.Open()
@@ -709,11 +721,9 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 					copyBufPool.Put(buf)
 				}
 			}
-			newDir := strings.Split(b.Program.Artifact, ".")
-			b.FilePath = filepath.Join(tempDir, newDir[0])
 			return nil
 		}
-	case strings.HasSuffix(b.Program.Artifact, ".tar.gz"):
+	case strings.HasSuffix(artifact, ".tar.gz"):
 		{
 			archive, err := gzip.NewReader(buf)
 			if err != nil {
@@ -721,7 +731,6 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 			}
 			defer archive.Close()
 			tarReader := tar.NewReader(archive)
-			tempDir := filepath.Join(conf.BPFDir, b.Program.Name, b.Program.Version)
 
 			for {
 				header, err := tarReader.Next()
@@ -758,8 +767,6 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 				}
 				copyBufPool.Put(buf)
 			}
-			newDir := strings.Split(b.Program.Artifact, ".")
-			b.FilePath = filepath.Join(tempDir, newDir[0])
 			return nil
 		}
 	default:

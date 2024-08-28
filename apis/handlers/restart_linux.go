@@ -5,11 +5,14 @@ package handlers
 
 import (
 	"encoding/gob"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -20,6 +23,7 @@ import (
 	"github.com/l3af-project/l3afd/v2/bpfprogs"
 	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/l3af-project/l3afd/v2/pidfile"
+	"github.com/l3af-project/l3afd/v2/restart"
 )
 
 // HandleRestart Store meta data about ebpf programs and exit
@@ -48,6 +52,25 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			statusCode = http.StatusInternalServerError
 			return
 		}
+		if r.Body == nil {
+			log.Warn().Msgf("Empty request body")
+			return
+		}
+		bodyBuffer, err := io.ReadAll(r.Body)
+		if err != nil {
+			mesg = fmt.Sprintf("failed to read request body: %v", err)
+			log.Error().Msg(mesg)
+			statusCode = http.StatusInternalServerError
+			return
+		}
+
+		var t models.RestartConfig
+		if err := json.Unmarshal(bodyBuffer, &t); err != nil {
+			mesg = fmt.Sprintf("failed to unmarshal payload: %v", err)
+			log.Error().Msg(mesg)
+			statusCode = http.StatusInternalServerError
+			return
+		}
 		defer func() {
 			models.IsReadOnly = false
 		}()
@@ -62,12 +85,39 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			models.StateLock.Unlock()
 			time.Sleep(time.Millisecond)
 		}
+
+		err, oldCfgPath := restart.ReadSymlink(bpfcfg.HostConfig.BasePath + "/latest/l3afd.cfg")
+		if err != nil {
+			mesg = fmt.Sprintf("failed read simlink: %v", err)
+			log.Error().Msg(mesg)
+			statusCode = http.StatusInternalServerError
+			return
+		}
+		err, oldBinPath := restart.ReadSymlink(bpfcfg.HostConfig.BasePath + "/latest/l3afd")
+		if err != nil {
+			mesg = fmt.Sprintf("failed to read simlink: %v", err)
+			log.Error().Msg(mesg)
+			statusCode = http.StatusInternalServerError
+			return
+		}
+		oldVersion := strings.Split(strings.Trim(oldBinPath, bpfcfg.HostConfig.BasePath+"/"), "/")[0]
+
+		err = restart.GetNewVersion(t.ArtifactURL, oldVersion, t.Version, bpfcfg.HostConfig)
+		if err != nil {
+			mesg = fmt.Sprintf("failed to getNewVersion: %v", err)
+			log.Error().Msg(mesg)
+			statusCode = http.StatusInternalServerError
+			err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, t.Version, bpfcfg.HostConfig)
+			mesg = mesg + fmt.Sprintf("rollback of symlink failed: %v", err)
+			return
+		}
 		// Now our system is in Readonly state
 		bpfProgs := bpfcfg.GetL3AFHOSTDATA()
-		bpfProgs.InRestart = true
-		ln, err := net.Listen("unix", bpfcfg.HostConfig.HostSock)
+		ln, err := net.Listen("unix", models.HostSock)
 		if err != nil {
 			log.Err(err)
+			err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, t.Version, bpfcfg.HostConfig)
+			mesg = mesg + fmt.Sprintf("rollback of symlink failed: %v", err)
 			statusCode = http.StatusInternalServerError
 			return
 		}
@@ -88,6 +138,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 				srverror <- err
 				return
 			}
+			srverror <- nil
 		}()
 		files := make([]*os.File, 3)
 		srvToIndex := make(map[string]int)
@@ -99,6 +150,8 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			lf, err := lis.File()
 			if err != nil {
 				log.Error().Msgf("%v", err)
+				err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, t.Version, bpfcfg.HostConfig)
+				mesg = mesg + fmt.Sprintf("rollback of symlink failed: %v", err)
 				statusCode = http.StatusInternalServerError
 				return
 			}
@@ -106,37 +159,40 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			files[idx] = newFile
 		}
 		// we have added
-		cmd := exec.Command(bpfcfg.HostConfig.BaseBinPath+"/l3afd", "--config", bpfcfg.HostConfig.BaseCfgPath+"/l3afd.cfg")
+		cmd := exec.Command(bpfcfg.HostConfig.BasePath+"/latest/l3afd", "--config", bpfcfg.HostConfig.BasePath+"/latest/l3afd.cfg")
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Setsid: true,
 		}
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.ExtraFiles = files
-		// checking srv error
-		if len(srverror) == 1 {
-			statusCode = http.StatusInternalServerError
-			log.Err(<-srverror)
-			return
-		}
 		bpfcfg.StopAllProbes()
 		log.Info().Msg("Starting child Process")
 		err = cmd.Start()
 		if err != nil {
 			log.Error().Msgf("%v", err)
-			statusCode = http.StatusInternalServerError
+			mesg = mesg + fmt.Sprintf("not able to start new instance %v", err)
+			// write a function a to do cleanup of other process if necessary
 			err = cmd.Process.Kill()
 			if err != nil {
-				fmt.Println(err)
+				log.Error().Msgf("%v", err)
+				mesg = mesg + fmt.Sprintf("not able to kill the new instance %v", err)
 			}
 			err = bpfcfg.StartAllUserProgramsAndProbes()
 			if err != nil {
 				log.Error().Msgf("%v", err)
+				mesg = mesg + fmt.Sprintf("not able to start all userprograms and probes: %v", err)
 			}
 			err = pidfile.CreatePID(bpfcfg.HostConfig.PIDFilename)
 			if err != nil {
 				log.Error().Msgf("%v", err)
+				mesg = mesg + fmt.Sprintf("not able to create pid file: %v", err)
 			}
+			err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, t.Version, bpfcfg.HostConfig)
+			if err != nil {
+				mesg = mesg + fmt.Sprintf("rollback of symlink failed: %v", err)
+			}
+			statusCode = http.StatusInternalServerError
 			return
 		}
 		NewProcessStatus := make(chan string)
@@ -146,7 +202,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			var conn net.Conn
 			f := false
 			for i := 1; i <= bpfcfg.HostConfig.TimetoRestart; i++ {
-				conn, err = net.Dial("unix", bpfcfg.HostConfig.StateSock)
+				conn, err = net.Dial("unix", models.StateSock)
 				if err == nil {
 					f = true
 					break
@@ -168,33 +224,67 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			}
 			NewProcessStatus <- data
 		}()
+
 		// time to bootup
-		for i := 0; i < bpfcfg.HostConfig.TimetoRestart; i++ {
-			if len(srverror) == 1 {
+		select {
+		case terr := <-srverror:
+			if terr != nil {
+				statusCode = http.StatusInternalServerError
+				// write a function a to do cleanup of other process if necessary
+				err = cmd.Process.Kill()
+				if err != nil {
+					log.Error().Msgf("%v", err)
+					mesg = mesg + fmt.Sprintf("not able to kill the new instance %v", err)
+				}
+				err = bpfcfg.StartAllUserProgramsAndProbes()
+				if err != nil {
+					log.Error().Msgf("%v", err)
+					mesg = mesg + fmt.Sprintf("not able to start all userprograms and probes: %v", err)
+				}
+				err = pidfile.CreatePID(bpfcfg.HostConfig.PIDFilename)
+				if err != nil {
+					log.Error().Msgf("%v", err)
+					mesg = mesg + fmt.Sprintf("not able to create pid file: %v", err)
+				}
+				err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, t.Version, bpfcfg.HostConfig)
+				if err != nil {
+					mesg = mesg + fmt.Sprintf("rollback of symlink failed: %v", err)
+				}
 				statusCode = http.StatusInternalServerError
 				log.Err(<-srverror)
 				return
 			}
-			time.Sleep(1 * time.Second)
+			break
+		default:
+			time.Sleep(time.Second)
 		}
+
 		st := <-NewProcessStatus
 		if st == "Failed" {
 			// write a function a to do cleanup of other process if necessary
 			err = cmd.Process.Kill()
 			if err != nil {
-				fmt.Println(err)
+				log.Error().Msgf("%v", err)
+				mesg = mesg + fmt.Sprintf("not able to kill the new instance %v", err)
 			}
 			err = bpfcfg.StartAllUserProgramsAndProbes()
 			if err != nil {
 				log.Error().Msgf("%v", err)
+				mesg = mesg + fmt.Sprintf("not able to start all userprograms and probes: %v", err)
 			}
 			err = pidfile.CreatePID(bpfcfg.HostConfig.PIDFilename)
 			if err != nil {
 				log.Error().Msgf("%v", err)
+				mesg = mesg + fmt.Sprintf("not able to create pid file: %v", err)
+			}
+			err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, t.Version, bpfcfg.HostConfig)
+			if err != nil {
+				mesg = mesg + fmt.Sprintf("rollback of symlink failed: %v", err)
 			}
 			statusCode = http.StatusInternalServerError
 			return
 		} else {
+			log.Info().Msgf("doing exiting old process")
 			models.CloseForRestart <- struct{}{}
 		}
 	}

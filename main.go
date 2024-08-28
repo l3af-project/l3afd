@@ -257,13 +257,13 @@ func HandleErr(e error, msg string) {
 	os.Exit(0)
 }
 func setupForRestart(ctx context.Context, conf *config.Config) error {
-	if _, err := os.Stat(conf.HostSock); os.IsNotExist(err) {
+	if _, err := os.Stat(models.HostSock); os.IsNotExist(err) {
 		return err
 	}
-	stateSockPath = conf.StateSock
+	stateSockPath = models.StateSock
 	models.IsReadOnly = true
 	// Now you need to write client side code
-	conn, err := net.Dial("unix", conf.HostSock)
+	conn, err := net.Dial("unix", models.HostSock)
 	HandleErr(err, "not able to dial unix domain socket")
 	defer conn.Close()
 	decoder := gob.NewDecoder(conn)
