@@ -9,7 +9,7 @@
 
 name: CI Ubuntu build
 on:
-  pull_request: {}
+  pull_request_target: {}
   push:
     branches:
       - main
@@ -82,8 +82,9 @@ jobs:
           password: ${{secrets.DOCKER_TOKEN}}
 
       - name: build and push docker image to registry
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85
         with:
+          context: ./build-docker
           push: true
           tags: linuxfoundationl3af/l3afd:latest
 
