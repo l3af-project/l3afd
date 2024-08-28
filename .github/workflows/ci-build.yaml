@@ -68,14 +68,6 @@ jobs:
         run: |
           make
 
-      - name: login to docker hub
-        id: docker-hub
-        env:
-          username: ${{secrets.DOCKER_USERNAME}}
-          password: ${{secrets.DOCKER_TOKEN}}
-        run: |
-          echo $password | docker login -u $username --password-stdin 
-
       - name: Build docker image
         run: |
           sudo cp ./config/l3afd.cfg ./build-docker
