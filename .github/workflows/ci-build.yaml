@@ -68,12 +68,24 @@ jobs:
         run: |
           make
 
+      - name: login to docker hub
+        id: docker-hub
+        env:
+          username: ${{secrets.DOCKER_USERNAME}}
+          password: ${{secrets.DOCKER_TOKEN}}
+        run: |
+          docker login -u $username -p $password 
+
       - name: Build docker image
         run: |
           sudo cp ./config/l3afd.cfg ./build-docker
           sudo cp l3afd ./build-docker
           sudo docker build -t l3afd:latest -f ./build-docker/Dockerfile ./build-docker
           sudo docker save l3afd:latest > l3afd-docker-img-linux-x86_64.tar
+
+      - name: push the docker image
+        id: push-docker-image
+        run: docker push ${{secrets.DOCKER_USERNAME}}/l3afd:latest        
 
       - uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a
         with:
