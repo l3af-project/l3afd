@@ -157,7 +157,7 @@ func (s *Server) GracefulStop(shutdownTimeout time.Duration) error {
 	log.Info().Msg("L3afd graceful stop initiated")
 
 	exitCode := 0
-	if len(s.BPFRTConfigs.IngressXDPBpfs) > 0 || len(s.BPFRTConfigs.IngressTCBpfs) > 0 || len(s.BPFRTConfigs.EgressTCBpfs) > 0 {
+	if len(s.BPFRTConfigs.IngressXDPBpfs) > 0 || len(s.BPFRTConfigs.IngressTCBpfs) > 0 || len(s.BPFRTConfigs.EgressTCBpfs) > 0 || s.BPFRTConfigs.ProbesBpfs.Len() > 0 {
 		ctx, cancelfunc := context.WithTimeout(context.Background(), shutdownTimeout)
 		defer cancelfunc()
 		if err := s.BPFRTConfigs.Close(ctx); err != nil {

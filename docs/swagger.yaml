@@ -49,9 +49,10 @@ definitions:
         description: User program is plugin or not
         type: boolean
       map_args:
-        allOf:
-        - $ref: '#/definitions/models.L3afDNFArgs'
         description: Config BPF Map of arguments
+        items:
+          $ref: '#/definitions/models.L3afDMapArg'
+        type: array
       map_name:
         description: BPF map to store next program fd
         type: string
@@ -150,6 +151,15 @@ definitions:
           $ref: '#/definitions/models.BPFProgram'
         type: array
     type: object
+  models.KeyValue:
+    properties:
+      key:
+        description: Key
+        type: integer
+      value:
+        description: Value
+        type: integer
+    type: object
   models.L3afBPFProgramNames:
     properties:
       bpf_programs:
@@ -174,6 +184,17 @@ definitions:
         type: string
       iface:
         description: Interface name
+        type: string
+    type: object
+  models.L3afDMapArg:
+    properties:
+      args:
+        description: BPF map arguments
+        items:
+          $ref: '#/definitions/models.KeyValue'
+        type: array
+      name:
+        description: BPF map name
         type: string
     type: object
   models.L3afDNFArgs:
