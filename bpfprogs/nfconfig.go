@@ -1489,8 +1489,10 @@ func SerilazeProgram(e *list.Element) *models.L3AFMetaData {
 	tmp := &models.L3AFMetaData{}
 	bpf := e.Value.(*BPF)
 	tmp.BpfMaps = make([]string, 0)
-	for _, v := range bpf.BpfMaps {
-		tmp.BpfMaps = append(tmp.BpfMaps, v.Name)
+	if bpf.BpfMaps != nil {
+		for _, v := range bpf.BpfMaps {
+			tmp.BpfMaps = append(tmp.BpfMaps, v.Name)
+		}
 	}
 	tmp.FilePath = bpf.FilePath
 	tmp.MapNamePath = bpf.MapNamePath
@@ -1504,30 +1506,34 @@ func SerilazeProgram(e *list.Element) *models.L3AFMetaData {
 		Programs: make([]string, 0),
 		Maps:     make([]string, 0),
 	}
-	for k, v := range bpf.ProgMapCollection.Programs {
-		if v.Type() == ebpf.XDP || v.Type() == ebpf.SchedACT || v.Type() == ebpf.SchedCLS {
-			tmp.ProgMapCollection.Programs = append(tmp.ProgMapCollection.Programs, k)
+	if bpf.ProgMapCollection != nil {
+		for k, v := range bpf.ProgMapCollection.Programs {
+			if v.Type() == ebpf.XDP || v.Type() == ebpf.SchedACT || v.Type() == ebpf.SchedCLS {
+				tmp.ProgMapCollection.Programs = append(tmp.ProgMapCollection.Programs, k)
+			}
 		}
-	}
-	for k := range bpf.ProgMapCollection.Maps {
-		tmp.ProgMapCollection.Maps = append(tmp.ProgMapCollection.Maps, k)
+		for k := range bpf.ProgMapCollection.Maps {
+			tmp.ProgMapCollection.Maps = append(tmp.ProgMapCollection.Maps, k)
+		}
 	}
 	tmp.MetricsBpfMaps = make(map[string]models.MetaMetricsBPFMap)
-	for k1, v1 := range bpf.MetricsBpfMaps {
-		values := make([]float64, 0)
-		tmpval := v1.Values
-		for i := 0; i < v1.Values.Len(); i++ {
-			if tmpval.Value != nil {
-				values = append(values, tmpval.Value.(float64))
+	if bpf.MetricsBpfMaps != nil {
+		for k1, v1 := range bpf.MetricsBpfMaps {
+			values := make([]float64, 0)
+			tmpval := v1.Values
+			for i := 0; i < v1.Values.Len(); i++ {
+				if tmpval.Value != nil {
+					values = append(values, tmpval.Value.(float64))
+				}
+				tmpval = tmpval.Next()
 			}
-			tmpval = tmpval.Next()
-		}
-		tmp.MetricsBpfMaps[k1] = models.MetaMetricsBPFMap{
-			MapName:    v1.Name,
-			Key:        v1.Key,
-			Values:     values,
-			Aggregator: v1.Aggregator,
-			LastValue:  float64(v1.LastValue),
+			tmp.MetricsBpfMaps[k1] = models.MetaMetricsBPFMap{
+				MapName:    v1.Name,
+				Key:        v1.Key,
+				Values:     values,
+				Aggregator: v1.Aggregator,
+				LastValue:  float64(v1.LastValue),
+			}
 		}
 	}
 	tmp.XDPLink = false
@@ -1546,31 +1552,36 @@ func (c *NFConfigs) GetL3AFHOSTDATA() models.L3AFALLHOSTDATA {
 	result.IngressTCBpfs = make(map[string][]*models.L3AFMetaData)
 	result.EgressTCBpfs = make(map[string][]*models.L3AFMetaData)
 	result.ProbesBpfs = make([]models.L3AFMetaData, 0)
-	for k, v := range c.IngressXDPBpfs {
-		ls := make([]*models.L3AFMetaData, 0)
-		for e := v.Front(); e != nil; e = e.Next() {
-			ls = append(ls, SerilazeProgram(e))
+	if c.IngressXDPBpfs != nil {
+		for k, v := range c.IngressXDPBpfs {
+			ls := make([]*models.L3AFMetaData, 0)
+			for e := v.Front(); e != nil; e = e.Next() {
+				ls = append(ls, SerilazeProgram(e))
+			}
+			result.IngressXDPBpfs[k] = ls
 		}
-		result.IngressXDPBpfs[k] = ls
 	}
-	for k, v := range c.IngressTCBpfs {
-		ls := make([]*models.L3AFMetaData, 0)
-		for e := v.Front(); e != nil; e = e.Next() {
-			ls = append(ls, SerilazeProgram(e))
+	if c.IngressTCBpfs != nil {
+		for k, v := range c.IngressTCBpfs {
+			ls := make([]*models.L3AFMetaData, 0)
+			for e := v.Front(); e != nil; e = e.Next() {
+				ls = append(ls, SerilazeProgram(e))
+			}
+			result.IngressTCBpfs[k] = ls
 		}
-		result.IngressTCBpfs[k] = ls
 	}
-	for k, v := range c.EgressTCBpfs {
-		ls := make([]*models.L3AFMetaData, 0)
-		for e := v.Front(); e != nil; e = e.Next() {
-			ls = append(ls, SerilazeProgram(e))
+	if c.EgressTCBpfs != nil {
+		for k, v := range c.EgressTCBpfs {
+			ls := make([]*models.L3AFMetaData, 0)
+			for e := v.Front(); e != nil; e = e.Next() {
+				ls = append(ls, SerilazeProgram(e))
+			}
+			result.EgressTCBpfs[k] = ls
 		}
-		result.EgressTCBpfs[k] = ls
 	}
 	for e := c.ProbesBpfs.Front(); e != nil; e = e.Next() {
 		result.ProbesBpfs = append(result.ProbesBpfs, *SerilazeProgram(e))
 	}
-
 	metrics, _ := prometheus.DefaultGatherer.Gather()
 	result.AllStats = make([]models.MetricVec, 0)
 	listofMetrics := []string{"l3afd_BPFStartCount", "l3afd_BPFStopCount", "l3afd_BPFUpdateCount", "l3afd_BPFUpdateFailedCount", "l3afd_BPFRunning", "l3afd_BPFStartTime", "l3afd_BPFMonitorMap"}
@@ -1602,125 +1613,135 @@ func (c *NFConfigs) GetL3AFHOSTDATA() models.L3AFALLHOSTDATA {
 }
 
 func (c *NFConfigs) StartAllUserProgramsAndProbes() error {
-	for iface, v := range c.IngressXDPBpfs {
-		for e := v.Front(); e != nil; e = e.Next() {
-			// Starting Probes
-			b := e.Value.(*BPF)
-			ef := b.Program.EntryFunctionName
-			b.Program.EntryFunctionName = ""
-			prg := b.ProgMapCollection
-			b.ProgMapCollection = nil
-			if err := b.LoadBPFProgram(iface); err != nil {
-				return fmt.Errorf("not able to load probes %w", err)
-			}
-			b.Program.EntryFunctionName = ef
-			for fk, vf := range b.ProgMapCollection.Programs {
-				if _, ok := prg.Programs[fk]; !ok {
-					prg.Programs[fk] = vf
-				} else {
-					vf.Close()
+	if c.IngressXDPBpfs != nil {
+		for iface, v := range c.IngressXDPBpfs {
+			for e := v.Front(); e != nil; e = e.Next() {
+				// Starting Probes
+				b := e.Value.(*BPF)
+				ef := b.Program.EntryFunctionName
+				b.Program.EntryFunctionName = ""
+				prg := b.ProgMapCollection
+				b.ProgMapCollection = nil
+				if err := b.LoadBPFProgram(iface); err != nil {
+					return fmt.Errorf("not able to load probes %w", err)
 				}
-			}
-			for fk, vf := range b.ProgMapCollection.Maps {
-				if _, ok := prg.Maps[fk]; !ok {
-					prg.Maps[fk] = vf
-				} else {
-					vf.Close()
+				b.Program.EntryFunctionName = ef
+				if b.ProgMapCollection != nil {
+					for fk, vf := range b.ProgMapCollection.Programs {
+						if _, ok := prg.Programs[fk]; !ok {
+							prg.Programs[fk] = vf
+						} else {
+							vf.Close()
+						}
+					}
+					for fk, vf := range b.ProgMapCollection.Maps {
+						if _, ok := prg.Maps[fk]; !ok {
+							prg.Maps[fk] = vf
+						} else {
+							vf.Close()
+						}
+					}
 				}
-			}
-			b.ProgMapCollection = prg
-			if len(b.Program.CmdStart) > 0 {
-				// Verify other instance is running
-				if err := StopExternalRunningProcess(b.Program.CmdStart); err != nil {
-					return fmt.Errorf("failed to stop external instance of the program %s with error : %w", b.Program.CmdStart, err)
+				b.ProgMapCollection = prg
+				if len(b.Program.CmdStart) > 0 {
+					// Verify other instance is running
+					if err := StopExternalRunningProcess(b.Program.CmdStart); err != nil {
+						return fmt.Errorf("failed to stop external instance of the program %s with error : %w", b.Program.CmdStart, err)
+					}
 				}
-			}
-			if b.Program.UserProgramDaemon {
-				// Starting User Program
-				if err := b.StartUserProgram(iface, models.XDPIngressType, c.HostConfig.BpfChainingEnabled); err != nil {
-					return err
-				}
-			}
-		}
-	}
-
-	for iface, v := range c.IngressTCBpfs {
-		for e := v.Front(); e != nil; e = e.Next() {
-			b := e.Value.(*BPF)
-			ef := b.Program.EntryFunctionName
-			b.Program.EntryFunctionName = ""
-			prg := b.ProgMapCollection
-			b.ProgMapCollection = nil
-			if err := b.LoadBPFProgram(iface); err != nil {
-				return fmt.Errorf("not able to load probes %w", err)
-			}
-			b.Program.EntryFunctionName = ef
-			for fk, vf := range b.ProgMapCollection.Programs {
-				if _, ok := prg.Programs[fk]; !ok {
-					prg.Programs[fk] = vf
-				} else {
-					vf.Close()
-				}
-			}
-			for fk, vf := range b.ProgMapCollection.Maps {
-				if _, ok := prg.Maps[fk]; !ok {
-					prg.Maps[fk] = vf
-				} else {
-					vf.Close()
-				}
-			}
-			b.ProgMapCollection = prg
-			if len(b.Program.CmdStart) > 0 {
-				// Verify other instance is running
-				if err := StopExternalRunningProcess(b.Program.CmdStart); err != nil {
-					return fmt.Errorf("failed to stop external instance of the program %s with error : %w", b.Program.CmdStart, err)
-				}
-			}
-			if b.Program.UserProgramDaemon {
-				// Starting User Program
-				if err := b.StartUserProgram(iface, models.XDPIngressType, c.HostConfig.BpfChainingEnabled); err != nil {
-					return err
+				if b.Program.UserProgramDaemon {
+					// Starting User Program
+					if err := b.StartUserProgram(iface, models.XDPIngressType, c.HostConfig.BpfChainingEnabled); err != nil {
+						return err
+					}
 				}
 			}
 		}
 	}
-
-	for iface, v := range c.EgressTCBpfs {
-		for e := v.Front(); e != nil; e = e.Next() {
-			b := e.Value.(*BPF)
-			ef := b.Program.EntryFunctionName
-			b.Program.EntryFunctionName = ""
-			prg := b.ProgMapCollection
-			b.ProgMapCollection = nil
-			if err := b.LoadBPFProgram(iface); err != nil {
-				return fmt.Errorf("not able to load probes %w", err)
-			}
-			b.Program.EntryFunctionName = ef
-			for fk, vf := range b.ProgMapCollection.Programs {
-				if _, ok := prg.Programs[fk]; !ok {
-					prg.Programs[fk] = vf
-				} else {
-					vf.Close()
+	if c.IngressTCBpfs != nil {
+		for iface, v := range c.IngressTCBpfs {
+			for e := v.Front(); e != nil; e = e.Next() {
+				b := e.Value.(*BPF)
+				ef := b.Program.EntryFunctionName
+				b.Program.EntryFunctionName = ""
+				prg := b.ProgMapCollection
+				b.ProgMapCollection = nil
+				if err := b.LoadBPFProgram(iface); err != nil {
+					return fmt.Errorf("not able to load probes %w", err)
+				}
+				b.Program.EntryFunctionName = ef
+				if b.ProgMapCollection != nil {
+					for fk, vf := range b.ProgMapCollection.Programs {
+						if _, ok := prg.Programs[fk]; !ok {
+							prg.Programs[fk] = vf
+						} else {
+							vf.Close()
+						}
+					}
+					for fk, vf := range b.ProgMapCollection.Maps {
+						if _, ok := prg.Maps[fk]; !ok {
+							prg.Maps[fk] = vf
+						} else {
+							vf.Close()
+						}
+					}
+				}
+				b.ProgMapCollection = prg
+				if len(b.Program.CmdStart) > 0 {
+					// Verify other instance is running
+					if err := StopExternalRunningProcess(b.Program.CmdStart); err != nil {
+						return fmt.Errorf("failed to stop external instance of the program %s with error : %w", b.Program.CmdStart, err)
+					}
+				}
+				if b.Program.UserProgramDaemon {
+					// Starting User Program
+					if err := b.StartUserProgram(iface, models.XDPIngressType, c.HostConfig.BpfChainingEnabled); err != nil {
+						return err
+					}
 				}
 			}
-			for fk, vf := range b.ProgMapCollection.Maps {
-				if _, ok := prg.Maps[fk]; !ok {
-					prg.Maps[fk] = vf
-				} else {
-					vf.Close()
+		}
+	}
+	if c.EgressTCBpfs != nil {
+		for iface, v := range c.EgressTCBpfs {
+			for e := v.Front(); e != nil; e = e.Next() {
+				b := e.Value.(*BPF)
+				ef := b.Program.EntryFunctionName
+				b.Program.EntryFunctionName = ""
+				prg := b.ProgMapCollection
+				b.ProgMapCollection = nil
+				if err := b.LoadBPFProgram(iface); err != nil {
+					return fmt.Errorf("not able to load probes %w", err)
 				}
-			}
-			b.ProgMapCollection = prg
-			if len(b.Program.CmdStart) > 0 {
-				// Verify other instance is running
-				if err := StopExternalRunningProcess(b.Program.CmdStart); err != nil {
-					return fmt.Errorf("failed to stop external instance of the program %s with error : %w", b.Program.CmdStart, err)
+				b.Program.EntryFunctionName = ef
+				if b.ProgMapCollection != nil {
+					for fk, vf := range b.ProgMapCollection.Programs {
+						if _, ok := prg.Programs[fk]; !ok {
+							prg.Programs[fk] = vf
+						} else {
+							vf.Close()
+						}
+					}
+					for fk, vf := range b.ProgMapCollection.Maps {
+						if _, ok := prg.Maps[fk]; !ok {
+							prg.Maps[fk] = vf
+						} else {
+							vf.Close()
+						}
+					}
 				}
-			}
-			if b.Program.UserProgramDaemon {
-				// Starting User Program
-				if err := b.StartUserProgram(iface, models.XDPIngressType, c.HostConfig.BpfChainingEnabled); err != nil {
-					return err
+				b.ProgMapCollection = prg
+				if len(b.Program.CmdStart) > 0 {
+					// Verify other instance is running
+					if err := StopExternalRunningProcess(b.Program.CmdStart); err != nil {
+						return fmt.Errorf("failed to stop external instance of the program %s with error : %w", b.Program.CmdStart, err)
+					}
+				}
+				if b.Program.UserProgramDaemon {
+					// Starting User Program
+					if err := b.StartUserProgram(iface, models.XDPIngressType, c.HostConfig.BpfChainingEnabled); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -1729,34 +1750,46 @@ func (c *NFConfigs) StartAllUserProgramsAndProbes() error {
 }
 
 func (c *NFConfigs) StopAllProbes() {
-	for _, v := range c.IngressXDPBpfs {
-		for e := v.Front(); e != nil; e = e.Next() {
-			// Starting Probes
-			b := e.Value.(*BPF)
-			for _, pb := range b.ProbeLinks {
-				(*pb).Close()
+	if c.IngressXDPBpfs != nil {
+		for _, v := range c.IngressXDPBpfs {
+			for e := v.Front(); e != nil; e = e.Next() {
+				// Starting Probes
+				b := e.Value.(*BPF)
+				if b.ProbeLinks != nil {
+					for _, pb := range b.ProbeLinks {
+						(*pb).Close()
+					}
+				}
+				b.ProbeLinks = make([]*link.Link, 0)
 			}
-			b.ProbeLinks = make([]*link.Link, 0)
 		}
 	}
-	for _, v := range c.IngressTCBpfs {
-		for e := v.Front(); e != nil; e = e.Next() {
-			// Starting Probes
-			b := e.Value.(*BPF)
-			for _, pb := range b.ProbeLinks {
-				(*pb).Close()
+	if c.IngressTCBpfs != nil {
+		for _, v := range c.IngressTCBpfs {
+			for e := v.Front(); e != nil; e = e.Next() {
+				// Starting Probes
+				b := e.Value.(*BPF)
+				if b.ProbeLinks != nil {
+					for _, pb := range b.ProbeLinks {
+						(*pb).Close()
+					}
+				}
+				b.ProbeLinks = make([]*link.Link, 0)
 			}
-			b.ProbeLinks = make([]*link.Link, 0)
 		}
 	}
-	for _, v := range c.EgressTCBpfs {
-		for e := v.Front(); e != nil; e = e.Next() {
-			// Starting Probes
-			b := e.Value.(*BPF)
-			for _, pb := range b.ProbeLinks {
-				(*pb).Close()
+	if c.EgressTCBpfs != nil {
+		for _, v := range c.EgressTCBpfs {
+			for e := v.Front(); e != nil; e = e.Next() {
+				// Starting Probes
+				b := e.Value.(*BPF)
+				if b.ProbeLinks != nil {
+					for _, pb := range b.ProbeLinks {
+						(*pb).Close()
+					}
+				}
+				b.ProbeLinks = make([]*link.Link, 0)
 			}
-			b.ProbeLinks = make([]*link.Link, 0)
 		}
 	}
 }

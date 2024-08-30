@@ -4,7 +4,6 @@
 package models
 
 import (
-	"net"
 	"sync"
 )
 
@@ -165,7 +164,7 @@ type L3AFALLHOSTDATA struct {
 
 var CloseForRestart chan struct{}
 
-var AllNetListeners map[string]*net.TCPListener
+var AllNetListeners sync.Map
 
 var CurrentWriteReq int
 var StateLock sync.Mutex

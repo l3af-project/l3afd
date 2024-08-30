@@ -83,7 +83,6 @@ func main() {
 	models.IsReadOnly = false
 	models.CurrentWriteReq = 0
 	models.StateLock = sync.Mutex{}
-	models.AllNetListeners = make(map[string]*net.TCPListener)
 	setupLogging()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -273,19 +272,18 @@ func setupForRestart(ctx context.Context, conf *config.Config) error {
 	machineHostname, err := os.Hostname()
 	HandleErr(err, "not able to fetch the hostname")
 
-	models.AllNetListeners = make(map[string]*net.TCPListener)
 	l, err := restart.Getnetlistener(3, "stat_server")
 	HandleErr(err, "getting stat_server listener failed")
-	models.AllNetListeners["stat_http"] = l
+	models.AllNetListeners.Store("stat_http", l)
 
 	l, err = restart.Getnetlistener(4, "main_server")
 	HandleErr(err, "getting main_server listener failed")
-	models.AllNetListeners["main_http"] = l
+	models.AllNetListeners.Store("main_http", l)
 
 	if conf.EBPFChainDebugEnabled {
 		l, err = restart.Getnetlistener(5, "debug_server")
 		HandleErr(err, "getting main_server listener failed")
-		models.AllNetListeners["debug_http"] = l
+		models.AllNetListeners.Store("debug_http", l)
 	}
 	// setup Metrics endpoint
 	stats.SetupMetrics(machineHostname, daemonName, conf.MetricsAddr)

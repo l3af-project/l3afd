@@ -60,7 +60,7 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 		},
 		SANMatchRules: conf.MTLSSANMatchRules,
 	}
-	if _, ok := models.AllNetListeners["main_http"]; !ok {
+	if _, ok := models.AllNetListeners.Load("main_http"); !ok {
 		tcpAddr, err := net.ResolveTCPAddr("tcp", conf.L3afConfigsRestAPIAddr)
 		if err != nil {
 			return fmt.Errorf("error resolving TCP address:%w", err)
@@ -69,7 +69,7 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 		if err != nil {
 			return fmt.Errorf("creating tcp listner failed with %w", err)
 		}
-		models.AllNetListeners["main_http"] = listener
+		models.AllNetListeners.Store("main_http", listener)
 	}
 	term := make(chan os.Signal, 1)
 	signal.Notify(term, signals.ShutdownSignals...)
@@ -91,7 +91,8 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 		if !conf.MTLSEnabled && !isLoopback(conf.L3afConfigsRestAPIAddr) && conf.Environment == config.ENV_PROD {
 			conf.MTLSEnabled = true
 		}
-
+		val, _ := models.AllNetListeners.Load("main_http")
+		l, _ := val.(*net.TCPListener)
 		if conf.MTLSEnabled {
 			log.Info().Msgf("l3afd server listening with mTLS - %s ", conf.L3afConfigsRestAPIAddr)
 			// Create a CA certificate pool and add client ca's to it
@@ -148,12 +149,12 @@ func StartConfigWatcher(ctx context.Context, hostname, daemonName string, conf *
 					}
 				}
 			}()
-			if err := s.l3afdServer.ServeTLS(models.AllNetListeners["main_http"], serverCertFile, serverKeyFile); !errors.Is(err, http.ErrServerClosed) {
+			if err := s.l3afdServer.ServeTLS(l, serverCertFile, serverKeyFile); !errors.Is(err, http.ErrServerClosed) {
 				log.Fatal().Err(err).Msgf("failed to start L3AFD server with mTLS enabled")
 			}
 		} else {
 			log.Info().Msgf("l3afd server listening - %s ", conf.L3afConfigsRestAPIAddr)
-			if err := s.l3afdServer.Serve(models.AllNetListeners["main_http"]); !errors.Is(err, http.ErrServerClosed) {
+			if err := s.l3afdServer.Serve(l); !errors.Is(err, http.ErrServerClosed) {
 				log.Fatal().Err(err).Msgf("failed to start L3AFD server")
 			}
 		}

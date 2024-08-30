@@ -26,9 +26,9 @@ import (
 	"github.com/l3af-project/l3afd/v2/restart"
 )
 
-// HandleRestart Store meta data about ebpf programs and exit
-// @Summary Store meta data about ebpf programs and exit
-// @Description Store meta data about ebpf programs and exit
+// HandleRestart will start new instance of l3afd provided by payload
+// @Summary this api will start new instance of l3afd provided by payload
+// @Description this api will start new instance of l3afd provided by payload
 // @Accept  json
 // @Produce  json
 // @Param cfgs body []models.L3afBPFPrograms true "BPF programs"
@@ -145,7 +145,10 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 		srvToIndex["stat_http"] = 0
 		srvToIndex["main_http"] = 1
 		srvToIndex["debug_http"] = 2
-		for srv, lis := range models.AllNetListeners {
+		isErr := false
+		models.AllNetListeners.Range(func(srvr, listr interface{}) bool { // iterate over the map
+			srv, _ := srvr.(string)
+			lis, _ := listr.(*net.TCPListener)
 			idx := srvToIndex[srv]
 			lf, err := lis.File()
 			if err != nil {
@@ -153,10 +156,15 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 				err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, t.Version, bpfcfg.HostConfig)
 				mesg = mesg + fmt.Sprintf("rollback of symlink failed: %v", err)
 				statusCode = http.StatusInternalServerError
-				return
+				isErr = true
+				return false
 			}
 			newFile := os.NewFile(uintptr(lf.Fd()), "dupFdlistner"+strconv.Itoa(idx))
 			files[idx] = newFile
+			return true
+		})
+		if isErr {
+			return
 		}
 		// we have added
 		cmd := exec.Command(bpfcfg.HostConfig.BasePath+"/latest/l3afd", "--config", bpfcfg.HostConfig.BasePath+"/latest/l3afd.cfg")
@@ -251,7 +259,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 					mesg = mesg + fmt.Sprintf("rollback of symlink failed: %v", err)
 				}
 				statusCode = http.StatusInternalServerError
-				log.Err(<-srverror)
+				log.Err(terr)
 				return
 			}
 			break

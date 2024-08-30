@@ -77,6 +77,9 @@ func getCollection(input models.MetaColl, output **ebpf.Collection, b *bpfprogs.
 }
 
 func getMetricsMaps(input map[string]models.MetaMetricsBPFMap, b *bpfprogs.BPF, conf *config.Config, output *map[string]*bpfprogs.MetricsBPFMap, iface string) error {
+	if input == nil {
+		return nil
+	}
 	for k, v := range input {
 		fg := &bpfprogs.MetricsBPFMap{}
 		var pinnedPath string
@@ -200,43 +203,47 @@ func Convert(ctx context.Context, t models.L3AFALLHOSTDATA, hostconfig *config.C
 	D.ProbesBpfs = *list.New()
 	D.HostConfig = hostconfig
 	D.Mu = new(sync.Mutex)
-	for k, v := range t.IngressXDPBpfs {
-		l := list.New()
-		for _, r := range v {
-			f, err := DeserilazeProgram(ctx, r, hostconfig, k)
-			if err != nil {
-				log.Err(err).Msg("Deserilization failed for xdpingress")
-				return nil, err
+	if t.IngressXDPBpfs != nil {
+		for k, v := range t.IngressXDPBpfs {
+			l := list.New()
+			for _, r := range v {
+				f, err := DeserilazeProgram(ctx, r, hostconfig, k)
+				if err != nil {
+					log.Err(err).Msg("Deserilization failed for xdpingress")
+					return nil, err
+				}
+				l.PushBack(f)
 			}
-			l.PushBack(f)
+			D.IngressXDPBpfs[k] = l
 		}
-		D.IngressXDPBpfs[k] = l
 	}
-
-	for k, v := range t.IngressTCBpfs {
-		l := list.New()
-		for _, r := range v {
-			f, err := DeserilazeProgram(ctx, r, hostconfig, k)
-			if err != nil {
-				log.Err(err).Msg("Deserilization failed for tcingress")
-				return nil, err
+	if t.IngressTCBpfs != nil {
+		for k, v := range t.IngressTCBpfs {
+			l := list.New()
+			for _, r := range v {
+				f, err := DeserilazeProgram(ctx, r, hostconfig, k)
+				if err != nil {
+					log.Err(err).Msg("Deserilization failed for tcingress")
+					return nil, err
+				}
+				l.PushBack(f)
 			}
-			l.PushBack(f)
+			D.IngressTCBpfs[k] = l
 		}
-		D.IngressTCBpfs[k] = l
 	}
-
-	for k, v := range t.EgressTCBpfs {
-		l := list.New()
-		for _, r := range v {
-			f, err := DeserilazeProgram(ctx, r, hostconfig, k)
-			if err != nil {
-				log.Err(err).Msg("Deserilization failed for tcegress")
-				return nil, err
+	if t.EgressTCBpfs != nil {
+		for k, v := range t.EgressTCBpfs {
+			l := list.New()
+			for _, r := range v {
+				f, err := DeserilazeProgram(ctx, r, hostconfig, k)
+				if err != nil {
+					log.Err(err).Msg("Deserilization failed for tcegress")
+					return nil, err
+				}
+				l.PushBack(f)
 			}
-			l.PushBack(f)
+			D.EgressTCBpfs[k] = l
 		}
-		D.EgressTCBpfs[k] = l
 	}
 	return D, nil
 }

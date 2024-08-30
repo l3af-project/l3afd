@@ -122,7 +122,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 	// Adding web endpoint
 	go func() {
 		// Expose the registered metrics via HTTP.
-		if _, ok := models.AllNetListeners["stat_http"]; !ok {
+		if _, ok := models.AllNetListeners.Load("stat_http"); !ok {
 			tcpAddr, err := net.ResolveTCPAddr("tcp", metricsAddr)
 			if err != nil {
 				fmt.Println("Error resolving TCP address:", err)
@@ -132,10 +132,12 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 			if err != nil {
 				log.Fatal().Err(err).Msgf("Not able to create net Listen")
 			}
-			models.AllNetListeners["stat_http"] = listener
+			models.AllNetListeners.Store("stat_http", listener)
 		}
 		http.Handle("/metrics", metricsHandler)
-		if err := http.Serve(models.AllNetListeners["stat_http"], nil); !errors.Is(err, http.ErrServerClosed) {
+		val, _ := models.AllNetListeners.Load("stat_http")
+		l, _ := val.(*net.TCPListener)
+		if err := http.Serve(l, nil); !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal().Err(err).Msgf("Failed to launch prometheus metrics endpoint")
 		}
 	}()
