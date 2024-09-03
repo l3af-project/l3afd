@@ -68,32 +68,31 @@ jobs:
         run: |
           make
 
-      - name: Build docker image
+      - name: Copy files
+        if: github.ref == 'refs/heads/main'
         run: |
           sudo cp ./config/l3afd.cfg ./build-docker
           sudo cp l3afd ./build-docker
-          sudo docker build -t l3afd:latest -f ./build-docker/Dockerfile ./build-docker
-          sudo docker save l3afd:latest > l3afd-docker-img-linux-x86_64.tar
 
       - name: login to docker registry
+        if: github.ref == 'refs/heads/main'
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567
         with:
           username: ${{secrets.DOCKER_USERNAME}}
           password: ${{secrets.DOCKER_TOKEN}}
 
       - name: build and push docker image to registry
+        if: github.ref == 'refs/heads/main'
         uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85
         with:
           context: ./build-docker
           push: true
           tags: linuxfoundationl3af/l3afd:latest
 
-      - uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a
+      - name: upload l3afd binary  
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a
         with:
           name: l3afd-latest-linux-x86_64
           path: l3afd
 
-      - uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a
-        with:
-          name: l3afd-docker-img-linux-x86_64.tar
-          path: l3afd-docker-img-linux-x86_64.tar
