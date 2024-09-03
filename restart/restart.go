@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
+	"github.com/l3af-project/l3afd/v2/artifact"
 	"github.com/l3af-project/l3afd/v2/bpfprogs"
 	"github.com/l3af-project/l3afd/v2/config"
 	"github.com/l3af-project/l3afd/v2/models"
@@ -209,7 +209,7 @@ func Convert(ctx context.Context, t models.L3AFALLHOSTDATA, hostconfig *config.C
 			for _, r := range v {
 				f, err := DeserilazeProgram(ctx, r, hostconfig, k)
 				if err != nil {
-					log.Err(err).Msg("Deserilization failed for xdpingress")
+					log.Err(err).Msg("Deserialization failed for xdpingress")
 					return nil, err
 				}
 				l.PushBack(f)
@@ -223,7 +223,7 @@ func Convert(ctx context.Context, t models.L3AFALLHOSTDATA, hostconfig *config.C
 			for _, r := range v {
 				f, err := DeserilazeProgram(ctx, r, hostconfig, k)
 				if err != nil {
-					log.Err(err).Msg("Deserilization failed for tcingress")
+					log.Err(err).Msg("Deserialization failed for tcingress")
 					return nil, err
 				}
 				l.PushBack(f)
@@ -237,7 +237,7 @@ func Convert(ctx context.Context, t models.L3AFALLHOSTDATA, hostconfig *config.C
 			for _, r := range v {
 				f, err := DeserilazeProgram(ctx, r, hostconfig, k)
 				if err != nil {
-					log.Err(err).Msg("Deserilization failed for tcegress")
+					log.Err(err).Msg("Deserialization failed for tcegress")
 					return nil, err
 				}
 				l.PushBack(f)
@@ -277,7 +277,7 @@ func Getnetlistener(fd int, fname string) (*net.TCPListener, error) {
 	}
 	lf, e := l.(*net.TCPListener)
 	if !e {
-		return nil, fmt.Errorf("not able to covert to tcp listner")
+		return nil, fmt.Errorf("unable to covert to tcp listner")
 	}
 	file.Close()
 	return lf, nil
@@ -293,12 +293,12 @@ func RemoveSymlink(symlink string) error {
 	return err
 }
 
-func ReadSymlink(symlink string) (error, string) {
+func ReadSymlink(symlink string) (string, error) {
 	originalPath, err := os.Readlink(symlink)
 	if err != nil {
-		return err, ""
+		return "", err
 	}
-	return nil, originalPath
+	return originalPath, nil
 }
 
 func GetNewVersion(urlpath string, oldVersion, newVersion string, conf *config.Config) error {
@@ -306,51 +306,50 @@ func GetNewVersion(urlpath string, oldVersion, newVersion string, conf *config.C
 		return nil
 	}
 	newVersionPath := conf.BasePath + "/" + newVersion
+	if !strings.HasPrefix(conf.BasePath, filepath.Clean(newVersionPath)+string(os.PathSeparator)) {
+		return fmt.Errorf("malicious input given to the restart api")
+	}
 	err := os.RemoveAll(newVersionPath)
 	if err != nil {
-		return fmt.Errorf("Error while deleting directory: %w", err)
+		return fmt.Errorf("error while deleting directory: %w", err)
 	}
 	err = os.MkdirAll(newVersionPath, 0750)
 	if err != nil {
-		return fmt.Errorf("Error while creating directory: %w", err)
+		return fmt.Errorf("error while creating directory: %w", err)
 	}
 	// now I need to download artifacts
-	URL, err := url.Parse(urlpath)
-	if err != nil {
-		return fmt.Errorf("unknown url format : %w", err)
-	}
 	buf := &bytes.Buffer{}
-	err = bpfprogs.DownloadArtifact(URL, conf.HttpClientTimeout, buf)
+	err = artifact.DownloadArtifact(urlpath, conf.HttpClientTimeout, buf)
 	if err != nil {
-		return fmt.Errorf("not able to download artifacts %w", err)
+		return fmt.Errorf("unable to download artifacts %w", err)
 	}
 	sp := strings.Split(urlpath, "/")
 	artifactName := sp[len(sp)-1]
-	err = bpfprogs.ExtractArtifact(artifactName, buf, newVersionPath)
+	err = artifact.ExtractArtifact(artifactName, buf, newVersionPath)
 	dir := strings.Split(artifactName, ".")[0]
 	if err != nil {
-		return fmt.Errorf("not able to extract artifacts %w", err)
+		return fmt.Errorf("unable to extract artifacts %w", err)
 	}
 	// you need to store the old path for rollback purposes
-	// we will remove simlink
+	// we will remove symlink
 	err = RemoveSymlink(conf.BasePath + "/latest/l3afd")
 	if err != nil {
-		return fmt.Errorf("not able to remove simlink %w", err)
+		return fmt.Errorf("unable to remove symlink %w", err)
 	}
 	err = RemoveSymlink(conf.BasePath + "/latest/l3afd.cfg")
 	if err != nil {
-		return fmt.Errorf("not able to remove simlink %w", err)
+		return fmt.Errorf("unable to remove symlink %w", err)
 	}
-	// add new simlink
+	// add new symlink
 
 	err = AddSymlink(newVersionPath+"/"+dir+"/l3afd", conf.BasePath+"/latest/l3afd")
 	if err != nil {
-		return fmt.Errorf("not able to add simlink %w", err)
+		return fmt.Errorf("unable to add symlink %w", err)
 	}
 
 	err = AddSymlink(newVersionPath+"/"+dir+"/l3afd.cfg", conf.BasePath+"/latest/l3afd.cfg")
 	if err != nil {
-		return fmt.Errorf("not able to add simlink %w", err)
+		return fmt.Errorf("unable to add symlink %w", err)
 	}
 	// now we are good
 	return nil
@@ -361,31 +360,34 @@ func RollBackSymlink(oldCfgPath, oldBinPath string, oldVersion, newVersion strin
 		return nil
 	}
 	// you need to store the old path for rollback purposes
-	// we will remove simlink
+	// we will remove symlink
 	err := RemoveSymlink(conf.BasePath + "/latest/l3afd")
 	if err != nil {
-		return fmt.Errorf("not able to remove simlink %w", err)
+		return fmt.Errorf("unable to remove symlink %w", err)
 	}
 	err = RemoveSymlink(conf.BasePath + "/latest/l3afd.cfg")
 	if err != nil {
-		return fmt.Errorf("not able to remove simlink %w", err)
+		return fmt.Errorf("unable to remove symlink %w", err)
 	}
-	// add new simlink
+	// add new symlink
 
 	err = AddSymlink(oldBinPath, conf.BasePath+"/latest/l3afd")
 	if err != nil {
-		return fmt.Errorf("not able to add simlink %w", err)
+		return fmt.Errorf("unable to add symlink %w", err)
 	}
 
 	err = AddSymlink(oldCfgPath, conf.BasePath+"/latest/l3afd.cfg")
 	if err != nil {
-		return fmt.Errorf("not able to add simlink %w", err)
+		return fmt.Errorf("unable to add symlink %w", err)
 	}
 
 	newVersionPath := conf.BasePath + "/" + newVersion
+	if strings.Contains(newVersionPath, "..") {
+		return fmt.Errorf("malicious path")
+	}
 	err = os.RemoveAll(newVersionPath)
 	if err != nil {
-		return fmt.Errorf("Error while deleting directory: %w", err)
+		return fmt.Errorf("error while deleting directory: %w", err)
 	}
 	return nil
 }

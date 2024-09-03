@@ -11,12 +11,14 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	"net/http"
+	"net/url"
 
 	"github.com/rs/zerolog/log"
 
@@ -71,6 +73,46 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			statusCode = http.StatusInternalServerError
 			return
 		}
+
+		match, _ := regexp.MatchString(`^v\d+\.\d+\.\d+$`, t.Version)
+		if !match {
+			mesg = "version naming convention is wrong it will like vx.y.z"
+			log.Error().Msg(mesg)
+			statusCode = http.StatusInternalServerError
+			return
+		}
+		machineHostname, err := os.Hostname()
+		if err != nil {
+			mesg = "failed to get os hostname"
+			log.Error().Msg(mesg)
+			statusCode = http.StatusInternalServerError
+			return
+		}
+		if machineHostname != t.HostName {
+			mesg = "this api request is not for provided host"
+			log.Error().Msg(mesg)
+			statusCode = http.StatusInternalServerError
+			return
+		}
+		URL, err := url.Parse(t.ArtifactURL)
+		if err != nil {
+			mesg = "url format is wrong"
+			log.Error().Msg(mesg)
+			statusCode = http.StatusInternalServerError
+			return
+		}
+		if URL.Scheme != models.HttpScheme && URL.Scheme != models.FileScheme && URL.Scheme != models.HttpsScheme {
+			mesg = "currently only http,https,file is supported"
+			log.Error().Msg(mesg)
+			statusCode = http.StatusInternalServerError
+			return
+		}
+		if strings.Contains(t.ArtifactURL, "..") {
+			mesg = "bad string"
+			log.Error().Msg(mesg)
+			statusCode = http.StatusInternalServerError
+			return
+		}
 		defer func() {
 			models.IsReadOnly = false
 		}()
@@ -86,16 +128,16 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			time.Sleep(time.Millisecond)
 		}
 
-		err, oldCfgPath := restart.ReadSymlink(bpfcfg.HostConfig.BasePath + "/latest/l3afd.cfg")
+		oldCfgPath, err := restart.ReadSymlink(bpfcfg.HostConfig.BasePath + "/latest/l3afd.cfg")
 		if err != nil {
-			mesg = fmt.Sprintf("failed read simlink: %v", err)
+			mesg = fmt.Sprintf("failed read symlink: %v", err)
 			log.Error().Msg(mesg)
 			statusCode = http.StatusInternalServerError
 			return
 		}
-		err, oldBinPath := restart.ReadSymlink(bpfcfg.HostConfig.BasePath + "/latest/l3afd")
+		oldBinPath, err := restart.ReadSymlink(bpfcfg.HostConfig.BasePath + "/latest/l3afd")
 		if err != nil {
-			mesg = fmt.Sprintf("failed to read simlink: %v", err)
+			mesg = fmt.Sprintf("failed to read symlink: %v", err)
 			log.Error().Msg(mesg)
 			statusCode = http.StatusInternalServerError
 			return
@@ -179,22 +221,22 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 		err = cmd.Start()
 		if err != nil {
 			log.Error().Msgf("%v", err)
-			mesg = mesg + fmt.Sprintf("not able to start new instance %v", err)
+			mesg = mesg + fmt.Sprintf("unable to start new instance %v", err)
 			// write a function a to do cleanup of other process if necessary
 			err = cmd.Process.Kill()
 			if err != nil {
 				log.Error().Msgf("%v", err)
-				mesg = mesg + fmt.Sprintf("not able to kill the new instance %v", err)
+				mesg = mesg + fmt.Sprintf("unable to kill the new instance %v", err)
 			}
 			err = bpfcfg.StartAllUserProgramsAndProbes()
 			if err != nil {
 				log.Error().Msgf("%v", err)
-				mesg = mesg + fmt.Sprintf("not able to start all userprograms and probes: %v", err)
+				mesg = mesg + fmt.Sprintf("unable to start all userprograms and probes: %v", err)
 			}
 			err = pidfile.CreatePID(bpfcfg.HostConfig.PIDFilename)
 			if err != nil {
 				log.Error().Msgf("%v", err)
-				mesg = mesg + fmt.Sprintf("not able to create pid file: %v", err)
+				mesg = mesg + fmt.Sprintf("unable to create pid file: %v", err)
 			}
 			err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, t.Version, bpfcfg.HostConfig)
 			if err != nil {
@@ -242,17 +284,17 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 				err = cmd.Process.Kill()
 				if err != nil {
 					log.Error().Msgf("%v", err)
-					mesg = mesg + fmt.Sprintf("not able to kill the new instance %v", err)
+					mesg = mesg + fmt.Sprintf("unable to kill the new instance %v", err)
 				}
 				err = bpfcfg.StartAllUserProgramsAndProbes()
 				if err != nil {
 					log.Error().Msgf("%v", err)
-					mesg = mesg + fmt.Sprintf("not able to start all userprograms and probes: %v", err)
+					mesg = mesg + fmt.Sprintf("unable to start all userprograms and probes: %v", err)
 				}
 				err = pidfile.CreatePID(bpfcfg.HostConfig.PIDFilename)
 				if err != nil {
 					log.Error().Msgf("%v", err)
-					mesg = mesg + fmt.Sprintf("not able to create pid file: %v", err)
+					mesg = mesg + fmt.Sprintf("unable to create pid file: %v", err)
 				}
 				err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, t.Version, bpfcfg.HostConfig)
 				if err != nil {
@@ -273,17 +315,17 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			err = cmd.Process.Kill()
 			if err != nil {
 				log.Error().Msgf("%v", err)
-				mesg = mesg + fmt.Sprintf("not able to kill the new instance %v", err)
+				mesg = mesg + fmt.Sprintf("unable to kill the new instance %v", err)
 			}
 			err = bpfcfg.StartAllUserProgramsAndProbes()
 			if err != nil {
 				log.Error().Msgf("%v", err)
-				mesg = mesg + fmt.Sprintf("not able to start all userprograms and probes: %v", err)
+				mesg = mesg + fmt.Sprintf("unable to start all userprograms and probes: %v", err)
 			}
 			err = pidfile.CreatePID(bpfcfg.HostConfig.PIDFilename)
 			if err != nil {
 				log.Error().Msgf("%v", err)
-				mesg = mesg + fmt.Sprintf("not able to create pid file: %v", err)
+				mesg = mesg + fmt.Sprintf("unable to create pid file: %v", err)
 			}
 			err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, t.Version, bpfcfg.HostConfig)
 			if err != nil {

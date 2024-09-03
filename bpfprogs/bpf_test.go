@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/l3af-project/l3afd/v2/artifact"
 	"github.com/l3af-project/l3afd/v2/config"
 	"github.com/l3af-project/l3afd/v2/mocks"
 	"github.com/l3af-project/l3afd/v2/models"
@@ -645,7 +646,7 @@ func Test_fileExists(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		if fileExists(tt.fileName) != tt.exist {
+		if artifact.FileExists(tt.fileName) != tt.exist {
 			t.Errorf("Invalid filename")
 		}
 	}

@@ -1623,7 +1623,7 @@ func (c *NFConfigs) StartAllUserProgramsAndProbes() error {
 				prg := b.ProgMapCollection
 				b.ProgMapCollection = nil
 				if err := b.LoadBPFProgram(iface); err != nil {
-					return fmt.Errorf("not able to load probes %w", err)
+					return fmt.Errorf("unable to load probes %w", err)
 				}
 				b.Program.EntryFunctionName = ef
 				if b.ProgMapCollection != nil {
@@ -1667,7 +1667,7 @@ func (c *NFConfigs) StartAllUserProgramsAndProbes() error {
 				prg := b.ProgMapCollection
 				b.ProgMapCollection = nil
 				if err := b.LoadBPFProgram(iface); err != nil {
-					return fmt.Errorf("not able to load probes %w", err)
+					return fmt.Errorf("unable to load probes %w", err)
 				}
 				b.Program.EntryFunctionName = ef
 				if b.ProgMapCollection != nil {
@@ -1711,7 +1711,7 @@ func (c *NFConfigs) StartAllUserProgramsAndProbes() error {
 				prg := b.ProgMapCollection
 				b.ProgMapCollection = nil
 				if err := b.LoadBPFProgram(iface); err != nil {
-					return fmt.Errorf("not able to load probes %w", err)
+					return fmt.Errorf("unable to load probes %w", err)
 				}
 				b.Program.EntryFunctionName = ef
 				if b.ProgMapCollection != nil {

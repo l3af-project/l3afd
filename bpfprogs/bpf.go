@@ -5,17 +5,12 @@
 package bpfprogs
 
 import (
-	"archive/tar"
-	"archive/zip"
 	"bytes"
-	"compress/gzip"
 	"container/ring"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net"
-	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -23,10 +18,10 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 	"unsafe"
 
+	"github.com/l3af-project/l3afd/v2/artifact"
 	"github.com/l3af-project/l3afd/v2/config"
 	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/l3af-project/l3afd/v2/stats"
@@ -39,8 +34,7 @@ import (
 )
 
 var (
-	execCommand           = exec.Command
-	copyBufPool sync.Pool = sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
+	execCommand = exec.Command
 )
 
 //lint:ignore U1000 avoid false linter error on windows, since this variable is only used in linux code
@@ -171,7 +165,7 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 
 	// On l3afd crashing scenario verify root program are unloaded properly by checking existence of persisted maps
 	// if map file exists then root program didn't clean up pinned map files
-	if fileExists(rootProgBPF.MapNamePath) {
+	if artifact.FileExists(rootProgBPF.MapNamePath) {
 		log.Warn().Msgf("previous instance of root program %s persisted map %s file exists", rootProgBPF.Program.Name, rootProgBPF.MapNamePath)
 		if err := rootProgBPF.RemoveRootProgMapFile(ifaceName); err != nil {
 			log.Warn().Err(err).Msgf("previous instance of root program %s map file not removed successfully - %s ", rootProgBPF.Program.Name, rootProgBPF.MapNamePath)
@@ -615,7 +609,7 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 		isDefaultURLUsed = true
 	}
 
-	URL, err := url.Parse(RepoURL)
+	_, err = url.Parse(RepoURL)
 	if err != nil {
 		if isDefaultURLUsed {
 			return fmt.Errorf("unknown ebpf-repo format : %w", err)
@@ -624,154 +618,20 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 		}
 	}
 
-	URL.Path = path.Join(URL.Path, b.Program.Name, b.Program.Version, platform, b.Program.Artifact)
-	log.Info().Msgf("Retrieving artifact - %s", URL)
-	err = DownloadArtifact(URL, conf.HttpClientTimeout, buf)
-	tempDir := filepath.Join(conf.BPFDir, b.Program.Name, b.Program.Version)
-	err = ExtractArtifact(b.Program.Artifact, buf, tempDir)
+	urlpath := path.Join(RepoURL, b.Program.Name, b.Program.Version, platform, b.Program.Artifact)
+	log.Info().Msgf("Retrieving artifact - %s", urlpath)
+	err = artifact.DownloadArtifact(urlpath, conf.HttpClientTimeout, buf)
 	if err != nil {
-		return fmt.Errorf("not able to extract artifact %w", err)
+		return err
+	}
+	tempDir := filepath.Join(conf.BPFDir, b.Program.Name, b.Program.Version)
+	err = artifact.ExtractArtifact(b.Program.Artifact, buf, tempDir)
+	if err != nil {
+		return fmt.Errorf("unable to extract artifact %w", err)
 	}
 	newDir := strings.Split(b.Program.Artifact, ".")
 	b.FilePath = filepath.Join(tempDir, newDir[0])
 	return nil
-}
-
-func DownloadArtifact(URL *url.URL, timeout time.Duration, buf *bytes.Buffer) error {
-	switch URL.Scheme {
-	case models.HttpScheme, models.HttpsScheme:
-		{
-			timeOut := time.Duration(timeout) * time.Second
-			var netTransport = &http.Transport{
-				ResponseHeaderTimeout: timeOut,
-			}
-			client := http.Client{Transport: netTransport, Timeout: timeOut}
-
-			// Get the data
-			resp, err := client.Get(URL.String())
-			if err != nil {
-				return fmt.Errorf("download failed: %w", err)
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode != http.StatusOK {
-				return fmt.Errorf("get request returned unexpected status code: %d (%s), %d was expected\n\tResponse Body: %s", resp.StatusCode, http.StatusText(resp.StatusCode), http.StatusOK, buf.Bytes())
-			}
-			buf.ReadFrom(resp.Body)
-			return nil
-		}
-	case models.FileScheme:
-		{
-			if fileExists(URL.Path) {
-				f, err := os.Open(URL.Path)
-				if err != nil {
-					return fmt.Errorf("opening err : %w", err)
-				}
-				buf.ReadFrom(f)
-				f.Close()
-			} else {
-				return fmt.Errorf("artifact is not found")
-			}
-			return nil
-		}
-	default:
-		return fmt.Errorf("unknown url scheme")
-	}
-}
-func ExtractArtifact(artifactName string, buf *bytes.Buffer, tempDir string) error {
-	switch artifact := artifactName; {
-	case strings.HasSuffix(artifact, ".zip"):
-		{
-			c := bytes.NewReader(buf.Bytes())
-			zipReader, err := zip.NewReader(c, int64(c.Len()))
-			if err != nil {
-				return fmt.Errorf("failed to create zip reader: %w", err)
-			}
-			for _, file := range zipReader.File {
-
-				zippedFile, err := file.Open()
-				if err != nil {
-					return fmt.Errorf("unzip failed: %w", err)
-				}
-				defer zippedFile.Close()
-
-				extractedFilePath, err := ValidatePath(file.Name, tempDir)
-				if err != nil {
-					return err
-				}
-
-				if file.FileInfo().IsDir() {
-					os.MkdirAll(extractedFilePath, file.Mode())
-				} else {
-					outputFile, err := os.OpenFile(
-						extractedFilePath,
-						os.O_WRONLY|os.O_CREATE|os.O_TRUNC,
-						file.Mode(),
-					)
-					if err != nil {
-						return fmt.Errorf("unzip failed to create file: %w", err)
-					}
-					defer outputFile.Close()
-
-					buf := copyBufPool.Get().(*bytes.Buffer)
-					_, err = io.CopyBuffer(outputFile, zippedFile, buf.Bytes())
-					if err != nil {
-						return fmt.Errorf("GetArtifacts failed to copy files: %w", err)
-					}
-					copyBufPool.Put(buf)
-				}
-			}
-			return nil
-		}
-	case strings.HasSuffix(artifact, ".tar.gz"):
-		{
-			archive, err := gzip.NewReader(buf)
-			if err != nil {
-				return fmt.Errorf("failed to create Gzip reader: %w", err)
-			}
-			defer archive.Close()
-			tarReader := tar.NewReader(archive)
-
-			for {
-				header, err := tarReader.Next()
-
-				if err == io.EOF {
-					break
-				} else if err != nil {
-					return fmt.Errorf("untar failed: %w", err)
-				}
-
-				fPath, err := ValidatePath(header.Name, tempDir)
-				if err != nil {
-					return err
-				}
-
-				info := header.FileInfo()
-				if info.IsDir() {
-					if err = os.MkdirAll(fPath, info.Mode()); err != nil {
-						return fmt.Errorf("untar failed to create directories: %w", err)
-					}
-					continue
-				}
-
-				file, err := os.OpenFile(fPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, info.Mode())
-				if err != nil {
-					return fmt.Errorf("untar failed to create file: %w", err)
-				}
-				defer file.Close()
-
-				buf := copyBufPool.Get().(*bytes.Buffer)
-				_, err = io.CopyBuffer(file, tarReader, buf.Bytes())
-				if err != nil {
-					return fmt.Errorf("GetArtifacts failed to copy files: %w", err)
-				}
-				copyBufPool.Put(buf)
-			}
-			return nil
-		}
-	default:
-		return fmt.Errorf("unknown artifact format")
-	}
 }
 
 // create rules file
@@ -789,15 +649,6 @@ func (b *BPF) createUpdateRulesFile(direction string) (string, error) {
 
 	return fileName, nil
 
-}
-
-// fileExists checks if a file exists or not
-func fileExists(filename string) bool {
-	info, err := os.Stat(filename)
-	if os.IsNotExist(err) {
-		return false
-	}
-	return !info.IsDir()
 }
 
 // Add eBPF map into BPFMaps list
@@ -871,7 +722,7 @@ func (b *BPF) MonitorMaps(ifaceName string, intervals int) error {
 		_, ok := b.MetricsBpfMaps[mapKey]
 		if !ok {
 			if err := b.AddMetricsBPFMap(element.Name, element.Aggregator, element.Key, intervals); err != nil {
-				return fmt.Errorf("not able to fetch map %s key %d aggregator %s : %w", element.Name, element.Key, element.Aggregator, err)
+				return fmt.Errorf("unable to fetch map %s key %d aggregator %s : %w", element.Name, element.Key, element.Aggregator, err)
 			}
 		}
 		bpfMap := b.MetricsBpfMaps[mapKey]
@@ -1203,17 +1054,6 @@ func (b *BPF) VerifyCleanupMaps(chain bool) error {
 	return nil
 }
 
-func ValidatePath(filePath string, destination string) (string, error) {
-	destpath := filepath.Join(destination, filePath)
-	if strings.Contains(filePath, "..") {
-		return "", fmt.Errorf(" file contains filepath (%s) that includes (..)", filePath)
-	}
-	if !strings.HasPrefix(destpath, filepath.Clean(destination)+string(os.PathSeparator)) {
-		return "", fmt.Errorf("%s: illegal file path", filePath)
-	}
-	return destpath, nil
-}
-
 // LoadBPFProgram - This method loads the eBPF program natively.
 func (b *BPF) LoadBPFProgram(ifaceName string) error {
 	ObjectFile := filepath.Join(b.FilePath, b.Program.ObjectFile)
@@ -1540,7 +1380,7 @@ func (b *BPF) PinBpfMaps(ifaceName string) error {
 			mapFilename = filepath.Join(b.HostConfig.BpfMapDefaultPath, ifaceName, k)
 		}
 		// In case one of the program pins the map then other program will skip
-		if !fileExists(mapFilename) {
+		if !artifact.FileExists(mapFilename) {
 			if err := v.Pin(mapFilename); err != nil {
 				return fmt.Errorf("eBPF program %s map %s:failed to pin the map err - %w", b.Program.Name, mapFilename, err)
 			}

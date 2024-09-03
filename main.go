@@ -263,14 +263,14 @@ func setupForRestart(ctx context.Context, conf *config.Config) error {
 	models.IsReadOnly = true
 	// Now you need to write client side code
 	conn, err := net.Dial("unix", models.HostSock)
-	HandleErr(err, "not able to dial unix domain socket")
+	HandleErr(err, "unable to dial unix domain socket")
 	defer conn.Close()
 	decoder := gob.NewDecoder(conn)
 	var t models.L3AFALLHOSTDATA
 	err = decoder.Decode(&t)
-	HandleErr(err, "not able to decode")
+	HandleErr(err, "unable to decode")
 	machineHostname, err := os.Hostname()
-	HandleErr(err, "not able to fetch the hostname")
+	HandleErr(err, "unable to fetch the hostname")
 
 	l, err := restart.Getnetlistener(3, "stat_server")
 	HandleErr(err, "getting stat_server listener failed")

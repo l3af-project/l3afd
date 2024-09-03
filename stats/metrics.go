@@ -130,7 +130,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 			}
 			listener, err := net.ListenTCP("tcp", tcpAddr)
 			if err != nil {
-				log.Fatal().Err(err).Msgf("Not able to create net Listen")
+				log.Fatal().Err(err).Msgf("unable to create net Listen")
 			}
 			models.AllNetListeners.Store("stat_http", listener)
 		}
