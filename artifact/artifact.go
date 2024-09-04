@@ -170,12 +170,14 @@ func ValidateURL(urlpath string) (*url.URL, error) {
 	if URL.Scheme == "" {
 		return nil, fmt.Errorf("URL scheme is missing")
 	}
-	if URL.Host == "" {
-		return nil, fmt.Errorf("URL host is missing")
-	}
-	// Forbid fragment in the URL to prevent potential attacks
-	if URL.Fragment != "" {
-		return nil, fmt.Errorf("URL must not contain a fragment")
+	if URL.Scheme == models.HttpScheme || URL.Scheme == models.HttpsScheme {
+		if URL.Host == "" {
+			return nil, fmt.Errorf("URL host is missing")
+		}
+		// Forbid fragment in the URL to prevent potential attacks
+		if URL.Fragment != "" {
+			return nil, fmt.Errorf("URL must not contain a fragment")
+		}
 	}
 	if strings.Contains(URL.Path, "..") {
 		return nil, fmt.Errorf("URL path must not contain '..'")
