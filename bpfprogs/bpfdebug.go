@@ -6,7 +6,6 @@ package bpfprogs
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net"
 	"net/http"
 	"strings"
@@ -23,12 +22,12 @@ func SetupBPFDebug(ebpfChainDebugAddr string, BPFConfigs *NFConfigs) {
 		if _, ok := models.AllNetListeners.Load("debug_http"); !ok {
 			tcpAddr, err := net.ResolveTCPAddr("tcp", ebpfChainDebugAddr)
 			if err != nil {
-				fmt.Println("Error resolving TCP address:", err)
+				log.Fatal().Err(err).Msgf("unable to resolve tcpaddr %v ", ebpfChainDebugAddr)
 				return
 			}
 			listener, err := net.ListenTCP("tcp", tcpAddr)
 			if err != nil {
-				log.Fatal().Err(err).Msgf("unable to create net Listen")
+				log.Fatal().Err(err).Msgf("unable to create tcp listener")
 			}
 			models.AllNetListeners.Store("debug_http", listener)
 		}

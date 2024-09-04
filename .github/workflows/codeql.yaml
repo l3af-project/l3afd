@@ -26,7 +26,7 @@ jobs:
       actions: read
       contents: read
       security-events: write
-      
+
     strategy:
       fail-fast: false
       matrix:
@@ -39,40 +39,12 @@ jobs:
         egress-policy: audit # TODO: change to 'egress-policy: block' after couple of runs
 
     - name: Checkout repository
-      uses: actions/checkout@2d7d9f7ff5b310f983d059b68785b3c74d8b8edd
+      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
 
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@e1f83c153a6cb7134f035e16e2626b216e7168c9
+      uses: github/codeql-action/init@4dd16135b69a43b6c8efb853346f8437d92d3c93
       with:
         languages: ${{ matrix.language }}
 
-    - name: Autobuild
-      uses: github/codeql-action/autobuild@9e39a05578dd315aad814d3c71bd03472cc5b815
-
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@4067cdab784c667cf1b7fa95169f3a0e0a381d63
-      with:
-        category: "/language:${{matrix.language}}"
-        output: sarif-results
-        upload: failure-only
-
-    - name: filter-sarif
-      uses: advanced-security/filter-sarif@59d0a64b3c0a34d787819f6659708915b6210582
-      with:
-        patterns: |
-          +**/*.go
-          -artifact/artifact.go
-        input: sarif-results/go.sarif
-        output: sarif-results/go.sarif
-
-    - name: Upload SARIF
-      uses: github/codeql-action/upload-sarif@2bbafcdd7fbf96243689e764c2f15d9735164f33
-      with:
-        sarif_file: sarif-results/go.sarif
-
-    - name: Upload loc as a Build Artifact
-      uses: actions/upload-artifact@b18b1d32f3f31abcdc29dee3f2484801fe7822f4
-      with:
-        name: sarif-results
-        path: sarif-results
-        retention-days: 1
+      uses: github/codeql-action/analyze@4dd16135b69a43b6c8efb853346f8437d92d3c93

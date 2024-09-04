@@ -26,7 +26,7 @@ jobs:
           sudo apt update
           sudo systemctl stop ufw
           sudo apt install -y iproute2
-          sudo apt install git curl hey
+          sudo apt install git curl hey net-tools
       - name: Checkout repository
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
       
@@ -37,6 +37,9 @@ jobs:
           sudo bash /root/l3af-arch/dev_environment/e2e_test/prep_env.sh
           sudo bash /root/l3af-arch/dev_environment/setup_linux_dev_env.sh --ci-build
           hm=$(hostname)
+          ip a
+          ps -ef | grep l3af
+          netstat -anp
           sudo find /root/l3af-arch/dev_environment/e2e_test -type f -name "*.json" -exec sed -i "s/l3af-test-host/$hm/g" {} +
           
       - name: Run Tests

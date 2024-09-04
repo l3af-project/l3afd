@@ -162,24 +162,23 @@ type L3AFALLHOSTDATA struct {
 	AllStats       []MetricVec
 }
 
+type RestartConfig struct {
+	HostName string `json:"hostname"`
+	Version  string `json:"version"`
+}
+
 var CloseForRestart chan struct{}
-
 var AllNetListeners sync.Map
-
 var CurrentWriteReq int
 var StateLock sync.Mutex
 var IsReadOnly bool
+var AvailableVersions map[string]string
 
 const HttpScheme string = "http"
 const HttpsScheme string = "https"
 const FileScheme string = "file"
 
-// Please Do not changes because they are means of communication between graceful restarts
+// Please Do not make changes in socketpaths because they are means of communication between graceful restarts
 const HostSock string = "/tmp/l3afd.sock"
 const StateSock string = "/tmp/l3afstate.sock"
-
-type RestartConfig struct {
-	HostName    string `json:"hostname"`
-	Version     string `json:"version"`
-	ArtifactURL string `json:"artifacturl"`
-}
+const L3AFDRestartArtifactName string = "l3afd.tar.gz"

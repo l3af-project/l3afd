@@ -32,8 +32,6 @@ type Config struct {
 	BpfMapDefaultPath   string
 	// Flag to enable chaining with root program
 	BpfChainingEnabled bool
-	TimetoRestart      int
-	BasePath           string
 
 	FileLogLocation   string
 	FileLogMaxSize    int
@@ -90,6 +88,12 @@ type Config struct {
 	MTLSServerKeyFilename     string
 	MTLSCertExpiryWarningDays int
 	MTLSSANMatchRules         []string
+
+	// graceful-restart
+	TimetoRestart      int
+	BasePath           string
+	RestartArtifactURL string
+	VersionLimit       int
 }
 
 // ReadConfig - Initializes configuration from file
@@ -110,14 +114,12 @@ func ReadConfig(configPath string) (*Config, error) {
 		DataCenter:                     LoadConfigString(confReader, "l3afd", "datacenter"),
 		BPFDir:                         LoadConfigString(confReader, "l3afd", "bpf-dir"),
 		BPFLogDir:                      LoadOptionalConfigString(confReader, "l3afd", "bpf-log-dir", ""),
-		BasePath:                       LoadOptionalConfigString(confReader, "l3afd", "basepath", "/usr/local/l3afd"),
 		MinKernelMajorVer:              LoadOptionalConfigInt(confReader, "l3afd", "kernel-major-version", 5),
 		MinKernelMinorVer:              LoadOptionalConfigInt(confReader, "l3afd", "kernel-minor-version", 15),
 		FileLogLocation:                LoadOptionalConfigString(confReader, "l3afd", "file-log-location", ""),
 		FileLogMaxSize:                 LoadOptionalConfigInt(confReader, "l3afd", "file-log-max-size", 100),
 		FileLogMaxBackups:              LoadOptionalConfigInt(confReader, "l3afd", "file-log-max-backups", 20),
 		FileLogMaxAge:                  LoadOptionalConfigInt(confReader, "l3afd", "file-log-max-age", 60),
-		TimetoRestart:                  LoadOptionalConfigInt(confReader, "l3afd", "time-to-restart", 7),
 		EBPFRepoURL:                    LoadConfigString(confReader, "ebpf-repo", "url"),
 		HttpClientTimeout:              LoadOptionalConfigDuration(confReader, "l3afd", "http-client-timeout", 30*time.Second),
 		MaxEBPFReStartCount:            LoadOptionalConfigInt(confReader, "l3afd", "max-ebpf-restart-count", 3),
@@ -158,6 +160,10 @@ func ReadConfig(configPath string) (*Config, error) {
 		MTLSServerKeyFilename:          LoadOptionalConfigString(confReader, "mtls", "server-key-filename", "server.key"),
 		MTLSCertExpiryWarningDays:      LoadOptionalConfigInt(confReader, "mtls", "cert-expiry-warning-days", 30),
 		MTLSSANMatchRules:              strings.Split(LoadOptionalConfigString(confReader, "mtls", "san-match-rules", ""), ","),
+		BasePath:                       LoadOptionalConfigString(confReader, "graceful-restart", "basepath", "/usr/local/l3afd"),
+		TimetoRestart:                  LoadOptionalConfigInt(confReader, "graceful-restart", "time-to-restart", 7),
+		VersionLimit:                   LoadOptionalConfigInt(confReader, "graceful-restart", "version-limit", 100),
+		RestartArtifactURL:             LoadOptionalConfigString(confReader, "graceful-restart", "restart-artifacts-url", "file:///srv/l3afd"),
 	}, nil
 }
 

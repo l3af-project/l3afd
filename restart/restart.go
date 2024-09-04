@@ -8,13 +8,13 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
-	"github.com/l3af-project/l3afd/v2/artifact"
 	"github.com/l3af-project/l3afd/v2/bpfprogs"
 	"github.com/l3af-project/l3afd/v2/config"
 	"github.com/l3af-project/l3afd/v2/models"
@@ -117,7 +117,7 @@ func getMetricsMaps(input map[string]models.MetaMetricsBPFMap, b *bpfprogs.BPF, 
 	return nil
 }
 
-func DeserilazeProgram(ctx context.Context, r *models.L3AFMetaData, hostconfig *config.Config, iface string) (*bpfprogs.BPF, error) {
+func DeserializeProgram(ctx context.Context, r *models.L3AFMetaData, hostconfig *config.Config, iface string) (*bpfprogs.BPF, error) {
 	g := &bpfprogs.BPF{}
 	g.Program = r.Program
 	g.FilePath = r.FilePath
@@ -207,9 +207,9 @@ func Convert(ctx context.Context, t models.L3AFALLHOSTDATA, hostconfig *config.C
 		for k, v := range t.IngressXDPBpfs {
 			l := list.New()
 			for _, r := range v {
-				f, err := DeserilazeProgram(ctx, r, hostconfig, k)
+				f, err := DeserializeProgram(ctx, r, hostconfig, k)
 				if err != nil {
-					log.Err(err).Msg("Deserialization failed for xdpingress")
+					log.Err(err).Msg("Deserialization failed for xdp ingress programs")
 					return nil, err
 				}
 				l.PushBack(f)
@@ -221,9 +221,9 @@ func Convert(ctx context.Context, t models.L3AFALLHOSTDATA, hostconfig *config.C
 		for k, v := range t.IngressTCBpfs {
 			l := list.New()
 			for _, r := range v {
-				f, err := DeserilazeProgram(ctx, r, hostconfig, k)
+				f, err := DeserializeProgram(ctx, r, hostconfig, k)
 				if err != nil {
-					log.Err(err).Msg("Deserialization failed for tcingress")
+					log.Err(err).Msg("Deserialization failed for tc ingress programs")
 					return nil, err
 				}
 				l.PushBack(f)
@@ -235,9 +235,9 @@ func Convert(ctx context.Context, t models.L3AFALLHOSTDATA, hostconfig *config.C
 		for k, v := range t.EgressTCBpfs {
 			l := list.New()
 			for _, r := range v {
-				f, err := DeserilazeProgram(ctx, r, hostconfig, k)
+				f, err := DeserializeProgram(ctx, r, hostconfig, k)
 				if err != nil {
-					log.Err(err).Msg("Deserialization failed for tcegress")
+					log.Err(err).Msg("Deserialization failed for tc egress programs")
 					return nil, err
 				}
 				l.PushBack(f)
@@ -277,7 +277,7 @@ func Getnetlistener(fd int, fname string) (*net.TCPListener, error) {
 	}
 	lf, e := l.(*net.TCPListener)
 	if !e {
-		return nil, fmt.Errorf("unable to covert to tcp listner")
+		return nil, fmt.Errorf("unable to convert to tcp listener")
 	}
 	file.Close()
 	return lf, nil
@@ -301,14 +301,11 @@ func ReadSymlink(symlink string) (string, error) {
 	return originalPath, nil
 }
 
-func GetNewVersion(urlpath string, oldVersion, newVersion string, conf *config.Config) error {
+func GetNewVersion(artifactName, oldVersion, newVersion string, conf *config.Config) error {
 	if oldVersion == newVersion {
 		return nil
 	}
-	newVersionPath := conf.BasePath + "/" + newVersion
-	if !strings.HasPrefix(conf.BasePath, filepath.Clean(newVersionPath)+string(os.PathSeparator)) {
-		return fmt.Errorf("malicious input given to the restart api")
-	}
+	newVersionPath := filepath.Clean(filepath.Join(conf.BasePath, newVersion))
 	err := os.RemoveAll(newVersionPath)
 	if err != nil {
 		return fmt.Errorf("error while deleting directory: %w", err)
@@ -319,39 +316,35 @@ func GetNewVersion(urlpath string, oldVersion, newVersion string, conf *config.C
 	}
 	// now I need to download artifacts
 	buf := &bytes.Buffer{}
-	err = artifact.DownloadArtifact(urlpath, conf.HttpClientTimeout, buf)
+	urlpath := path.Join(conf.RestartArtifactURL, newVersion, artifactName)
+	err = bpfprogs.DownloadArtifact(urlpath, conf.HttpClientTimeout, buf)
 	if err != nil {
 		return fmt.Errorf("unable to download artifacts %w", err)
 	}
-	sp := strings.Split(urlpath, "/")
-	artifactName := sp[len(sp)-1]
-	err = artifact.ExtractArtifact(artifactName, buf, newVersionPath)
-	dir := strings.Split(artifactName, ".")[0]
+	err = bpfprogs.ExtractArtifact(artifactName, buf, newVersionPath)
 	if err != nil {
 		return fmt.Errorf("unable to extract artifacts %w", err)
 	}
+
 	// you need to store the old path for rollback purposes
-	// we will remove symlink
-	err = RemoveSymlink(conf.BasePath + "/latest/l3afd")
+	err = RemoveSymlink(filepath.Join(conf.BasePath, "latest/l3afd"))
 	if err != nil {
 		return fmt.Errorf("unable to remove symlink %w", err)
 	}
-	err = RemoveSymlink(conf.BasePath + "/latest/l3afd.cfg")
+	err = RemoveSymlink(filepath.Join(conf.BasePath, "latest/l3afd.cfg"))
 	if err != nil {
 		return fmt.Errorf("unable to remove symlink %w", err)
 	}
 	// add new symlink
-
-	err = AddSymlink(newVersionPath+"/"+dir+"/l3afd", conf.BasePath+"/latest/l3afd")
+	err = AddSymlink(filepath.Join(newVersionPath, "l3afd", "l3afd"), filepath.Join(conf.BasePath, "latest/l3afd"))
 	if err != nil {
 		return fmt.Errorf("unable to add symlink %w", err)
 	}
 
-	err = AddSymlink(newVersionPath+"/"+dir+"/l3afd.cfg", conf.BasePath+"/latest/l3afd.cfg")
+	err = AddSymlink(filepath.Join(newVersionPath, "l3afd", "l3afd.cfg"), filepath.Join(conf.BasePath, "latest/l3afd.cfg"))
 	if err != nil {
 		return fmt.Errorf("unable to add symlink %w", err)
 	}
-	// now we are good
 	return nil
 }
 
@@ -359,29 +352,27 @@ func RollBackSymlink(oldCfgPath, oldBinPath string, oldVersion, newVersion strin
 	if oldVersion == newVersion {
 		return nil
 	}
-	// you need to store the old path for rollback purposes
-	// we will remove symlink
-	err := RemoveSymlink(conf.BasePath + "/latest/l3afd")
+
+	err := RemoveSymlink(filepath.Join(conf.BasePath, "latest/l3afd"))
 	if err != nil {
 		return fmt.Errorf("unable to remove symlink %w", err)
 	}
-	err = RemoveSymlink(conf.BasePath + "/latest/l3afd.cfg")
+	err = RemoveSymlink(filepath.Join(conf.BasePath, "latest/l3afd.cfg"))
 	if err != nil {
 		return fmt.Errorf("unable to remove symlink %w", err)
 	}
 	// add new symlink
-
-	err = AddSymlink(oldBinPath, conf.BasePath+"/latest/l3afd")
+	err = AddSymlink(oldBinPath, filepath.Join(conf.BasePath, "latest/l3afd"))
 	if err != nil {
 		return fmt.Errorf("unable to add symlink %w", err)
 	}
 
-	err = AddSymlink(oldCfgPath, conf.BasePath+"/latest/l3afd.cfg")
+	err = AddSymlink(oldCfgPath, filepath.Join(conf.BasePath, "latest/l3afd.cfg"))
 	if err != nil {
 		return fmt.Errorf("unable to add symlink %w", err)
 	}
 
-	newVersionPath := conf.BasePath + "/" + newVersion
+	newVersionPath := filepath.Join(conf.BasePath, newVersion)
 	if strings.Contains(newVersionPath, "..") {
 		return fmt.Errorf("malicious path")
 	}

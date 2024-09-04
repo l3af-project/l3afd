@@ -5,7 +5,6 @@ package stats
 
 import (
 	"errors"
-	"fmt"
 	"net"
 	"net/http"
 
@@ -67,7 +66,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 			Name:      "BPFUpdateFailedCount",
 			Help:      "The count of Failed eBPF programs updates",
 		},
-		[]string{"host", "ebpf_program", "direction", "interface_name"},
+		[]string{"host", "bpf_program", "direction", "interface_name"},
 	)
 
 	BPFUpdateFailedCount = bpfUpdateFailedCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
@@ -125,7 +124,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 		if _, ok := models.AllNetListeners.Load("stat_http"); !ok {
 			tcpAddr, err := net.ResolveTCPAddr("tcp", metricsAddr)
 			if err != nil {
-				fmt.Println("Error resolving TCP address:", err)
+				log.Fatal().Err(err).Msg("Error resolving TCP address")
 				return
 			}
 			listener, err := net.ListenTCP("tcp", tcpAddr)

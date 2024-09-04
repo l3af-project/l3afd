@@ -11,14 +11,13 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"regexp"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	"net/http"
-	"net/url"
 
 	"github.com/rs/zerolog/log"
 
@@ -50,7 +49,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 		}(&mesg, &statusCode)
 		if models.IsReadOnly {
 			log.Warn().Msgf("We are in Between Restart Please try after some time")
-			mesg = "We are in Between Restart Please try after some time"
+			mesg = "We are currently in the middle of a restart. Please attempt again after a while."
 			statusCode = http.StatusInternalServerError
 			return
 		}
@@ -73,14 +72,6 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			statusCode = http.StatusInternalServerError
 			return
 		}
-
-		match, _ := regexp.MatchString(`^v\d+\.\d+\.\d+$`, t.Version)
-		if !match {
-			mesg = "version naming convention is wrong it will like vx.y.z"
-			log.Error().Msg(mesg)
-			statusCode = http.StatusInternalServerError
-			return
-		}
 		machineHostname, err := os.Hostname()
 		if err != nil {
 			mesg = "failed to get os hostname"
@@ -90,25 +81,6 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 		}
 		if machineHostname != t.HostName {
 			mesg = "this api request is not for provided host"
-			log.Error().Msg(mesg)
-			statusCode = http.StatusInternalServerError
-			return
-		}
-		URL, err := url.Parse(t.ArtifactURL)
-		if err != nil {
-			mesg = "url format is wrong"
-			log.Error().Msg(mesg)
-			statusCode = http.StatusInternalServerError
-			return
-		}
-		if URL.Scheme != models.HttpScheme && URL.Scheme != models.FileScheme && URL.Scheme != models.HttpsScheme {
-			mesg = "currently only http,https,file is supported"
-			log.Error().Msg(mesg)
-			statusCode = http.StatusInternalServerError
-			return
-		}
-		if strings.Contains(t.ArtifactURL, "..") {
-			mesg = "bad string"
 			log.Error().Msg(mesg)
 			statusCode = http.StatusInternalServerError
 			return
@@ -128,14 +100,14 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			time.Sleep(time.Millisecond)
 		}
 
-		oldCfgPath, err := restart.ReadSymlink(bpfcfg.HostConfig.BasePath + "/latest/l3afd.cfg")
+		oldCfgPath, err := restart.ReadSymlink(filepath.Join(bpfcfg.HostConfig.BasePath, "latest/l3afd.cfg"))
 		if err != nil {
 			mesg = fmt.Sprintf("failed read symlink: %v", err)
 			log.Error().Msg(mesg)
 			statusCode = http.StatusInternalServerError
 			return
 		}
-		oldBinPath, err := restart.ReadSymlink(bpfcfg.HostConfig.BasePath + "/latest/l3afd")
+		oldBinPath, err := restart.ReadSymlink(filepath.Join(bpfcfg.HostConfig.BasePath, "latest/l3afd"))
 		if err != nil {
 			mesg = fmt.Sprintf("failed to read symlink: %v", err)
 			log.Error().Msg(mesg)
@@ -144,12 +116,18 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 		}
 		oldVersion := strings.Split(strings.Trim(oldBinPath, bpfcfg.HostConfig.BasePath+"/"), "/")[0]
 
-		err = restart.GetNewVersion(t.ArtifactURL, oldVersion, t.Version, bpfcfg.HostConfig)
-		if err != nil {
-			mesg = fmt.Sprintf("failed to getNewVersion: %v", err)
+		if _, ok := models.AvailableVersions[t.Version]; !ok {
+			mesg = "invalid version to upgrade"
 			log.Error().Msg(mesg)
 			statusCode = http.StatusInternalServerError
-			err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, t.Version, bpfcfg.HostConfig)
+			return
+		}
+		err = restart.GetNewVersion(models.L3AFDRestartArtifactName, oldVersion, models.AvailableVersions[t.Version], bpfcfg.HostConfig)
+		if err != nil {
+			mesg = fmt.Sprintf("failed to get new version: %v", err)
+			log.Error().Msg(mesg)
+			statusCode = http.StatusInternalServerError
+			err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, models.AvailableVersions[t.Version], bpfcfg.HostConfig)
 			mesg = mesg + fmt.Sprintf("rollback of symlink failed: %v", err)
 			return
 		}
@@ -158,7 +136,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 		ln, err := net.Listen("unix", models.HostSock)
 		if err != nil {
 			log.Err(err)
-			err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, t.Version, bpfcfg.HostConfig)
+			err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, models.AvailableVersions[t.Version], bpfcfg.HostConfig)
 			mesg = mesg + fmt.Sprintf("rollback of symlink failed: %v", err)
 			statusCode = http.StatusInternalServerError
 			return
@@ -195,7 +173,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			lf, err := lis.File()
 			if err != nil {
 				log.Error().Msgf("%v", err)
-				err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, t.Version, bpfcfg.HostConfig)
+				err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, models.AvailableVersions[t.Version], bpfcfg.HostConfig)
 				mesg = mesg + fmt.Sprintf("rollback of symlink failed: %v", err)
 				statusCode = http.StatusInternalServerError
 				isErr = true
@@ -209,7 +187,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			return
 		}
 		// we have added
-		cmd := exec.Command(bpfcfg.HostConfig.BasePath+"/latest/l3afd", "--config", bpfcfg.HostConfig.BasePath+"/latest/l3afd.cfg")
+		cmd := exec.Command(filepath.Join(bpfcfg.HostConfig.BasePath, "latest/l3afd"), "--config", filepath.Join(bpfcfg.HostConfig.BasePath, "latest/l3afd.cfg"))
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Setsid: true,
 		}
@@ -238,7 +216,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 				log.Error().Msgf("%v", err)
 				mesg = mesg + fmt.Sprintf("unable to create pid file: %v", err)
 			}
-			err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, t.Version, bpfcfg.HostConfig)
+			err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, models.AvailableVersions[t.Version], bpfcfg.HostConfig)
 			if err != nil {
 				mesg = mesg + fmt.Sprintf("rollback of symlink failed: %v", err)
 			}
@@ -257,7 +235,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 					f = true
 					break
 				}
-				fmt.Println("Waiting for socket to be up...")
+				log.Info().Msgf("Waiting for socket to be up...")
 				time.Sleep(time.Second) // sleep for a second before trying again
 			}
 			if !f {
@@ -296,7 +274,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 					log.Error().Msgf("%v", err)
 					mesg = mesg + fmt.Sprintf("unable to create pid file: %v", err)
 				}
-				err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, t.Version, bpfcfg.HostConfig)
+				err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, models.AvailableVersions[t.Version], bpfcfg.HostConfig)
 				if err != nil {
 					mesg = mesg + fmt.Sprintf("rollback of symlink failed: %v", err)
 				}
@@ -327,7 +305,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 				log.Error().Msgf("%v", err)
 				mesg = mesg + fmt.Sprintf("unable to create pid file: %v", err)
 			}
-			err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, t.Version, bpfcfg.HostConfig)
+			err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, models.AvailableVersions[t.Version], bpfcfg.HostConfig)
 			if err != nil {
 				mesg = mesg + fmt.Sprintf("rollback of symlink failed: %v", err)
 			}

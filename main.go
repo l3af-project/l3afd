@@ -101,9 +101,9 @@ func main() {
 		log.Info().Msgf("Saving logs to file: %s", conf.FileLogLocation)
 		saveLogsToFile(conf)
 	}
-
+	populateVersions(conf)
 	if err = pidfile.CheckPIDConflict(conf.PIDFilename); err != nil {
-		if err = setupForRestart(ctx, conf); err != nil {
+		if err = setupForRestartOuter(ctx, conf); err != nil {
 			log.Warn().Msg("Doing Normal Startup")
 		} else {
 			log.Fatal().Err(err).Msgf("The PID file: %s, is in an unacceptable state", conf.PIDFilename)
@@ -247,42 +247,61 @@ func ReadConfigsFromConfigStore(conf *config.Config) ([]models.L3afBPFPrograms, 
 	return t, nil
 }
 
-func HandleErr(e error, msg string) {
-	if e == nil {
-		return
-	}
-	log.Fatal().Err(e).Msgf(msg)
-	sendState("Failed")
-	os.Exit(0)
-}
-func setupForRestart(ctx context.Context, conf *config.Config) error {
+func setupForRestartOuter(ctx context.Context, conf *config.Config) error {
 	if _, err := os.Stat(models.HostSock); os.IsNotExist(err) {
 		return err
 	}
 	stateSockPath = models.StateSock
 	models.IsReadOnly = true
+	err := setupForRestart(ctx, conf)
+	if err != nil {
+		sendState("Failed")
+		log.Fatal().Err(err).Msg("unable to restart the l3afd")
+	}
+	// we need to write code to send ready status
+	sendState("Ready")
+	models.IsReadOnly = false
+	<-models.CloseForRestart
+	os.Exit(0)
+	return nil
+}
+
+func setupForRestart(ctx context.Context, conf *config.Config) error {
 	// Now you need to write client side code
 	conn, err := net.Dial("unix", models.HostSock)
-	HandleErr(err, "unable to dial unix domain socket")
-	defer conn.Close()
+	if err != nil {
+		return fmt.Errorf("unable to dial unix domain socket : %w", err)
+	}
 	decoder := gob.NewDecoder(conn)
 	var t models.L3AFALLHOSTDATA
 	err = decoder.Decode(&t)
-	HandleErr(err, "unable to decode")
+	if err != nil {
+		conn.Close()
+		return fmt.Errorf("unable to decode")
+	}
+	conn.Close()
 	machineHostname, err := os.Hostname()
-	HandleErr(err, "unable to fetch the hostname")
+	if err != nil {
+		return fmt.Errorf("unable to fetch the hostname")
+	}
 
 	l, err := restart.Getnetlistener(3, "stat_server")
-	HandleErr(err, "getting stat_server listener failed")
+	if err != nil {
+		return fmt.Errorf("getting stat_server listener failed")
+	}
 	models.AllNetListeners.Store("stat_http", l)
 
 	l, err = restart.Getnetlistener(4, "main_server")
-	HandleErr(err, "getting main_server listener failed")
+	if err != nil {
+		return fmt.Errorf("getting main_server listener failed")
+	}
 	models.AllNetListeners.Store("main_http", l)
 
 	if conf.EBPFChainDebugEnabled {
 		l, err = restart.Getnetlistener(5, "debug_server")
-		HandleErr(err, "getting main_server listener failed")
+		if err != nil {
+			return fmt.Errorf("getting main_server listener failed")
+		}
 		models.AllNetListeners.Store("debug_http", l)
 	}
 	// setup Metrics endpoint
@@ -294,25 +313,30 @@ func setupForRestart(ctx context.Context, conf *config.Config) error {
 	ebpfConfigs, err := restart.Convert(ctx, t, conf)
 	ebpfConfigs.BpfMetricsMon = bpfM
 	ebpfConfigs.ProcessMon = pMon
-	HandleErr(err, "Failed to convert deserilaze the state")
+	if err != nil {
+		return fmt.Errorf("failed to convert deserilaze the state")
+	}
 	err = ebpfConfigs.StartAllUserProgramsAndProbes()
-	HandleErr(err, "failed to start all the user programs and probes")
+	if err != nil {
+		return fmt.Errorf("failed to start all the user programs and probes")
+	}
 	err = apis.StartConfigWatcher(ctx, machineHostname, daemonName, conf, ebpfConfigs)
-	HandleErr(err, "Starting config Watcher failed")
+	if err != nil {
+		return fmt.Errorf("starting config Watcher failed")
+	}
 	err = handlers.InitConfigs(ebpfConfigs)
-	HandleErr(err, "L3afd failed to initialise configs")
+	if err != nil {
+		return fmt.Errorf("l3afd failed to initialise configs")
+	}
 	if conf.EBPFChainDebugEnabled {
 		bpfprogs.SetupBPFDebug(conf.EBPFChainDebugAddr, ebpfConfigs)
 	}
 	ebpfConfigs.ProcessMon.PCheckStart(ebpfConfigs.IngressXDPBpfs, ebpfConfigs.IngressTCBpfs, ebpfConfigs.EgressTCBpfs, &ebpfConfigs.ProbesBpfs)
 	ebpfConfigs.BpfMetricsMon.BpfMetricsStart(ebpfConfigs.IngressXDPBpfs, ebpfConfigs.IngressTCBpfs, ebpfConfigs.EgressTCBpfs, &ebpfConfigs.ProbesBpfs)
 	err = pidfile.CreatePID(conf.PIDFilename)
-	HandleErr(err, fmt.Sprintf("The PID file: %s, could not be created", conf.PIDFilename))
-	// we need to write code to send ready status
-	sendState("Ready")
-	models.IsReadOnly = false
-	<-models.CloseForRestart
-	os.Exit(0)
+	if err != nil {
+		return fmt.Errorf("the PID file: %s, could not be created", conf.PIDFilename)
+	}
 	return nil
 }
 
@@ -341,4 +365,17 @@ func sendState(s string) {
 	}
 	conn.Close()
 	ln.Close()
+}
+
+// populateVersions is to suppress codeql warning - Uncontrolled data used in network request
+func populateVersions(conf *config.Config) {
+	models.AvailableVersions = make(map[string]string)
+	for i := 0; i <= conf.VersionLimit; i++ {
+		for j := 0; j <= conf.VersionLimit; j++ {
+			for k := 0; k <= conf.VersionLimit; k++ {
+				version := fmt.Sprintf("v%d.%d.%d", i, j, k)
+				models.AvailableVersions[version] = version
+			}
+		}
+	}
 }

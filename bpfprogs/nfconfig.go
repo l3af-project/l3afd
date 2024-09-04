@@ -1485,7 +1485,8 @@ func (c *NFConfigs) DownloadAndStartProbes(element *list.Element) error {
 	return nil
 }
 
-func SerilazeProgram(e *list.Element) *models.L3AFMetaData {
+// SerialzeProgram this function wil serialize the program
+func SerialzeProgram(e *list.Element) *models.L3AFMetaData {
 	tmp := &models.L3AFMetaData{}
 	bpf := e.Value.(*BPF)
 	tmp.BpfMaps = make([]string, 0)
@@ -1543,6 +1544,7 @@ func SerilazeProgram(e *list.Element) *models.L3AFMetaData {
 	return tmp
 }
 
+// GetL3AFHOSTDATA this function will give serialize form of current l3afd state
 func (c *NFConfigs) GetL3AFHOSTDATA() models.L3AFALLHOSTDATA {
 	result := models.L3AFALLHOSTDATA{}
 	result.HostName = c.HostName
@@ -1556,7 +1558,7 @@ func (c *NFConfigs) GetL3AFHOSTDATA() models.L3AFALLHOSTDATA {
 		for k, v := range c.IngressXDPBpfs {
 			ls := make([]*models.L3AFMetaData, 0)
 			for e := v.Front(); e != nil; e = e.Next() {
-				ls = append(ls, SerilazeProgram(e))
+				ls = append(ls, SerialzeProgram(e))
 			}
 			result.IngressXDPBpfs[k] = ls
 		}
@@ -1565,7 +1567,7 @@ func (c *NFConfigs) GetL3AFHOSTDATA() models.L3AFALLHOSTDATA {
 		for k, v := range c.IngressTCBpfs {
 			ls := make([]*models.L3AFMetaData, 0)
 			for e := v.Front(); e != nil; e = e.Next() {
-				ls = append(ls, SerilazeProgram(e))
+				ls = append(ls, SerialzeProgram(e))
 			}
 			result.IngressTCBpfs[k] = ls
 		}
@@ -1574,13 +1576,13 @@ func (c *NFConfigs) GetL3AFHOSTDATA() models.L3AFALLHOSTDATA {
 		for k, v := range c.EgressTCBpfs {
 			ls := make([]*models.L3AFMetaData, 0)
 			for e := v.Front(); e != nil; e = e.Next() {
-				ls = append(ls, SerilazeProgram(e))
+				ls = append(ls, SerialzeProgram(e))
 			}
 			result.EgressTCBpfs[k] = ls
 		}
 	}
 	for e := c.ProbesBpfs.Front(); e != nil; e = e.Next() {
-		result.ProbesBpfs = append(result.ProbesBpfs, *SerilazeProgram(e))
+		result.ProbesBpfs = append(result.ProbesBpfs, *SerialzeProgram(e))
 	}
 	metrics, _ := prometheus.DefaultGatherer.Gather()
 	result.AllStats = make([]models.MetricVec, 0)
@@ -1612,6 +1614,7 @@ func (c *NFConfigs) GetL3AFHOSTDATA() models.L3AFALLHOSTDATA {
 	return result
 }
 
+// StartAllUserProgramsAndProbes this function will restart all the User Programs and probes
 func (c *NFConfigs) StartAllUserProgramsAndProbes() error {
 	if c.IngressXDPBpfs != nil {
 		for iface, v := range c.IngressXDPBpfs {
@@ -1749,6 +1752,7 @@ func (c *NFConfigs) StartAllUserProgramsAndProbes() error {
 	return nil
 }
 
+// StopAllProbes this function will stop all the probes
 func (c *NFConfigs) StopAllProbes() {
 	if c.IngressXDPBpfs != nil {
 		for _, v := range c.IngressXDPBpfs {

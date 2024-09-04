@@ -42,7 +42,7 @@ func AddEbpfPrograms(ctx context.Context, bpfcfg *bpfprogs.NFConfigs) http.Handl
 		}(&mesg, &statusCode)
 		if models.IsReadOnly {
 			log.Warn().Msgf("We are in Between Restart Please try after some time")
-			mesg = "We are in Between Restart Please try after some time"
+			mesg = "We are currently in the middle of a restart. Please attempt again after a while."
 			return
 		}
 		defer DecWriteReq()
