@@ -19,3 +19,8 @@ updates:
     schedule:
       interval: "weekly"
       day: "saturday"
+
+  - package-ecosystem: docker
+    directory: /build-docker
+    schedule:
+      interval: daily
