@@ -54,6 +54,8 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			return
 		}
 		if r.Body == nil {
+			mesg = "nil request body"
+			statusCode = http.StatusInternalServerError
 			log.Warn().Msgf("Empty request body")
 			return
 		}
@@ -99,7 +101,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			models.StateLock.Unlock()
 			time.Sleep(time.Millisecond)
 		}
-
+		// Now our system is in Readonly state
 		oldCfgPath, err := restart.ReadSymlink(filepath.Join(bpfcfg.HostConfig.BasePath, "latest/l3afd.cfg"))
 		if err != nil {
 			mesg = fmt.Sprintf("failed read symlink: %v", err)
@@ -131,7 +133,6 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			mesg = mesg + fmt.Sprintf("rollback of symlink failed: %v", err)
 			return
 		}
-		// Now our system is in Readonly state
 		bpfProgs := bpfcfg.GetL3AFHOSTDATA()
 		ln, err := net.Listen("unix", models.HostSock)
 		if err != nil {
@@ -186,7 +187,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 		if isErr {
 			return
 		}
-		// we have added
+
 		cmd := exec.Command(filepath.Join(bpfcfg.HostConfig.BasePath, "latest/l3afd"), "--config", filepath.Join(bpfcfg.HostConfig.BasePath, "latest/l3afd.cfg"))
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Setsid: true,
@@ -200,7 +201,6 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 		if err != nil {
 			log.Error().Msgf("%v", err)
 			mesg = mesg + fmt.Sprintf("unable to start new instance %v", err)
-			// write a function a to do cleanup of other process if necessary
 			err = cmd.Process.Kill()
 			if err != nil {
 				log.Error().Msgf("%v", err)
@@ -239,6 +239,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 				time.Sleep(time.Second) // sleep for a second before trying again
 			}
 			if !f {
+				conn.Close()
 				NewProcessStatus <- "Failed"
 				return
 			}
@@ -289,7 +290,6 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 
 		st := <-NewProcessStatus
 		if st == "Failed" {
-			// write a function a to do cleanup of other process if necessary
 			err = cmd.Process.Kill()
 			if err != nil {
 				log.Error().Msgf("%v", err)
