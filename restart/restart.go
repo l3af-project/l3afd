@@ -324,8 +324,7 @@ func GetNewVersion(artifactName, oldVersion, newVersion string, conf *config.Con
 	err = bpfprogs.ExtractArtifact(artifactName, buf, newVersionPath)
 	if err != nil {
 		return fmt.Errorf("unable to extract artifacts %w", err)
-	}
-
+	};
 	// you need to store the old path for rollback purposes
 	err = RemoveSymlink(filepath.Join(conf.BasePath, "latest/l3afd"))
 	if err != nil {
@@ -361,6 +360,7 @@ func RollBackSymlink(oldCfgPath, oldBinPath string, oldVersion, newVersion strin
 	if err != nil {
 		return fmt.Errorf("unable to remove symlink %w", err)
 	}
+
 	// add new symlink
 	err = AddSymlink(oldBinPath, filepath.Join(conf.BasePath, "latest/l3afd"))
 	if err != nil {
