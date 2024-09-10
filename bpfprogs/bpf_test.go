@@ -184,7 +184,7 @@ func TestBPF_Stop(t *testing.T) {
 			fields: fields{
 				Program: models.BPFProgram{
 					Name:              "nfprogram",
-					Artifact:          "sort.tar.gz",
+					Artifact:          "data.tar.gz",
 					CmdStart:          GetTestExecutableName(),
 					CmdStop:           GetTestExecutableName(),
 					UserProgramDaemon: false,
@@ -242,7 +242,7 @@ func TestBPF_Start(t *testing.T) {
 			fields: fields{
 				Program: models.BPFProgram{
 					Name:              "nfprogram",
-					Artifact:          "sort.tar.gz",
+					Artifact:          "data.tar.gz",
 					CmdStart:          GetTestExecutableName(),
 					CmdStop:           GetTestExecutableName(),
 					UserProgramDaemon: true,
@@ -261,7 +261,7 @@ func TestBPF_Start(t *testing.T) {
 			fields: fields{
 				Program: models.BPFProgram{
 					Name:              "nfprogram",
-					Artifact:          "sort.tar.gz",
+					Artifact:          "data.tar.gz",
 					CmdStart:          GetTestExecutableName(),
 					CmdStop:           GetTestExecutableName(),
 					UserProgramDaemon: false,
@@ -280,7 +280,7 @@ func TestBPF_Start(t *testing.T) {
 			fields: fields{
 				Program: models.BPFProgram{
 					Name:              "nfprogram",
-					Artifact:          "sort.tar.gz",
+					Artifact:          "data.tar.gz",
 					CmdStart:          GetTestExecutableName(),
 					CmdStop:           GetTestExecutableName(),
 					UserProgramDaemon: true,

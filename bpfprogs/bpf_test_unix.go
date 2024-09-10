@@ -16,7 +16,7 @@ func GetTestNonexecutablePathName() string {
 }
 
 func GetTestExecutablePathName() string {
-	return "/bin/ls"
+	return "/bin/date"
 }
 
 func GetTestExecutablePath() string {
@@ -24,7 +24,7 @@ func GetTestExecutablePath() string {
 }
 
 func GetTestExecutableName() string {
-	return "ls"
+	return "date"
 }
 
 // assertExecutable checks for executable permissions
