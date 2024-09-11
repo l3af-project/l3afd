@@ -285,20 +285,20 @@ func setupForRestart(ctx context.Context, conf *config.Config) error {
 		return fmt.Errorf("unable to fetch the hostname")
 	}
 
-	l, err := restart.Getnetlistener(3, "stat_server")
+	l, err := restart.GetNetListener(3, "stat_server")
 	if err != nil {
 		return fmt.Errorf("getting stat_server listener failed")
 	}
 	models.AllNetListeners.Store("stat_http", l)
 
-	l, err = restart.Getnetlistener(4, "main_server")
+	l, err = restart.GetNetListener(4, "main_server")
 	if err != nil {
 		return fmt.Errorf("getting main_server listener failed")
 	}
 	models.AllNetListeners.Store("main_http", l)
 
 	if conf.EBPFChainDebugEnabled {
-		l, err = restart.Getnetlistener(5, "debug_server")
+		l, err = restart.GetNetListener(5, "debug_server")
 		if err != nil {
 			return fmt.Errorf("getting main_server listener failed")
 		}

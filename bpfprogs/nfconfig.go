@@ -1752,12 +1752,12 @@ func (c *NFConfigs) StartAllUserProgramsAndProbes() error {
 	return nil
 }
 
-// StopAllProbes this function will stop all the probes
-func (c *NFConfigs) StopAllProbes() {
+// StopAllProbesAndUserPrograms this function will stop all the probes & stops user programs
+func (c *NFConfigs) StopAllProbesAndUserPrograms() error {
 	if c.IngressXDPBpfs != nil {
-		for _, v := range c.IngressXDPBpfs {
+		for iface, v := range c.IngressXDPBpfs {
 			for e := v.Front(); e != nil; e = e.Next() {
-				// Starting Probes
+				// Stoping Probes
 				b := e.Value.(*BPF)
 				if b.ProbeLinks != nil {
 					for _, pb := range b.ProbeLinks {
@@ -1765,13 +1765,17 @@ func (c *NFConfigs) StopAllProbes() {
 					}
 				}
 				b.ProbeLinks = make([]*link.Link, 0)
+				// Stopping UserPrograms
+				if err := b.StopUserProgram(iface, models.XDPIngressType); err != nil {
+					return fmt.Errorf("failed to stop user program : %w", err)
+				}
 			}
 		}
 	}
 	if c.IngressTCBpfs != nil {
-		for _, v := range c.IngressTCBpfs {
+		for iface, v := range c.IngressTCBpfs {
 			for e := v.Front(); e != nil; e = e.Next() {
-				// Starting Probes
+				// Stoping Probes
 				b := e.Value.(*BPF)
 				if b.ProbeLinks != nil {
 					for _, pb := range b.ProbeLinks {
@@ -1779,13 +1783,17 @@ func (c *NFConfigs) StopAllProbes() {
 					}
 				}
 				b.ProbeLinks = make([]*link.Link, 0)
+				// Stopping UserPrograms
+				if err := b.StopUserProgram(iface, models.XDPIngressType); err != nil {
+					return fmt.Errorf("failed to stop user program : %w", err)
+				}
 			}
 		}
 	}
 	if c.EgressTCBpfs != nil {
-		for _, v := range c.EgressTCBpfs {
+		for iface, v := range c.EgressTCBpfs {
 			for e := v.Front(); e != nil; e = e.Next() {
-				// Starting Probes
+				// Stoping Probes
 				b := e.Value.(*BPF)
 				if b.ProbeLinks != nil {
 					for _, pb := range b.ProbeLinks {
@@ -1793,7 +1801,12 @@ func (c *NFConfigs) StopAllProbes() {
 					}
 				}
 				b.ProbeLinks = make([]*link.Link, 0)
+				// Stopping UserPrograms
+				if err := b.StopUserProgram(iface, models.XDPIngressType); err != nil {
+					return fmt.Errorf("failed to stop user program : %w", err)
+				}
 			}
 		}
 	}
+	return nil
 }

@@ -23,6 +23,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// convertBPFMap will  populate bpf maps from deserialized map names
 func convertBPFMap(in []string, g *bpfprogs.BPF, output *map[string]bpfprogs.BPFMap, iface string) error {
 	for _, v := range in {
 		var pinnedPath string
@@ -51,6 +52,7 @@ func convertBPFMap(in []string, g *bpfprogs.BPF, output *map[string]bpfprogs.BPF
 	return nil
 }
 
+// getCollection will populate ebpf Collection from deserialized meta collection object
 func getCollection(input models.MetaColl, output **ebpf.Collection, b *bpfprogs.BPF, iface string) error {
 	for _, v := range input.Programs {
 		progPinPath := fmt.Sprintf("%s/progs/%s/%s_%s", b.HostConfig.BpfMapDefaultPath, iface, b.Program.EntryFunctionName, b.Program.ProgType)
@@ -76,6 +78,7 @@ func getCollection(input models.MetaColl, output **ebpf.Collection, b *bpfprogs.
 	return nil
 }
 
+// getMetricsMaps will populate MetricsBPFMap from deserialized meta metric object
 func getMetricsMaps(input map[string]models.MetaMetricsBPFMap, b *bpfprogs.BPF, conf *config.Config, output *map[string]*bpfprogs.MetricsBPFMap, iface string) error {
 	if input == nil {
 		return nil
@@ -117,7 +120,8 @@ func getMetricsMaps(input map[string]models.MetaMetricsBPFMap, b *bpfprogs.BPF, 
 	return nil
 }
 
-func DeserializeProgram(ctx context.Context, r *models.L3AFMetaData, hostconfig *config.Config, iface string) (*bpfprogs.BPF, error) {
+// deserializeProgram will deserialize individual program from given *models.L3AFMetaData
+func deserializeProgram(ctx context.Context, r *models.L3AFMetaData, hostconfig *config.Config, iface string) (*bpfprogs.BPF, error) {
 	g := &bpfprogs.BPF{}
 	g.Program = r.Program
 	g.FilePath = r.FilePath
@@ -156,7 +160,8 @@ func DeserializeProgram(ctx context.Context, r *models.L3AFMetaData, hostconfig 
 	return g, nil
 }
 
-func GetValueofLabel(l string, t []models.Label) string {
+// GetValueofLabel will query label value from given label array
+func getValueofLabel(l string, t []models.Label) string {
 	for _, f := range t {
 		if f.Name == l {
 			return f.Value
@@ -165,7 +170,8 @@ func GetValueofLabel(l string, t []models.Label) string {
 	return ""
 }
 
-func GetCountVecByMetricName(name string) *prometheus.CounterVec {
+// GetGaugeVecByMetricName will provide CounterVec metrics pointer from metric name
+func getCountVecByMetricName(name string) *prometheus.CounterVec {
 	switch name {
 	case "l3afd_BPFUpdateCount":
 		return stats.BPFUpdateCount
@@ -179,7 +185,9 @@ func GetCountVecByMetricName(name string) *prometheus.CounterVec {
 		return nil
 	}
 }
-func GetGaugeVecByMetricName(name string) *prometheus.GaugeVec {
+
+// GetGaugeVecByMetricName will provide GaugeVec metrics pointer from metric name
+func getGaugeVecByMetricName(name string) *prometheus.GaugeVec {
 	switch name {
 	case "l3afd_BPFRunning":
 		return stats.BPFRunning
@@ -191,6 +199,8 @@ func GetGaugeVecByMetricName(name string) *prometheus.GaugeVec {
 		return nil
 	}
 }
+
+// Convert will produce *bpfprogs.NFConfigs from deserilzed l3afd state
 func Convert(ctx context.Context, t models.L3AFALLHOSTDATA, hostconfig *config.Config) (*bpfprogs.NFConfigs, error) {
 	D := &bpfprogs.NFConfigs{}
 	D.Ctx = ctx
@@ -207,7 +217,7 @@ func Convert(ctx context.Context, t models.L3AFALLHOSTDATA, hostconfig *config.C
 		for k, v := range t.IngressXDPBpfs {
 			l := list.New()
 			for _, r := range v {
-				f, err := DeserializeProgram(ctx, r, hostconfig, k)
+				f, err := deserializeProgram(ctx, r, hostconfig, k)
 				if err != nil {
 					log.Err(err).Msg("Deserialization failed for xdp ingress programs")
 					return nil, err
@@ -221,7 +231,7 @@ func Convert(ctx context.Context, t models.L3AFALLHOSTDATA, hostconfig *config.C
 		for k, v := range t.IngressTCBpfs {
 			l := list.New()
 			for _, r := range v {
-				f, err := DeserializeProgram(ctx, r, hostconfig, k)
+				f, err := deserializeProgram(ctx, r, hostconfig, k)
 				if err != nil {
 					log.Err(err).Msg("Deserialization failed for tc ingress programs")
 					return nil, err
@@ -235,7 +245,7 @@ func Convert(ctx context.Context, t models.L3AFALLHOSTDATA, hostconfig *config.C
 		for k, v := range t.EgressTCBpfs {
 			l := list.New()
 			for _, r := range v {
-				f, err := DeserializeProgram(ctx, r, hostconfig, k)
+				f, err := deserializeProgram(ctx, r, hostconfig, k)
 				if err != nil {
 					log.Err(err).Msg("Deserialization failed for tc egress programs")
 					return nil, err
@@ -248,28 +258,29 @@ func Convert(ctx context.Context, t models.L3AFALLHOSTDATA, hostconfig *config.C
 	return D, nil
 }
 
-// Setting up Metrics
+// SetMetrics will populate all stats from models.L3AFALLHOSTDATA
 func SetMetrics(t models.L3AFALLHOSTDATA) {
 	for _, f := range t.AllStats {
 		if f.Type == 0 {
-			stats.Add(f.Value, GetCountVecByMetricName(f.MetricName), GetValueofLabel("ebpf_program", f.Labels),
-				GetValueofLabel("direction", f.Labels), GetValueofLabel("interface_name", f.Labels))
+			stats.Add(f.Value, getCountVecByMetricName(f.MetricName), getValueofLabel("ebpf_program", f.Labels),
+				getValueofLabel("direction", f.Labels), getValueofLabel("interface_name", f.Labels))
 		} else {
-			if len(GetValueofLabel("version", f.Labels)) > 0 {
-				stats.SetWithVersion(f.Value, GetGaugeVecByMetricName(f.MetricName), GetValueofLabel("ebpf_program", f.Labels),
-					GetValueofLabel("version", f.Labels), GetValueofLabel("direction", f.Labels), GetValueofLabel("interface_name", f.Labels))
-			} else if len(GetValueofLabel("map_name", f.Labels)) > 0 {
-				stats.SetValue(f.Value, GetGaugeVecByMetricName(f.MetricName), GetValueofLabel("ebpf_program", f.Labels),
-					GetValueofLabel("map_name", f.Labels), GetValueofLabel("interface_name", f.Labels))
+			if len(getValueofLabel("version", f.Labels)) > 0 {
+				stats.SetWithVersion(f.Value, getGaugeVecByMetricName(f.MetricName), getValueofLabel("ebpf_program", f.Labels),
+					getValueofLabel("version", f.Labels), getValueofLabel("direction", f.Labels), getValueofLabel("interface_name", f.Labels))
+			} else if len(getValueofLabel("map_name", f.Labels)) > 0 {
+				stats.SetValue(f.Value, getGaugeVecByMetricName(f.MetricName), getValueofLabel("ebpf_program", f.Labels),
+					getValueofLabel("map_name", f.Labels), getValueofLabel("interface_name", f.Labels))
 			} else {
-				stats.Set(f.Value, GetGaugeVecByMetricName(f.MetricName), GetValueofLabel("ebpf_program", f.Labels),
-					GetValueofLabel("direction", f.Labels), GetValueofLabel("interface_name", f.Labels))
+				stats.Set(f.Value, getGaugeVecByMetricName(f.MetricName), getValueofLabel("ebpf_program", f.Labels),
+					getValueofLabel("direction", f.Labels), getValueofLabel("interface_name", f.Labels))
 			}
 		}
 	}
 }
 
-func Getnetlistener(fd int, fname string) (*net.TCPListener, error) {
+// GetNetListener will get tcp listner from provided file descriptor
+func GetNetListener(fd int, fname string) (*net.TCPListener, error) {
 	file := os.NewFile(uintptr(fd), "DupFd"+fname)
 	l, err := net.FileListener(file)
 	if err != nil {
@@ -283,16 +294,19 @@ func Getnetlistener(fd int, fname string) (*net.TCPListener, error) {
 	return lf, nil
 }
 
+// AddSymlink to add symlink
 func AddSymlink(sPath, symlink string) error {
 	err := os.Symlink(sPath, symlink)
 	return err
 }
 
+// RemoveSymlink to remove symlink
 func RemoveSymlink(symlink string) error {
 	err := os.Remove(symlink)
 	return err
 }
 
+// ReadSymlink to read symlink
 func ReadSymlink(symlink string) (string, error) {
 	originalPath, err := os.Readlink(symlink)
 	if err != nil {
@@ -301,10 +315,12 @@ func ReadSymlink(symlink string) (string, error) {
 	return originalPath, nil
 }
 
+// GetNewVersion will download new version make it ready to execute
 func GetNewVersion(artifactName, oldVersion, newVersion string, conf *config.Config) error {
 	if oldVersion == newVersion {
 		return nil
 	}
+
 	newVersionPath := filepath.Clean(filepath.Join(conf.BasePath, newVersion))
 	err := os.RemoveAll(newVersionPath)
 	if err != nil {
@@ -314,6 +330,7 @@ func GetNewVersion(artifactName, oldVersion, newVersion string, conf *config.Con
 	if err != nil {
 		return fmt.Errorf("error while creating directory: %w", err)
 	}
+
 	// now I need to download artifacts
 	buf := &bytes.Buffer{}
 	urlpath := path.Join(conf.RestartArtifactURL, newVersion, artifactName)
@@ -325,7 +342,8 @@ func GetNewVersion(artifactName, oldVersion, newVersion string, conf *config.Con
 	if err != nil {
 		return fmt.Errorf("unable to extract artifacts %w", err)
 	}
-	// you need to store the old path for rollback purposes
+
+	// removing symlinks for old version
 	err = RemoveSymlink(filepath.Join(conf.BasePath, "latest/l3afd"))
 	if err != nil {
 		return fmt.Errorf("unable to remove symlink %w", err)
@@ -334,7 +352,8 @@ func GetNewVersion(artifactName, oldVersion, newVersion string, conf *config.Con
 	if err != nil {
 		return fmt.Errorf("unable to remove symlink %w", err)
 	}
-	// add new symlink
+
+	// adding new version symlinks
 	err = AddSymlink(filepath.Join(newVersionPath, "l3afd", "l3afd"), filepath.Join(conf.BasePath, "latest/l3afd"))
 	if err != nil {
 		return fmt.Errorf("unable to add symlink %w", err)
@@ -347,6 +366,7 @@ func GetNewVersion(artifactName, oldVersion, newVersion string, conf *config.Con
 	return nil
 }
 
+// RollBackSymlink will rollback binary & cfgfile symlinks to old version
 func RollBackSymlink(oldCfgPath, oldBinPath string, oldVersion, newVersion string, conf *config.Config) error {
 	if oldVersion == newVersion {
 		return nil

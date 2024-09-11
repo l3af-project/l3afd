@@ -1513,6 +1513,7 @@ func (b *BPF) StopUserProgram(ifaceName, direction string) error {
 	return nil
 }
 
+// DownloadArtifact will download artifact from provided urlpath and store it in buffer
 func DownloadArtifact(urlpath string, timeout time.Duration, buf *bytes.Buffer) error {
 	URL, err := url.Parse(urlpath)
 	if err != nil {
@@ -1557,6 +1558,8 @@ func DownloadArtifact(urlpath string, timeout time.Duration, buf *bytes.Buffer) 
 		return fmt.Errorf("unknown url scheme")
 	}
 }
+
+// ExtractArtifact will extract artifact to given tempDir
 func ExtractArtifact(artifactName string, buf *bytes.Buffer, tempDir string) error {
 	switch artifact := artifactName; {
 	case strings.HasSuffix(artifact, ".zip"):
@@ -1653,6 +1656,7 @@ func ExtractArtifact(artifactName string, buf *bytes.Buffer, tempDir string) err
 	}
 }
 
+// ValidatePath will validate any illegal file path
 func ValidatePath(filePath string, destination string) (string, error) {
 	destpath := filepath.Join(destination, filePath)
 	if strings.Contains(filePath, "..") {

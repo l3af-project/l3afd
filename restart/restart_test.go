@@ -16,7 +16,7 @@ func TestGetValueofLabel(t *testing.T) {
 	q := "iface"
 	ans := "fakeif0"
 	t.Run("goodtest", func(t *testing.T) {
-		if ans != GetValueofLabel(q, b) {
+		if ans != getValueofLabel(q, b) {
 			t.Errorf("GetValueofLabel failed")
 		}
 	})

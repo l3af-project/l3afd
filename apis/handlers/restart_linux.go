@@ -53,6 +53,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			statusCode = http.StatusInternalServerError
 			return
 		}
+
 		if r.Body == nil {
 			mesg = "nil request body"
 			statusCode = http.StatusInternalServerError
@@ -74,6 +75,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			statusCode = http.StatusInternalServerError
 			return
 		}
+
 		machineHostname, err := os.Hostname()
 		if err != nil {
 			mesg = "failed to get os hostname"
@@ -87,11 +89,13 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			statusCode = http.StatusInternalServerError
 			return
 		}
+
 		defer func() {
 			models.IsReadOnly = false
 		}()
 		models.IsReadOnly = true
-		// complete current requests
+
+		// complete active requests
 		for {
 			models.StateLock.Lock()
 			if models.CurrentWriteReq == 0 {
@@ -99,25 +103,27 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 				break
 			}
 			models.StateLock.Unlock()
-			time.Sleep(time.Millisecond)
+			time.Sleep(5 * time.Millisecond)
 		}
 		// Now our system is in Readonly state
+
 		oldCfgPath, err := restart.ReadSymlink(filepath.Join(bpfcfg.HostConfig.BasePath, "latest/l3afd.cfg"))
 		if err != nil {
-			mesg = fmt.Sprintf("failed read symlink: %v", err)
+			mesg = fmt.Sprintf("failed read symlink %v with error: %v", filepath.Join(bpfcfg.HostConfig.BasePath, "latest/l3afd.cfg"), err)
 			log.Error().Msg(mesg)
 			statusCode = http.StatusInternalServerError
 			return
 		}
 		oldBinPath, err := restart.ReadSymlink(filepath.Join(bpfcfg.HostConfig.BasePath, "latest/l3afd"))
 		if err != nil {
-			mesg = fmt.Sprintf("failed to read symlink: %v", err)
+			mesg = fmt.Sprintf("failed read symlink %v with error: %v", filepath.Join(bpfcfg.HostConfig.BasePath, "latest/l3afd"), err)
 			log.Error().Msg(mesg)
 			statusCode = http.StatusInternalServerError
 			return
 		}
-		oldVersion := strings.Split(strings.Trim(oldBinPath, bpfcfg.HostConfig.BasePath+"/"), "/")[0]
 
+		// /usr/local/l3afd/v2.0.0/l3afd/l3afd --> v2.0.0/l3afd/l3afd --> v2.0.0
+		oldVersion := strings.Split(strings.Trim(oldBinPath, bpfcfg.HostConfig.BasePath+"/"), "/")[0]
 		if _, ok := models.AvailableVersions[t.Version]; !ok {
 			mesg = "invalid version to upgrade"
 			log.Error().Msg(mesg)
@@ -130,25 +136,26 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			log.Error().Msg(mesg)
 			statusCode = http.StatusInternalServerError
 			err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, models.AvailableVersions[t.Version], bpfcfg.HostConfig)
-			mesg = mesg + fmt.Sprintf("rollback of symlink failed: %v", err)
+			mesg = mesg + fmt.Sprintf("rollback of symlinks failed: %v", err)
 			return
 		}
+
 		bpfProgs := bpfcfg.GetL3AFHOSTDATA()
 		ln, err := net.Listen("unix", models.HostSock)
 		if err != nil {
 			log.Err(err)
 			err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, models.AvailableVersions[t.Version], bpfcfg.HostConfig)
-			mesg = mesg + fmt.Sprintf("rollback of symlink failed: %v", err)
+			mesg = mesg + fmt.Sprintf("rollback of symlinks failed: %v", err)
 			statusCode = http.StatusInternalServerError
 			return
 		}
-		srverror := make(chan error, 1)
+		srvError := make(chan error, 1)
 		go func() {
 			defer ln.Close()
 			conn, err := ln.Accept()
 			if err != nil {
 				log.Err(err)
-				srverror <- err
+				srvError <- err
 				return
 			}
 			defer conn.Close()
@@ -156,11 +163,12 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			err = encoder.Encode(bpfProgs)
 			if err != nil {
 				log.Err(err)
-				srverror <- err
+				srvError <- err
 				return
 			}
-			srverror <- nil
+			srvError <- nil
 		}()
+
 		files := make([]*os.File, 3)
 		srvToIndex := make(map[string]int)
 		srvToIndex["stat_http"] = 0
@@ -175,7 +183,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			if err != nil {
 				log.Error().Msgf("%v", err)
 				err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, models.AvailableVersions[t.Version], bpfcfg.HostConfig)
-				mesg = mesg + fmt.Sprintf("rollback of symlink failed: %v", err)
+				mesg = mesg + fmt.Sprintf("rollback of symlinks failed: %v", err)
 				statusCode = http.StatusInternalServerError
 				isErr = true
 				return false
@@ -195,7 +203,21 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.ExtraFiles = files
-		bpfcfg.StopAllProbes()
+
+		err = bpfcfg.StopAllProbesAndUserPrograms()
+		if err != nil {
+			log.Err(err)
+			err = bpfcfg.StartAllUserProgramsAndProbes()
+			if err != nil {
+				log.Error().Msgf("%v", err)
+				mesg = mesg + fmt.Sprintf("unable to start all userprograms and probes: %v", err)
+			}
+			err = restart.RollBackSymlink(oldCfgPath, oldBinPath, oldVersion, models.AvailableVersions[t.Version], bpfcfg.HostConfig)
+			mesg = mesg + fmt.Sprintf("rollback of symlinks failed: %v", err)
+			statusCode = http.StatusInternalServerError
+			return
+		}
+
 		log.Info().Msg("Starting child Process")
 		err = cmd.Start()
 		if err != nil {
@@ -240,7 +262,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			}
 			if !f {
 				conn.Close()
-				NewProcessStatus <- "Failed"
+				NewProcessStatus <- models.StatusFailed
 				return
 			}
 			defer conn.Close()
@@ -248,7 +270,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			var data string
 			err = decoder.Decode(&data)
 			if err != nil {
-				NewProcessStatus <- "Failed"
+				NewProcessStatus <- models.StatusFailed
 				return
 			}
 			NewProcessStatus <- data
@@ -256,10 +278,9 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 
 		// time to bootup
 		select {
-		case terr := <-srverror:
+		case terr := <-srvError:
 			if terr != nil {
 				statusCode = http.StatusInternalServerError
-				// write a function a to do cleanup of other process if necessary
 				err = cmd.Process.Kill()
 				if err != nil {
 					log.Error().Msgf("%v", err)
@@ -289,7 +310,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 		}
 
 		st := <-NewProcessStatus
-		if st == "Failed" {
+		if st == models.StatusFailed {
 			err = cmd.Process.Kill()
 			if err != nil {
 				log.Error().Msgf("%v", err)

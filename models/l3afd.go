@@ -177,6 +177,8 @@ var AvailableVersions map[string]string
 const HttpScheme string = "http"
 const HttpsScheme string = "https"
 const FileScheme string = "file"
+const StatusFailed string = "Failed"
+const StatusReady string = "Ready"
 
 // Please Do not make changes in socketpaths because they are means of communication between graceful restarts
 const HostSock string = "/tmp/l3afd.sock"
