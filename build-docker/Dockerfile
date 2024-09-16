@@ -31,14 +31,14 @@ RUN mkdir -p /srv/l3afd/
 RUN mkdir -p /var/l3afd
 RUN mkdir -p /var/log/l3af
 RUN mkdir -p /usr/local/l3afd/latest 
-RUN mkdir -p /usr/local/l3afd/v2.0.0/l3afd 
+RUN mkdir -p /usr/local/l3afd/v2.1.0/l3afd 
 
-COPY l3afd /usr/local/l3afd/v2.0.0/l3afd/l3afd
-COPY l3afd.cfg /usr/local/l3afd/v2.0.0/l3afd/l3afd.cfg
+COPY l3afd /usr/local/l3afd/v2.1.0/l3afd/l3afd
+COPY l3afd.cfg /usr/local/l3afd/v2.1.0/l3afd/l3afd.cfg
 COPY start.sh /usr/local/l3afd/start.sh
 
 RUN chmod +x /usr/local/l3afd/start.sh
-RUN ln -s /usr/local/l3afd/v2.0.0/l3afd/l3afd /usr/local/l3afd/latest/l3afd 
-RUN ln -s /usr/local/l3afd/v2.0.0/l3afd/l3afd.cfg /usr/local/l3afd/latest/l3afd.cfg
+RUN ln -s /usr/local/l3afd/v2.1.0/l3afd/l3afd /usr/local/l3afd/latest/l3afd 
+RUN ln -s /usr/local/l3afd/v2.1.0/l3afd/l3afd.cfg /usr/local/l3afd/latest/l3afd.cfg
 
 ENTRYPOINT ["/bin/bash","/usr/local/l3afd/start.sh"]

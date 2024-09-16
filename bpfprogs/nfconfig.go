@@ -1757,7 +1757,7 @@ func (c *NFConfigs) StopAllProbesAndUserPrograms() error {
 	if c.IngressXDPBpfs != nil {
 		for iface, v := range c.IngressXDPBpfs {
 			for e := v.Front(); e != nil; e = e.Next() {
-				// Stoping Probes
+				// Stopping Probes
 				b := e.Value.(*BPF)
 				if b.ProbeLinks != nil {
 					for _, pb := range b.ProbeLinks {
@@ -1775,7 +1775,7 @@ func (c *NFConfigs) StopAllProbesAndUserPrograms() error {
 	if c.IngressTCBpfs != nil {
 		for iface, v := range c.IngressTCBpfs {
 			for e := v.Front(); e != nil; e = e.Next() {
-				// Stoping Probes
+				// Stopping Probes
 				b := e.Value.(*BPF)
 				if b.ProbeLinks != nil {
 					for _, pb := range b.ProbeLinks {
@@ -1793,7 +1793,7 @@ func (c *NFConfigs) StopAllProbesAndUserPrograms() error {
 	if c.EgressTCBpfs != nil {
 		for iface, v := range c.EgressTCBpfs {
 			for e := v.Front(); e != nil; e = e.Next() {
-				// Stoping Probes
+				// Stopping Probes
 				b := e.Value.(*BPF)
 				if b.ProbeLinks != nil {
 					for _, pb := range b.ProbeLinks {

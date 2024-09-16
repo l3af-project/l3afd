@@ -247,6 +247,7 @@ func ReadConfigsFromConfigStore(conf *config.Config) ([]models.L3afBPFPrograms, 
 	return t, nil
 }
 
+// setupForRestartOuter is a wrapper for setupForRestart, written for better error handling
 func setupForRestartOuter(ctx context.Context, conf *config.Config) error {
 	if _, err := os.Stat(models.HostSock); os.IsNotExist(err) {
 		return err
@@ -258,7 +259,6 @@ func setupForRestartOuter(ctx context.Context, conf *config.Config) error {
 		sendState("Failed")
 		log.Fatal().Err(err).Msg("unable to restart the l3afd")
 	}
-	// we need to write code to send ready status
 	sendState("Ready")
 	models.IsReadOnly = false
 	<-models.CloseForRestart
@@ -266,8 +266,8 @@ func setupForRestartOuter(ctx context.Context, conf *config.Config) error {
 	return nil
 }
 
+// setupForRestart will start the l3afd with state provided by other l3afd instance
 func setupForRestart(ctx context.Context, conf *config.Config) error {
-	// Now you need to write client side code
 	conn, err := net.Dial("unix", models.HostSock)
 	if err != nil {
 		return fmt.Errorf("unable to dial unix domain socket : %w", err)

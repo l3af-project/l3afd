@@ -48,7 +48,7 @@ func HandleRestart(bpfcfg *bpfprogs.NFConfigs) http.HandlerFunc {
 			}
 		}(&mesg, &statusCode)
 		if models.IsReadOnly {
-			log.Warn().Msgf("We are in Between Restart Please try after some time")
+			log.Warn().Msgf("We are in between restart please try after some time")
 			mesg = "We are currently in the middle of a restart. Please attempt again after a while."
 			statusCode = http.StatusInternalServerError
 			return

@@ -1,3 +1,7 @@
+// Copyright Contributors to the L3AF Project.
+// SPDX-License-Identifier: Apache-2.0
+
+// Package restart provides primitives for gracefully restarting l3afd
 package restart
 
 import (
