@@ -1407,3 +1407,88 @@ func TestEBPFPrograms(t *testing.T) {
 		})
 	}
 }
+
+func TestStopNRemoveAllBPFPrograms(t *testing.T) {
+	type fields struct {
+		hostName       string
+		ingressXDPBpfs map[string]*list.List
+		ingressTCBpfs  map[string]*list.List
+		egressTCBpfs   map[string]*list.List
+		hostConfig     *config.Config
+	}
+	type args struct {
+		iface    string
+		hostName string
+		itype string
+	}
+	tests := []struct {
+		name       string
+		field   fields
+		arg     args
+	}{
+		{
+			name: "Test with IngressXDPBpfs",
+			field: fields{
+				hostName: "host1",
+				ingressXDPBpfs: map[string]*list.List{"eth0": createBPFList([]string{"xdp1", "xdp2"})},
+				ingressTCBpfs: map[string]*list.List{"eth0": createBPFList([]string{"tc1", "tc2"})},
+				egressTCBpfs: map[string]*list.List{},
+				hostConfig: &config.Config{},
+			},
+			arg: args{
+				iface:    "eth0",
+				hostName: "host1",
+				itype: "xdpingress",
+			},
+			// wantResult: nil
+		},
+		{
+			name: "Test with IngressTCBpfs",
+			field: fields{
+				hostName: "host1",
+				ingressXDPBpfs: map[string]*list.List{},
+				ingressTCBpfs: map[string]*list.List{"eth0": createBPFList([]string{"tc1", "tc2"})},
+				egressTCBpfs: map[string]*list.List{},
+				hostConfig: &config.Config{},
+			},
+			arg: args{
+				iface:    "eth0",
+				hostName: "host1",
+				itype: "ingress",
+			},
+			// wantResult: nil
+		},
+		{
+			name: "Test with EgressTCBpfs",
+			field: fields{
+				hostName: "host1",
+				ingressXDPBpfs: map[string]*list.List{},
+				ingressTCBpfs: map[string]*list.List{},
+				egressTCBpfs: map[string]*list.List{"eth0": createBPFList([]string{"tc1", "tc2"})},
+				hostConfig: &config.Config{},
+			},
+			arg: args{
+				iface:    "eth0",
+				hostName: "host1",
+				itype: "egress",
+			},
+			// wantResult: nil
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &NFConfigs{
+				HostName: tt.field.hostName,
+				HostConfig:     tt.field.hostConfig,
+				IngressXDPBpfs: tt.field.ingressXDPBpfs,
+				IngressTCBpfs: tt.field.ingressTCBpfs,
+				EgressTCBpfs: tt.field.egressTCBpfs,
+			}
+			got := cfg.StopNRemoveAllBPFPrograms(tt.arg.iface, tt.arg.itype)
+			if got != nil {
+            	t.Errorf("StopNRemoveAllBPFPrograms() = %v, want %v", got, "nil")
+        	}
+		})
+	}
+}
