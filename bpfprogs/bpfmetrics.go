@@ -13,27 +13,27 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type bpfMetrics struct {
+type BpfMetrics struct {
 	Chain     bool
 	Intervals int
 }
 
-func NewpBPFMetrics(chain bool, interval int) *bpfMetrics {
-	m := &bpfMetrics{
+func NewpBpfMetrics(chain bool, interval int) *BpfMetrics {
+	m := &BpfMetrics{
 		Chain:     chain,
 		Intervals: interval,
 	}
 	return m
 }
 
-func (c *bpfMetrics) bpfMetricsStart(xdpProgs, ingressTCProgs, egressTCProgs map[string]*list.List, probes *list.List) {
-	go c.bpfMetricsWorker(xdpProgs)
-	go c.bpfMetricsWorker(ingressTCProgs)
-	go c.bpfMetricsWorker(egressTCProgs)
-	go c.BPFMetricsProbeWorker(probes)
+func (c *BpfMetrics) BpfMetricsStart(xdpProgs, ingressTCProgs, egressTCProgs map[string]*list.List, probes *list.List) {
+	go c.BpfMetricsWorker(xdpProgs)
+	go c.BpfMetricsWorker(ingressTCProgs)
+	go c.BpfMetricsWorker(egressTCProgs)
+	go c.BpfMetricsProbeWorker(probes)
 }
 
-func (c *bpfMetrics) bpfMetricsWorker(bpfProgs map[string]*list.List) {
+func (c *BpfMetrics) BpfMetricsWorker(bpfProgs map[string]*list.List) {
 	for range time.NewTicker(1 * time.Second).C {
 		for ifaceName, bpfList := range bpfProgs {
 			if bpfList == nil { // no bpf programs are running
@@ -55,7 +55,7 @@ func (c *bpfMetrics) bpfMetricsWorker(bpfProgs map[string]*list.List) {
 	}
 }
 
-func (c *bpfMetrics) BPFMetricsProbeWorker(bpfProgs *list.List) {
+func (c *BpfMetrics) BpfMetricsProbeWorker(bpfProgs *list.List) {
 	for range time.NewTicker(1 * time.Second).C {
 		if bpfProgs == nil {
 			time.Sleep(time.Second)

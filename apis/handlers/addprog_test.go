@@ -10,6 +10,7 @@ import (
 
 	"github.com/l3af-project/l3afd/v2/bpfprogs"
 	"github.com/l3af-project/l3afd/v2/config"
+	"github.com/l3af-project/l3afd/v2/models"
 )
 
 const dummypayload string = `[
@@ -31,16 +32,18 @@ const dummypayload string = `[
 func Test_addprog(t *testing.T) {
 
 	tests := []struct {
-		name   string
-		Body   *strings.Reader
-		header map[string]string
-		status int
-		cfg    *bpfprogs.NFConfigs
+		name       string
+		Body       *strings.Reader
+		header     map[string]string
+		status     int
+		cfg        *bpfprogs.NFConfigs
+		isreadonly bool
 	}{
 		{
-			name:   "NilBody",
-			Body:   nil,
-			status: http.StatusOK,
+			name:       "NilBody",
+			Body:       nil,
+			status:     http.StatusOK,
+			isreadonly: false,
 			cfg: &bpfprogs.NFConfigs{
 				HostConfig: &config.Config{
 					L3afConfigStoreFileName: filepath.FromSlash("../../testdata/Test_l3af-config.json"),
@@ -48,10 +51,11 @@ func Test_addprog(t *testing.T) {
 			},
 		},
 		{
-			name:   "FailedToUnmarshal",
-			Body:   strings.NewReader("Something"),
-			status: http.StatusInternalServerError,
-			header: map[string]string{},
+			name:       "FailedToUnmarshal",
+			Body:       strings.NewReader("Something"),
+			status:     http.StatusInternalServerError,
+			header:     map[string]string{},
+			isreadonly: false,
 			cfg: &bpfprogs.NFConfigs{
 				HostConfig: &config.Config{
 					L3afConfigStoreFileName: filepath.FromSlash("../../testdata/Test_l3af-config.json"),
@@ -64,6 +68,7 @@ func Test_addprog(t *testing.T) {
 			header: map[string]string{
 				"Content-Type": "application/json",
 			},
+			isreadonly: false,
 			cfg: &bpfprogs.NFConfigs{
 				HostConfig: &config.Config{
 					L3afConfigStoreFileName: filepath.FromSlash("../../testdata/Test_l3af-config.json"),
@@ -82,6 +87,17 @@ func Test_addprog(t *testing.T) {
 					L3afConfigStoreFileName: filepath.FromSlash("../../testdata/Test_l3af-config.json"),
 				},
 			},
+			isreadonly: false,
+		},
+		{
+			name: "InReadonly",
+			Body: nil,
+			header: map[string]string{
+				"Content-Type": "application/json",
+			},
+			isreadonly: true,
+			cfg:        nil,
+			status:     http.StatusOK,
 		},
 	}
 	for _, tt := range tests {
@@ -94,11 +110,14 @@ func Test_addprog(t *testing.T) {
 		for key, val := range tt.header {
 			req.Header.Set(key, val)
 		}
+		models.IsReadOnly = tt.isreadonly
 		rr := httptest.NewRecorder()
 		handler := AddEbpfPrograms(context.Background(), tt.cfg)
 		handler.ServeHTTP(rr, req)
 		if rr.Code != tt.status {
+			models.IsReadOnly = false
 			t.Error("AddEbpfPrograms Failed")
 		}
+		models.IsReadOnly = false
 	}
 }

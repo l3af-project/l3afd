@@ -5,15 +5,18 @@ package main
 
 import (
 	"context"
+	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/l3af-project/l3afd/v2/apis"
@@ -22,6 +25,7 @@ import (
 	"github.com/l3af-project/l3afd/v2/config"
 	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/l3af-project/l3afd/v2/pidfile"
+	"github.com/l3af-project/l3afd/v2/restart"
 	"github.com/l3af-project/l3afd/v2/stats"
 	"gopkg.in/natefinch/lumberjack.v2"
 
@@ -30,6 +34,8 @@ import (
 )
 
 const daemonName = "l3afd"
+
+var stateSockPath string
 
 func setupLogging() {
 	const logLevelEnvName = "L3AF_LOG_LEVEL"
@@ -73,6 +79,10 @@ func saveLogsToFile(conf *config.Config) {
 }
 
 func main() {
+	models.CloseForRestart = make(chan struct{})
+	models.IsReadOnly = false
+	models.CurrentWriteReq = 0
+	models.StateLock = sync.Mutex{}
 	setupLogging()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -87,14 +97,17 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msgf("Unable to parse config %q", confPath)
 	}
-
 	if conf.FileLogLocation != "" {
 		log.Info().Msgf("Saving logs to file: %s", conf.FileLogLocation)
 		saveLogsToFile(conf)
 	}
-
+	populateVersions(conf)
 	if err = pidfile.CheckPIDConflict(conf.PIDFilename); err != nil {
-		log.Fatal().Err(err).Msgf("The PID file: %s, is in an unacceptable state", conf.PIDFilename)
+		if err = setupForRestartOuter(ctx, conf); err != nil {
+			log.Warn().Msg("Doing Normal Startup")
+		} else {
+			log.Fatal().Err(err).Msgf("The PID file: %s, is in an unacceptable state", conf.PIDFilename)
+		}
 	}
 	if err = pidfile.CreatePID(conf.PIDFilename); err != nil {
 		log.Fatal().Err(err).Msgf("The PID file: %s, could not be created", conf.PIDFilename)
@@ -133,7 +146,8 @@ func main() {
 	if conf.EBPFChainDebugEnabled {
 		bpfprogs.SetupBPFDebug(conf.EBPFChainDebugAddr, ebpfConfigs)
 	}
-	select {}
+	<-models.CloseForRestart
+	os.Exit(0)
 }
 
 func SetupNFConfigs(ctx context.Context, conf *config.Config) (*bpfprogs.NFConfigs, error) {
@@ -142,13 +156,11 @@ func SetupNFConfigs(ctx context.Context, conf *config.Config) (*bpfprogs.NFConfi
 	if err != nil {
 		log.Error().Err(err).Msg("Could not get hostname from OS")
 	}
-
 	// setup Metrics endpoint
 	stats.SetupMetrics(machineHostname, daemonName, conf.MetricsAddr)
 
-	pMon := bpfprogs.NewpCheck(conf.MaxEBPFReStartCount, conf.BpfChainingEnabled, conf.EBPFPollInterval)
-	bpfM := bpfprogs.NewpBPFMetrics(conf.BpfChainingEnabled, conf.NMetricSamples)
-
+	pMon := bpfprogs.NewPCheck(conf.MaxEBPFReStartCount, conf.BpfChainingEnabled, conf.EBPFPollInterval)
+	bpfM := bpfprogs.NewpBpfMetrics(conf.BpfChainingEnabled, conf.NMetricSamples)
 	nfConfigs, err := bpfprogs.NewNFConfigs(ctx, machineHostname, conf, pMon, bpfM)
 	if err != nil {
 		return nil, fmt.Errorf("error in NewNFConfigs setup: %v", err)
@@ -157,7 +169,6 @@ func SetupNFConfigs(ctx context.Context, conf *config.Config) (*bpfprogs.NFConfi
 	if err := apis.StartConfigWatcher(ctx, machineHostname, daemonName, conf, nfConfigs); err != nil {
 		return nil, fmt.Errorf("error in version announcer: %v", err)
 	}
-
 	return nfConfigs, nil
 }
 
@@ -232,8 +243,139 @@ func ReadConfigsFromConfigStore(conf *config.Config) ([]models.L3afBPFPrograms, 
 	var t []models.L3afBPFPrograms
 	if err = json.Unmarshal(byteValue, &t); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal persistent config json: %v", err)
+	}
+	return t, nil
+}
 
+// setupForRestartOuter is a wrapper for setupForRestart, written for better error handling
+func setupForRestartOuter(ctx context.Context, conf *config.Config) error {
+	if _, err := os.Stat(models.HostSock); os.IsNotExist(err) {
+		return err
+	}
+	stateSockPath = models.StateSock
+	models.IsReadOnly = true
+	err := setupForRestart(ctx, conf)
+	if err != nil {
+		sendState("Failed")
+		log.Fatal().Err(err).Msg("unable to restart the l3afd")
+	}
+	sendState("Ready")
+	models.IsReadOnly = false
+	<-models.CloseForRestart
+	os.Exit(0)
+	return nil
+}
+
+// setupForRestart will start the l3afd with state provided by other l3afd instance
+func setupForRestart(ctx context.Context, conf *config.Config) error {
+	conn, err := net.Dial("unix", models.HostSock)
+	if err != nil {
+		return fmt.Errorf("unable to dial unix domain socket : %w", err)
+	}
+	decoder := gob.NewDecoder(conn)
+	var t models.L3AFALLHOSTDATA
+	err = decoder.Decode(&t)
+	if err != nil {
+		conn.Close()
+		return fmt.Errorf("unable to decode")
+	}
+	conn.Close()
+	machineHostname, err := os.Hostname()
+	if err != nil {
+		return fmt.Errorf("unable to fetch the hostname")
 	}
 
-	return t, nil
+	l, err := restart.GetNetListener(3, "stat_server")
+	if err != nil {
+		return fmt.Errorf("getting stat_server listener failed")
+	}
+	models.AllNetListeners.Store("stat_http", l)
+
+	l, err = restart.GetNetListener(4, "main_server")
+	if err != nil {
+		return fmt.Errorf("getting main_server listener failed")
+	}
+	models.AllNetListeners.Store("main_http", l)
+
+	if conf.EBPFChainDebugEnabled {
+		l, err = restart.GetNetListener(5, "debug_server")
+		if err != nil {
+			return fmt.Errorf("getting main_server listener failed")
+		}
+		models.AllNetListeners.Store("debug_http", l)
+	}
+	// setup Metrics endpoint
+	stats.SetupMetrics(machineHostname, daemonName, conf.MetricsAddr)
+	restart.SetMetrics(t)
+	pMon := bpfprogs.NewPCheck(conf.MaxEBPFReStartCount, conf.BpfChainingEnabled, conf.EBPFPollInterval)
+	bpfM := bpfprogs.NewpBpfMetrics(conf.BpfChainingEnabled, conf.NMetricSamples)
+	log.Info().Msgf("Restoring Previous State Graceful Restart")
+	ebpfConfigs, err := restart.Convert(ctx, t, conf)
+	ebpfConfigs.BpfMetricsMon = bpfM
+	ebpfConfigs.ProcessMon = pMon
+	if err != nil {
+		return fmt.Errorf("failed to convert deserilaze the state")
+	}
+	err = ebpfConfigs.StartAllUserProgramsAndProbes()
+	if err != nil {
+		return fmt.Errorf("failed to start all the user programs and probes")
+	}
+	err = apis.StartConfigWatcher(ctx, machineHostname, daemonName, conf, ebpfConfigs)
+	if err != nil {
+		return fmt.Errorf("starting config Watcher failed")
+	}
+	err = handlers.InitConfigs(ebpfConfigs)
+	if err != nil {
+		return fmt.Errorf("l3afd failed to initialise configs")
+	}
+	if conf.EBPFChainDebugEnabled {
+		bpfprogs.SetupBPFDebug(conf.EBPFChainDebugAddr, ebpfConfigs)
+	}
+	ebpfConfigs.ProcessMon.PCheckStart(ebpfConfigs.IngressXDPBpfs, ebpfConfigs.IngressTCBpfs, ebpfConfigs.EgressTCBpfs, &ebpfConfigs.ProbesBpfs)
+	ebpfConfigs.BpfMetricsMon.BpfMetricsStart(ebpfConfigs.IngressXDPBpfs, ebpfConfigs.IngressTCBpfs, ebpfConfigs.EgressTCBpfs, &ebpfConfigs.ProbesBpfs)
+	err = pidfile.CreatePID(conf.PIDFilename)
+	if err != nil {
+		return fmt.Errorf("the PID file: %s, could not be created", conf.PIDFilename)
+	}
+	return nil
+}
+
+func sendState(s string) {
+	ln, err := net.Listen("unix", stateSockPath)
+	if err != nil {
+		log.Err(err)
+		os.Exit(0)
+		return
+	}
+	conn, err := ln.Accept()
+	if err != nil {
+		log.Err(err)
+		ln.Close()
+		os.Exit(0)
+		return
+	}
+	encoder := gob.NewEncoder(conn)
+	err = encoder.Encode(s)
+	if err != nil {
+		log.Err(err)
+		conn.Close()
+		ln.Close()
+		os.Exit(0)
+		return
+	}
+	conn.Close()
+	ln.Close()
+}
+
+// populateVersions is to suppress codeql warning - Uncontrolled data used in network request
+func populateVersions(conf *config.Config) {
+	models.AvailableVersions = make(map[string]string)
+	for i := 0; i <= conf.VersionLimit; i++ {
+		for j := 0; j <= conf.VersionLimit; j++ {
+			for k := 0; k <= conf.VersionLimit; k++ {
+				version := fmt.Sprintf("v%d.%d.%d", i, j, k)
+				models.AvailableVersions[version] = version
+			}
+		}
+	}
 }

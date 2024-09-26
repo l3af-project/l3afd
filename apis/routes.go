@@ -39,6 +39,11 @@ func apiRoutes(ctx context.Context, bpfcfg *bpfprogs.NFConfigs) []routes.Route {
 			Path:        "/l3af/configs/{version}/delete",
 			HandlerFunc: handlers.DeleteEbpfPrograms(ctx, bpfcfg),
 		},
+		{
+			Method:      "PUT",
+			Path:        "/l3af/configs/{version}/restart",
+			HandlerFunc: handlers.HandleRestart(bpfcfg),
+		},
 	}
 
 	return r

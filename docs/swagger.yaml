@@ -290,6 +290,26 @@ paths:
         "200":
           description: OK
       summary: Removes eBPF Programs on node
+  /l3af/configs/v1/restart:
+    put:
+      consumes:
+      - application/json
+      description: Store meta data about ebpf programs and exit
+      parameters:
+      - description: BPF programs
+        in: body
+        name: cfgs
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/models.L3afBPFPrograms'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Store meta data about ebpf programs and exit
   /l3af/configs/v1/update:
     post:
       consumes:

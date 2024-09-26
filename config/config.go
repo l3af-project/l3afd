@@ -88,6 +88,12 @@ type Config struct {
 	MTLSServerKeyFilename     string
 	MTLSCertExpiryWarningDays int
 	MTLSSANMatchRules         []string
+
+	// graceful-restart
+	TimetoRestart      int
+	BasePath           string
+	RestartArtifactURL string
+	VersionLimit       int
 }
 
 // ReadConfig - Initializes configuration from file
@@ -154,6 +160,10 @@ func ReadConfig(configPath string) (*Config, error) {
 		MTLSServerKeyFilename:          LoadOptionalConfigString(confReader, "mtls", "server-key-filename", "server.key"),
 		MTLSCertExpiryWarningDays:      LoadOptionalConfigInt(confReader, "mtls", "cert-expiry-warning-days", 30),
 		MTLSSANMatchRules:              strings.Split(LoadOptionalConfigString(confReader, "mtls", "san-match-rules", ""), ","),
+		BasePath:                       LoadOptionalConfigString(confReader, "graceful-restart", "basepath", "/usr/local/l3afd"),
+		TimetoRestart:                  LoadOptionalConfigInt(confReader, "graceful-restart", "time-to-restart", 7),
+		VersionLimit:                   LoadOptionalConfigInt(confReader, "graceful-restart", "version-limit", 100),
+		RestartArtifactURL:             LoadOptionalConfigString(confReader, "graceful-restart", "restart-artifacts-url", "file:///srv/l3afd"),
 	}, nil
 }
 

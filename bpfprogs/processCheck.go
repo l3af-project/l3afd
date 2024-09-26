@@ -13,30 +13,34 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type pCheck struct {
+type PCheck struct {
 	MaxRetryCount     int
 	Chain             bool
-	retryMonitorDelay time.Duration
+	RetryMonitorDelay time.Duration
 }
 
-func NewpCheck(rc int, chain bool, interval time.Duration) *pCheck {
-	c := &pCheck{
+func NewPCheck(rc int, chain bool, interval time.Duration) *PCheck {
+	c := &PCheck{
 		MaxRetryCount:     rc,
 		Chain:             chain,
-		retryMonitorDelay: interval,
+		RetryMonitorDelay: interval,
 	}
 	return c
 }
 
-func (c *pCheck) pCheckStart(xdpProgs, ingressTCProgs, egressTCProgs map[string]*list.List, probes *list.List) {
+func (c *PCheck) PCheckStart(xdpProgs, ingressTCProgs, egressTCProgs map[string]*list.List, probes *list.List) {
 	go c.pMonitorWorker(xdpProgs, models.XDPIngressType)
 	go c.pMonitorWorker(ingressTCProgs, models.IngressType)
 	go c.pMonitorWorker(egressTCProgs, models.EgressType)
 	go c.pMonitorProbeWorker(probes)
 }
 
-func (c *pCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string) {
-	for range time.NewTicker(c.retryMonitorDelay).C {
+func (c *PCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string) {
+	for range time.NewTicker(c.RetryMonitorDelay).C {
+		if models.IsReadOnly {
+			log.Info().Msgf("Not monitoring because we are in readonly state")
+			return
+		}
 		for ifaceName, bpfList := range bpfProgs {
 			if bpfList == nil { // no bpf programs are running
 				continue
@@ -87,8 +91,8 @@ func (c *pCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string
 	}
 }
 
-func (c *pCheck) pMonitorProbeWorker(bpfProgs *list.List) {
-	for range time.NewTicker(c.retryMonitorDelay).C {
+func (c *PCheck) pMonitorProbeWorker(bpfProgs *list.List) {
+	for range time.NewTicker(c.RetryMonitorDelay).C {
 		if bpfProgs == nil {
 			time.Sleep(time.Second)
 			continue

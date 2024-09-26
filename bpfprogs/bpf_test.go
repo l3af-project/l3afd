@@ -103,7 +103,7 @@ func TestNewBpfProgram(t *testing.T) {
 				MetricsBpfMaps: make(map[string]*MetricsBPFMap, 0),
 				Ctx:            nil,
 				Done:           nil,
-				hostConfig: &config.Config{
+				HostConfig: &config.Config{
 					BPFLogDir:  "",
 					DataCenter: "localdc",
 				},
@@ -120,7 +120,7 @@ func TestNewBpfProgram(t *testing.T) {
 				FilePath:       "",
 				BpfMaps:        make(map[string]BPFMap, 0),
 				MetricsBpfMaps: make(map[string]*MetricsBPFMap, 0),
-				hostConfig:     &config.Config{},
+				HostConfig:     &config.Config{},
 			},
 		},
 	}
@@ -305,7 +305,7 @@ func TestBPF_Start(t *testing.T) {
 				Cmd:          tt.fields.Cmd,
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
-				hostConfig:   tt.fields.hostConfig,
+				HostConfig:   tt.fields.hostConfig,
 			}
 			if err := b.Start(tt.fields.ifaceName, models.IngressType, true); (err != nil) != tt.wantErr {
 				t.Errorf("BPF.Start() error = %v, wantErr %v", err, tt.wantErr)
@@ -796,7 +796,7 @@ func Test_PutNextProgFDFromID(t *testing.T) {
 				Cmd:          tt.fields.Cmd,
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
-				hostConfig:   tt.fields.hostConfig,
+				HostConfig:   tt.fields.hostConfig,
 			}
 			err := b.PutNextProgFDFromID(tt.progId)
 			if (err != nil) != tt.wantErr {
@@ -839,7 +839,7 @@ func Test_VerifyPinnedProgMapExists(t *testing.T) {
 				Cmd:          tt.fields.Cmd,
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
-				hostConfig:   tt.fields.hostConfig,
+				HostConfig:   tt.fields.hostConfig,
 			}
 			err := b.VerifyPinnedProgMap(true, true)
 			if (err != nil) != tt.wantErr {
@@ -945,7 +945,7 @@ func Test_VerifyPinnedProgMapVanish(t *testing.T) {
 				Cmd:          tt.fields.Cmd,
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
-				hostConfig: &config.Config{
+				HostConfig: &config.Config{
 					BpfMapDefaultPath: tt.fields.hostConfig.BpfMapDefaultPath,
 				},
 			}
