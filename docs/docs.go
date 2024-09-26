@@ -94,6 +94,37 @@ const docTemplate = `{
                 }
             }
         },
+        "/l3af/configs/v1/restart": {
+            "put": {
+                "description": "Store meta data about ebpf programs and exit",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Store meta data about ebpf programs and exit",
+                "parameters": [
+                    {
+                        "description": "BPF programs",
+                        "name": "cfgs",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.L3afBPFPrograms"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/l3af/configs/v1/update": {
             "post": {
                 "description": "Update eBPF Programs configuration",

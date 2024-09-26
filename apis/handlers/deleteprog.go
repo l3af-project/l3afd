@@ -40,7 +40,13 @@ func DeleteEbpfPrograms(ctx context.Context, bpfcfg *bpfprogs.NFConfigs) http.Ha
 				log.Warn().Msgf("Failed to write response bytes: %v", err)
 			}
 		}(&mesg, &statusCode)
-
+		if models.IsReadOnly {
+			log.Warn().Msgf("We are in between restart please try after some time")
+			mesg = "We are currently in the middle of a restart. Please attempt again after a while."
+			return
+		}
+		defer DecWriteReq()
+		IncWriteReq()
 		if r.Body == nil {
 			log.Warn().Msgf("Empty request body")
 			return

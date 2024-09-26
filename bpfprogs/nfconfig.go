@@ -12,21 +12,25 @@ import (
 	"net"
 	"os"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
 	"github.com/l3af-project/l3afd/v2/config"
 	"github.com/l3af-project/l3afd/v2/models"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/rs/zerolog/log"
 )
 
 type NFConfigs struct {
-	ctx            context.Context
+	Ctx            context.Context
 	HostName       string
-	hostInterfaces map[string]bool
+	HostInterfaces map[string]bool
 	//	configs        sync.Map // key: string, val: *models.L3afDNFConfigDetail
 	// These holds bpf programs in the list
 	// map keys are network iface names index's are seq_id, position in the chain
@@ -37,37 +41,37 @@ type NFConfigs struct {
 	ProbesBpfs     list.List
 
 	HostConfig    *config.Config
-	processMon    *pCheck
-	bpfMetricsMon *bpfMetrics
+	ProcessMon    *PCheck
+	BpfMetricsMon *BpfMetrics
 
 	// keep track of interfaces
-	ifaces map[string]string
+	Ifaces map[string]string
 
-	mu *sync.Mutex
+	Mu *sync.Mutex
 }
 
-func NewNFConfigs(ctx context.Context, host string, hostConf *config.Config, pMon *pCheck, metricsMon *bpfMetrics) (*NFConfigs, error) {
+func NewNFConfigs(ctx context.Context, host string, hostConf *config.Config, pMon *PCheck, metricsMon *BpfMetrics) (*NFConfigs, error) {
 	nfConfigs := &NFConfigs{
-		ctx:            ctx,
+		Ctx:            ctx,
 		HostName:       host,
 		HostConfig:     hostConf,
 		IngressXDPBpfs: make(map[string]*list.List),
 		IngressTCBpfs:  make(map[string]*list.List),
 		EgressTCBpfs:   make(map[string]*list.List),
-		mu:             new(sync.Mutex),
+		Mu:             new(sync.Mutex),
 	}
 
 	var err error
-	if nfConfigs.hostInterfaces, err = getHostInterfaces(); err != nil {
+	if nfConfigs.HostInterfaces, err = getHostInterfaces(); err != nil {
 		errOut := fmt.Errorf("%s failed to get network interfaces %w", host, err)
 		log.Error().Err(errOut)
 		return nil, errOut
 	}
 
-	nfConfigs.processMon = pMon
-	nfConfigs.processMon.pCheckStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs, &nfConfigs.ProbesBpfs)
-	nfConfigs.bpfMetricsMon = metricsMon
-	nfConfigs.bpfMetricsMon.bpfMetricsStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs, &nfConfigs.ProbesBpfs)
+	nfConfigs.ProcessMon = pMon
+	nfConfigs.ProcessMon.PCheckStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs, &nfConfigs.ProbesBpfs)
+	nfConfigs.BpfMetricsMon = metricsMon
+	nfConfigs.BpfMetricsMon.BpfMetricsStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs, &nfConfigs.ProbesBpfs)
 	return nfConfigs, nil
 }
 
@@ -208,7 +212,7 @@ func (c *NFConfigs) VerifyAndStartTCRootProgram(ifaceName, direction string) err
 func (c *NFConfigs) PushBackAndStartBPF(bpfProg *models.BPFProgram, ifaceName, direction string) error {
 
 	log.Info().Msgf("PushBackAndStartBPF : iface %s, direction %s", ifaceName, direction)
-	bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig, ifaceName)
+	bpf := NewBpfProgram(c.Ctx, *bpfProg, c.HostConfig, ifaceName)
 	var bpfList *list.List
 
 	switch direction {
@@ -541,7 +545,7 @@ func (c *NFConfigs) InsertAndStartBPFProgram(bpfProg *models.BPFProgram, ifaceNa
 		return nil
 	}
 
-	bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig, ifaceName)
+	bpf := NewBpfProgram(c.Ctx, *bpfProg, c.HostConfig, ifaceName)
 
 	switch direction {
 	case models.XDPIngressType:
@@ -682,16 +686,16 @@ func (c *NFConfigs) Deploy(ifaceName, HostName string, bpfProgs *models.BPFProgr
 		return errOut
 	}
 
-	c.hostInterfaces, _ = getHostInterfaces()
-	if _, ok := c.hostInterfaces[ifaceName]; !ok {
+	c.HostInterfaces, _ = getHostInterfaces()
+	if _, ok := c.HostInterfaces[ifaceName]; !ok {
 		c.CleanupProgramsOnInterface(ifaceName)
 		errOut := fmt.Errorf("%s interface name not found in the host Stop called", ifaceName)
 		log.Error().Err(errOut)
 		return errOut
 	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.Mu.Lock()
+	defer c.Mu.Unlock()
 
 	for _, bpfProg := range bpfProgs.XDPIngress {
 		if c.IngressXDPBpfs[ifaceName] == nil {
@@ -750,7 +754,6 @@ func (c *NFConfigs) Deploy(ifaceName, HostName string, bpfProgs *models.BPFProgr
 			return fmt.Errorf("failed to update Probe BPF Program: %w", err)
 		}
 	}
-
 	return nil
 }
 
@@ -763,10 +766,10 @@ func (c *NFConfigs) DeployeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error 
 			}
 			return fmt.Errorf("failed to deploy BPF program on iface %s with error: %w", bpfProg.Iface, err)
 		}
-		if len(c.ifaces) == 0 {
-			c.ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
+		if len(c.Ifaces) == 0 {
+			c.Ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
 		} else {
-			c.ifaces[bpfProg.Iface] = bpfProg.Iface
+			c.Ifaces[bpfProg.Iface] = bpfProg.Iface
 		}
 	}
 
@@ -784,9 +787,9 @@ func (c *NFConfigs) SaveConfigsToConfigStore() error {
 
 	var bpfProgs []models.L3afBPFPrograms
 
-	c.hostInterfaces, _ = getHostInterfaces()
-	for _, iface := range c.ifaces {
-		if _, interfaceFound := c.hostInterfaces[iface]; interfaceFound {
+	c.HostInterfaces, _ = getHostInterfaces()
+	for _, iface := range c.Ifaces {
+		if _, interfaceFound := c.HostInterfaces[iface]; interfaceFound {
 			log.Info().Msgf("SaveConfigsToConfigStore - %s", iface)
 			bpfPrograms := c.EBPFPrograms(iface)
 			bpfProgs = append(bpfProgs, bpfPrograms)
@@ -857,7 +860,7 @@ func (c *NFConfigs) EBPFPrograms(iface string) models.L3afBPFPrograms {
 func (c *NFConfigs) EBPFProgramsAll() []models.L3afBPFPrograms {
 
 	BPFPrograms := make([]models.L3afBPFPrograms, 0)
-	for iface := range c.ifaces {
+	for iface := range c.Ifaces {
 		BPFProgram := c.EBPFPrograms(iface)
 		BPFPrograms = append(BPFPrograms, BPFProgram)
 	}
@@ -871,7 +874,7 @@ func (c *NFConfigs) RemoveMissingNetIfacesNBPFProgsInConfig(bpfProgCfgs []models
 	wg := sync.WaitGroup{}
 	for _, bpfProg := range bpfProgCfgs {
 		tempIfaces[bpfProg.Iface] = true
-		if ifaceName, ok := c.ifaces[bpfProg.Iface]; ok {
+		if ifaceName, ok := c.Ifaces[bpfProg.Iface]; ok {
 			_, ok := c.IngressXDPBpfs[ifaceName]
 			if ok {
 				wg.Add(1)
@@ -906,7 +909,7 @@ func (c *NFConfigs) RemoveMissingNetIfacesNBPFProgsInConfig(bpfProgCfgs []models
 	}
 	wg.Wait()
 
-	for _, ifaceName := range c.ifaces {
+	for _, ifaceName := range c.Ifaces {
 		if _, ok := tempIfaces[ifaceName]; !ok {
 			log.Info().Msgf("Missing Network Interface %s in the configs, stopping", ifaceName)
 			if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.XDPIngressType); err != nil {
@@ -918,7 +921,7 @@ func (c *NFConfigs) RemoveMissingNetIfacesNBPFProgsInConfig(bpfProgCfgs []models
 			if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.EgressType); err != nil {
 				log.Error().Err(err).Msgf("Failed to stop all the program in the direction tc egress for interface %s", ifaceName)
 			}
-			delete(c.ifaces, ifaceName)
+			delete(c.Ifaces, ifaceName)
 		}
 	}
 
@@ -1044,7 +1047,7 @@ func (c *NFConfigs) AddAndStartBPF(bpfProg *models.BPFProgram, ifaceName string,
 	for e := bpfList.Front(); e != nil; e = e.Next() {
 		data := e.Value.(*BPF)
 		if data.Program.SeqID > bpfProg.SeqID {
-			bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig, ifaceName)
+			bpf := NewBpfProgram(c.Ctx, *bpfProg, c.HostConfig, ifaceName)
 			tmpBPF := bpfList.InsertBefore(bpf, e)
 			if err := c.DownloadAndStartBPFProgram(tmpBPF, ifaceName, direction); err != nil {
 				return fmt.Errorf("failed to download and start eBPF program %s version %s iface %s direction %s with err %w", bpfProg.Name, bpfProg.Version, ifaceName, direction, err)
@@ -1141,15 +1144,15 @@ func (c *NFConfigs) AddProgramsOnInterface(ifaceName, HostName string, bpfProgs 
 		return errOut
 	}
 
-	c.hostInterfaces, _ = getHostInterfaces()
-	if _, ok := c.hostInterfaces[ifaceName]; !ok {
+	c.HostInterfaces, _ = getHostInterfaces()
+	if _, ok := c.HostInterfaces[ifaceName]; !ok {
 		errOut := fmt.Errorf("%s interface name not found in the host", ifaceName)
 		log.Error().Err(errOut)
 		return errOut
 	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.Mu.Lock()
+	defer c.Mu.Unlock()
 
 	if !c.HostConfig.BpfChainingEnabled {
 		errout := c.AddProgramWithoutChaining(ifaceName, bpfProgs)
@@ -1231,11 +1234,11 @@ func (c *NFConfigs) AddeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error {
 			}
 			return fmt.Errorf("failed to Add eBPF program of type probe with error: %w", err)
 		}
-		c.ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
-		if len(c.ifaces) == 0 {
-			c.ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
+		c.Ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
+		if len(c.Ifaces) == 0 {
+			c.Ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
 		} else {
-			c.ifaces[bpfProg.Iface] = bpfProg.Iface
+			c.Ifaces[bpfProg.Iface] = bpfProg.Iface
 		}
 	}
 	if err := c.SaveConfigsToConfigStore(); err != nil {
@@ -1266,7 +1269,7 @@ func (c *NFConfigs) CleanupProgramsOnInterface(ifaceName string) {
 // DeleteProgramsOnInterface : It will delete ebpf Programs on the given interface
 func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfProgs *models.BPFProgramNames) error {
 	var err error
-	if c.hostInterfaces, err = getHostInterfaces(); err != nil {
+	if c.HostInterfaces, err = getHostInterfaces(); err != nil {
 		errOut := fmt.Errorf("failed get interfaces in DeleteProgramsOnInterface Function: %v", err)
 		log.Error().Err(errOut)
 		return errOut
@@ -1284,15 +1287,15 @@ func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfPro
 		return errOut
 	}
 
-	if _, ok := c.hostInterfaces[ifaceName]; !ok {
+	if _, ok := c.HostInterfaces[ifaceName]; !ok {
 		c.CleanupProgramsOnInterface(ifaceName)
 		errOut := fmt.Errorf("%s interface name not found in the host, Stop called, %w", ifaceName, err)
 		log.Error().Err(errOut)
 		return errOut
 	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.Mu.Lock()
+	defer c.Mu.Unlock()
 
 	sort.Strings(bpfProgs.XDPIngress)
 	if c.IngressXDPBpfs[ifaceName] != nil {
@@ -1408,7 +1411,7 @@ func (c *NFConfigs) DeleteEbpfPrograms(bpfProgs []models.L3afBPFProgramNames) er
 			}
 			return fmt.Errorf("failed to Remove eBPF program on iface %s with error: %w", bpfProg.Iface, err)
 		}
-		c.ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
+		c.Ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
 	}
 	if err := c.SaveConfigsToConfigStore(); err != nil {
 		return fmt.Errorf("DeleteEbpfPrograms failed to save configs %w", err)
@@ -1457,7 +1460,7 @@ func (c *NFConfigs) AddProbePrograms(HostName string, bpfProgs []*models.BPFProg
 // PushBackAndStartProbe method inserts the element at the end of the list
 func (c *NFConfigs) PushBackAndStartProbe(bpfProg *models.BPFProgram) error {
 	log.Info().Msgf("PushBackAndStartProbe: %s", bpfProg.Name)
-	bpf := NewBpfProgram(c.ctx, *bpfProg, c.HostConfig, "")
+	bpf := NewBpfProgram(c.Ctx, *bpfProg, c.HostConfig, "")
 
 	if err := c.DownloadAndStartProbes(c.ProbesBpfs.PushBack(bpf)); err != nil {
 		return fmt.Errorf("failed to download and start the BPF %s  with err: %w", bpfProg.Name, err)
@@ -1481,5 +1484,331 @@ func (c *NFConfigs) DownloadAndStartProbes(element *list.Element) error {
 		return fmt.Errorf("failed to load bpf program %s with error: %w", bpf.Program.Name, err)
 	}
 
+	return nil
+}
+
+// SerialzeProgram this function wil serialize the program
+func SerialzeProgram(e *list.Element) *models.L3AFMetaData {
+	tmp := &models.L3AFMetaData{}
+	bpf := e.Value.(*BPF)
+	tmp.BpfMaps = make([]string, 0)
+	if bpf.BpfMaps != nil {
+		for _, v := range bpf.BpfMaps {
+			tmp.BpfMaps = append(tmp.BpfMaps, v.Name)
+		}
+	}
+	tmp.FilePath = bpf.FilePath
+	tmp.MapNamePath = bpf.MapNamePath
+	tmp.PrevMapNamePath = bpf.PrevMapNamePath
+	tmp.PrevProgMapID = uint32(bpf.PrevProgMapID)
+	tmp.ProgID = uint32(bpf.ProgID)
+	tmp.Program = bpf.Program
+	tmp.ProgMapID = uint32(bpf.ProgMapID)
+	tmp.RestartCount = bpf.RestartCount
+	tmp.ProgMapCollection = models.MetaColl{
+		Programs: make([]string, 0),
+		Maps:     make([]string, 0),
+	}
+	if bpf.ProgMapCollection != nil {
+		for k, v := range bpf.ProgMapCollection.Programs {
+			if v.Type() == ebpf.XDP || v.Type() == ebpf.SchedACT || v.Type() == ebpf.SchedCLS {
+				tmp.ProgMapCollection.Programs = append(tmp.ProgMapCollection.Programs, k)
+			}
+		}
+		for k := range bpf.ProgMapCollection.Maps {
+			tmp.ProgMapCollection.Maps = append(tmp.ProgMapCollection.Maps, k)
+		}
+	}
+	tmp.MetricsBpfMaps = make(map[string]models.MetaMetricsBPFMap)
+	if bpf.MetricsBpfMaps != nil {
+		for k1, v1 := range bpf.MetricsBpfMaps {
+			values := make([]float64, 0)
+			tmpval := v1.Values
+			for i := 0; i < v1.Values.Len(); i++ {
+				if tmpval.Value != nil {
+					values = append(values, tmpval.Value.(float64))
+				}
+				tmpval = tmpval.Next()
+			}
+			tmp.MetricsBpfMaps[k1] = models.MetaMetricsBPFMap{
+				MapName:    v1.Name,
+				Key:        v1.Key,
+				Values:     values,
+				Aggregator: v1.Aggregator,
+				LastValue:  float64(v1.LastValue),
+			}
+		}
+	}
+	tmp.XDPLink = false
+	if bpf.XDPLink != nil {
+		tmp.XDPLink = true
+	}
+	return tmp
+}
+
+// GetL3AFHOSTDATA this function will give serialize form of current l3afd state
+func (c *NFConfigs) GetL3AFHOSTDATA() models.L3AFALLHOSTDATA {
+	result := models.L3AFALLHOSTDATA{}
+	result.HostName = c.HostName
+	result.Ifaces = c.Ifaces
+	result.HostInterfaces = c.HostInterfaces
+	result.IngressXDPBpfs = make(map[string][]*models.L3AFMetaData)
+	result.IngressTCBpfs = make(map[string][]*models.L3AFMetaData)
+	result.EgressTCBpfs = make(map[string][]*models.L3AFMetaData)
+	result.ProbesBpfs = make([]models.L3AFMetaData, 0)
+	if c.IngressXDPBpfs != nil {
+		for k, v := range c.IngressXDPBpfs {
+			ls := make([]*models.L3AFMetaData, 0)
+			for e := v.Front(); e != nil; e = e.Next() {
+				ls = append(ls, SerialzeProgram(e))
+			}
+			result.IngressXDPBpfs[k] = ls
+		}
+	}
+	if c.IngressTCBpfs != nil {
+		for k, v := range c.IngressTCBpfs {
+			ls := make([]*models.L3AFMetaData, 0)
+			for e := v.Front(); e != nil; e = e.Next() {
+				ls = append(ls, SerialzeProgram(e))
+			}
+			result.IngressTCBpfs[k] = ls
+		}
+	}
+	if c.EgressTCBpfs != nil {
+		for k, v := range c.EgressTCBpfs {
+			ls := make([]*models.L3AFMetaData, 0)
+			for e := v.Front(); e != nil; e = e.Next() {
+				ls = append(ls, SerialzeProgram(e))
+			}
+			result.EgressTCBpfs[k] = ls
+		}
+	}
+	for e := c.ProbesBpfs.Front(); e != nil; e = e.Next() {
+		result.ProbesBpfs = append(result.ProbesBpfs, *SerialzeProgram(e))
+	}
+	metrics, _ := prometheus.DefaultGatherer.Gather()
+	result.AllStats = make([]models.MetricVec, 0)
+	listofMetrics := []string{"l3afd_BPFStartCount", "l3afd_BPFStopCount", "l3afd_BPFUpdateCount", "l3afd_BPFUpdateFailedCount", "l3afd_BPFRunning", "l3afd_BPFStartTime", "l3afd_BPFMonitorMap"}
+	for _, metric := range metrics {
+		name := *metric.Name
+		tp := metric.Type.Number()
+		if slices.Index(listofMetrics, name) != -1 {
+			for _, m := range metric.Metric {
+				r := models.MetricVec{}
+				lt := m.GetLabel()
+				for _, y := range lt {
+					r.Labels = append(r.Labels, models.Label{
+						Name:  *y.Name,
+						Value: *y.Value,
+					})
+				}
+				r.MetricName = name
+				r.Type = int32(tp)
+				if r.Type == 0 {
+					r.Value = m.GetCounter().GetValue()
+				} else {
+					r.Value = m.Gauge.GetValue()
+				}
+				result.AllStats = append(result.AllStats, r)
+			}
+		}
+	}
+	return result
+}
+
+// StartAllUserProgramsAndProbes this function will restart all the User Programs and probes
+func (c *NFConfigs) StartAllUserProgramsAndProbes() error {
+	if c.IngressXDPBpfs != nil {
+		for iface, v := range c.IngressXDPBpfs {
+			for e := v.Front(); e != nil; e = e.Next() {
+				// Starting Probes
+				b := e.Value.(*BPF)
+				ef := b.Program.EntryFunctionName
+				b.Program.EntryFunctionName = ""
+				prg := b.ProgMapCollection
+				b.ProgMapCollection = nil
+				if err := b.LoadBPFProgram(iface); err != nil {
+					return fmt.Errorf("unable to load probes %w", err)
+				}
+				b.Program.EntryFunctionName = ef
+				if b.ProgMapCollection != nil {
+					for fk, vf := range b.ProgMapCollection.Programs {
+						if _, ok := prg.Programs[fk]; !ok {
+							prg.Programs[fk] = vf
+						} else {
+							vf.Close()
+						}
+					}
+					for fk, vf := range b.ProgMapCollection.Maps {
+						if _, ok := prg.Maps[fk]; !ok {
+							prg.Maps[fk] = vf
+						} else {
+							vf.Close()
+						}
+					}
+				}
+				b.ProgMapCollection = prg
+				if len(b.Program.CmdStart) > 0 {
+					// Verify other instance is running
+					if err := StopExternalRunningProcess(b.Program.CmdStart); err != nil {
+						return fmt.Errorf("failed to stop external instance of the program %s with error : %w", b.Program.CmdStart, err)
+					}
+				}
+				if b.Program.UserProgramDaemon {
+					// Starting User Program
+					if err := b.StartUserProgram(iface, models.XDPIngressType, c.HostConfig.BpfChainingEnabled); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	if c.IngressTCBpfs != nil {
+		for iface, v := range c.IngressTCBpfs {
+			for e := v.Front(); e != nil; e = e.Next() {
+				b := e.Value.(*BPF)
+				ef := b.Program.EntryFunctionName
+				b.Program.EntryFunctionName = ""
+				prg := b.ProgMapCollection
+				b.ProgMapCollection = nil
+				if err := b.LoadBPFProgram(iface); err != nil {
+					return fmt.Errorf("unable to load probes %w", err)
+				}
+				b.Program.EntryFunctionName = ef
+				if b.ProgMapCollection != nil {
+					for fk, vf := range b.ProgMapCollection.Programs {
+						if _, ok := prg.Programs[fk]; !ok {
+							prg.Programs[fk] = vf
+						} else {
+							vf.Close()
+						}
+					}
+					for fk, vf := range b.ProgMapCollection.Maps {
+						if _, ok := prg.Maps[fk]; !ok {
+							prg.Maps[fk] = vf
+						} else {
+							vf.Close()
+						}
+					}
+				}
+				b.ProgMapCollection = prg
+				if len(b.Program.CmdStart) > 0 {
+					// Verify other instance is running
+					if err := StopExternalRunningProcess(b.Program.CmdStart); err != nil {
+						return fmt.Errorf("failed to stop external instance of the program %s with error : %w", b.Program.CmdStart, err)
+					}
+				}
+				if b.Program.UserProgramDaemon {
+					// Starting User Program
+					if err := b.StartUserProgram(iface, models.XDPIngressType, c.HostConfig.BpfChainingEnabled); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	if c.EgressTCBpfs != nil {
+		for iface, v := range c.EgressTCBpfs {
+			for e := v.Front(); e != nil; e = e.Next() {
+				b := e.Value.(*BPF)
+				ef := b.Program.EntryFunctionName
+				b.Program.EntryFunctionName = ""
+				prg := b.ProgMapCollection
+				b.ProgMapCollection = nil
+				if err := b.LoadBPFProgram(iface); err != nil {
+					return fmt.Errorf("unable to load probes %w", err)
+				}
+				b.Program.EntryFunctionName = ef
+				if b.ProgMapCollection != nil {
+					for fk, vf := range b.ProgMapCollection.Programs {
+						if _, ok := prg.Programs[fk]; !ok {
+							prg.Programs[fk] = vf
+						} else {
+							vf.Close()
+						}
+					}
+					for fk, vf := range b.ProgMapCollection.Maps {
+						if _, ok := prg.Maps[fk]; !ok {
+							prg.Maps[fk] = vf
+						} else {
+							vf.Close()
+						}
+					}
+				}
+				b.ProgMapCollection = prg
+				if len(b.Program.CmdStart) > 0 {
+					// Verify other instance is running
+					if err := StopExternalRunningProcess(b.Program.CmdStart); err != nil {
+						return fmt.Errorf("failed to stop external instance of the program %s with error : %w", b.Program.CmdStart, err)
+					}
+				}
+				if b.Program.UserProgramDaemon {
+					// Starting User Program
+					if err := b.StartUserProgram(iface, models.XDPIngressType, c.HostConfig.BpfChainingEnabled); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// StopAllProbesAndUserPrograms this function will stop all the probes & stops user programs
+func (c *NFConfigs) StopAllProbesAndUserPrograms() error {
+	if c.IngressXDPBpfs != nil {
+		for iface, v := range c.IngressXDPBpfs {
+			for e := v.Front(); e != nil; e = e.Next() {
+				// Stopping Probes
+				b := e.Value.(*BPF)
+				if b.ProbeLinks != nil {
+					for _, pb := range b.ProbeLinks {
+						(*pb).Close()
+					}
+				}
+				b.ProbeLinks = make([]*link.Link, 0)
+				// Stopping UserPrograms
+				if err := b.StopUserProgram(iface, models.XDPIngressType); err != nil {
+					return fmt.Errorf("failed to stop user program : %w", err)
+				}
+			}
+		}
+	}
+	if c.IngressTCBpfs != nil {
+		for iface, v := range c.IngressTCBpfs {
+			for e := v.Front(); e != nil; e = e.Next() {
+				// Stopping Probes
+				b := e.Value.(*BPF)
+				if b.ProbeLinks != nil {
+					for _, pb := range b.ProbeLinks {
+						(*pb).Close()
+					}
+				}
+				b.ProbeLinks = make([]*link.Link, 0)
+				// Stopping UserPrograms
+				if err := b.StopUserProgram(iface, models.XDPIngressType); err != nil {
+					return fmt.Errorf("failed to stop user program : %w", err)
+				}
+			}
+		}
+	}
+	if c.EgressTCBpfs != nil {
+		for iface, v := range c.EgressTCBpfs {
+			for e := v.Front(); e != nil; e = e.Next() {
+				// Stopping Probes
+				b := e.Value.(*BPF)
+				if b.ProbeLinks != nil {
+					for _, pb := range b.ProbeLinks {
+						(*pb).Close()
+					}
+				}
+				b.ProbeLinks = make([]*link.Link, 0)
+				// Stopping UserPrograms
+				if err := b.StopUserProgram(iface, models.XDPIngressType); err != nil {
+					return fmt.Errorf("failed to stop user program : %w", err)
+				}
+			}
+		}
+	}
 	return nil
 }

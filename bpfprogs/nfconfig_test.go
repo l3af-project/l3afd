@@ -25,9 +25,9 @@ import (
 
 var (
 	machineHostname string
-	hostInterfaces  map[string]bool
-	pMon            *pCheck
-	mMon            *bpfMetrics
+	HostInterfaces  map[string]bool
+	pMon            *PCheck
+	mMon            *BpfMetrics
 	valVerChange    *models.BPFPrograms
 	valStatusChange *models.BPFPrograms
 	ingressXDPBpfs  map[string]*list.List
@@ -40,10 +40,10 @@ var (
 
 func setupDBTest() {
 	machineHostname, _ = os.Hostname()
-	hostInterfaces = make(map[string]bool)
-	hostInterfaces["fakeif0"] = true
-	pMon = NewpCheck(3, true, 10)
-	mMon = NewpBPFMetrics(true, 30)
+	HostInterfaces = make(map[string]bool)
+	HostInterfaces["fakeif0"] = true
+	pMon = NewPCheck(3, true, 10)
+	mMon = NewpBpfMetrics(true, 30)
 
 	ingressXDPBpfs = make(map[string]*list.List)
 	ingressTCBpfs = make(map[string]*list.List)
@@ -144,8 +144,8 @@ func TestNewNFConfigs(t *testing.T) {
 	type args struct {
 		host     string
 		hostConf *config.Config
-		pMon     *pCheck
-		mMon     *bpfMetrics
+		pMon     *PCheck
+		mMon     *BpfMetrics
 		ctx      context.Context
 	}
 	setupDBTest()
@@ -163,14 +163,14 @@ func TestNewNFConfigs(t *testing.T) {
 				pMon:     pMon,
 				mMon:     mMon},
 			want: &NFConfigs{HostName: machineHostname,
-				hostInterfaces: hostIfaces,
+				HostInterfaces: hostIfaces,
 				IngressXDPBpfs: ingressXDPBpfs,
 				IngressTCBpfs:  ingressTCBpfs,
 				EgressTCBpfs:   egressTCBpfs,
 				HostConfig:     nil,
-				processMon:     pMon,
-				bpfMetricsMon:  mMon,
-				mu:             new(sync.Mutex),
+				ProcessMon:     pMon,
+				BpfMetricsMon:  mMon,
+				Mu:             new(sync.Mutex),
 			},
 			wantErr: false,
 		},
@@ -192,13 +192,13 @@ func TestNewNFConfigs(t *testing.T) {
 func TestNFConfigs_Deploy(t *testing.T) {
 	type fields struct {
 		hostName       string
-		hostInterfaces map[string]bool
+		HostInterfaces map[string]bool
 		ingressXDPBpfs map[string]*list.List
 		ingressTCBpfs  map[string]*list.List
 		egressTCBpfs   map[string]*list.List
 		hostConfig     *config.Config
-		processMon     *pCheck
-		metricsMon     *bpfMetrics
+		ProcessMon     *PCheck
+		metricsMon     *BpfMetrics
 	}
 	type args struct {
 		iface    string
@@ -212,14 +212,14 @@ func TestNFConfigs_Deploy(t *testing.T) {
 	setupBPFProgramVersionChange()
 	setupBPFProgramStatusChange()
 
-	hostInterfaces, err := getHostInterfaces()
+	HostInterfaces, err := getHostInterfaces()
 	if err != nil {
 		log.Info().Msg("getHostInterfaces returned and error")
 	}
-	var hostInterfacesKey string
-	var hostInterfacesValue bool
-	for hostInterfacesKey, hostInterfacesValue = range hostInterfaces {
-		log.Debug().Msgf("hostInterfacesKey: %v, hostInterfacesValue: %v", hostInterfacesKey, hostInterfacesValue)
+	var HostInterfacesKey string
+	var HostInterfacesValue bool
+	for HostInterfacesKey, HostInterfacesValue = range HostInterfaces {
+		log.Debug().Msgf("HostInterfacesKey: %v, HostInterfacesValue: %v", HostInterfacesKey, HostInterfacesValue)
 		break
 	}
 	tests := []struct {
@@ -236,7 +236,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
 				hostConfig:     nil,
-				processMon:     pMon,
+				ProcessMon:     pMon,
 				metricsMon:     mMon,
 			},
 			args: args{
@@ -254,7 +254,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
 				hostConfig:     nil,
-				processMon:     pMon,
+				ProcessMon:     pMon,
 				metricsMon:     mMon,
 			},
 			args: args{
@@ -272,7 +272,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
 				hostConfig:     nil,
-				processMon:     pMon,
+				ProcessMon:     pMon,
 				metricsMon:     mMon,
 			},
 			args: args{
@@ -286,16 +286,16 @@ func TestNFConfigs_Deploy(t *testing.T) {
 			name: "ValidHostNameValidIfaceName",
 			fields: fields{
 				hostName:       machineHostname,
-				hostInterfaces: hostInterfaces,
+				HostInterfaces: HostInterfaces,
 				ingressXDPBpfs: make(map[string]*list.List),
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
 				hostConfig:     nil,
-				processMon:     pMon,
+				ProcessMon:     pMon,
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    hostInterfacesKey,
+				iface:    HostInterfacesKey,
 				hostName: machineHostname,
 				bpfProgs: &models.BPFPrograms{},
 			},
@@ -305,16 +305,16 @@ func TestNFConfigs_Deploy(t *testing.T) {
 			name: "TestEBPFRepoDownload",
 			fields: fields{
 				hostName:       machineHostname,
-				hostInterfaces: hostInterfaces,
+				HostInterfaces: HostInterfaces,
 				ingressXDPBpfs: make(map[string]*list.List),
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
 				hostConfig:     &config.Config{BPFDir: "/tmp", EBPFRepoURL: "http://www.example.com"},
-				processMon:     pMon,
+				ProcessMon:     pMon,
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    hostInterfacesKey,
+				iface:    HostInterfacesKey,
 				hostName: machineHostname,
 				bpfProgs: bpfProgs,
 			},
@@ -324,16 +324,16 @@ func TestNFConfigs_Deploy(t *testing.T) {
 			name: "NewBPFWithVersionChange",
 			fields: fields{
 				hostName:       machineHostname,
-				hostInterfaces: hostInterfaces,
+				HostInterfaces: HostInterfaces,
 				ingressXDPBpfs: make(map[string]*list.List),
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
 				hostConfig:     &config.Config{BPFDir: "/tmp", EBPFRepoURL: "http://www.example.com"},
-				processMon:     pMon,
+				ProcessMon:     pMon,
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    hostInterfacesKey,
+				iface:    HostInterfacesKey,
 				hostName: machineHostname,
 				bpfProgs: valVerChange,
 			},
@@ -343,16 +343,16 @@ func TestNFConfigs_Deploy(t *testing.T) {
 			name: "NewBPFWithStatusChange",
 			fields: fields{
 				hostName:       machineHostname,
-				hostInterfaces: hostInterfaces,
+				HostInterfaces: HostInterfaces,
 				ingressXDPBpfs: make(map[string]*list.List),
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
 				hostConfig:     &config.Config{BPFDir: "/tmp", EBPFRepoURL: "http://www.example.com"},
-				processMon:     pMon,
+				ProcessMon:     pMon,
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    hostInterfacesKey,
+				iface:    HostInterfacesKey,
 				hostName: machineHostname,
 				bpfProgs: valStatusChange,
 			},
@@ -364,13 +364,13 @@ func TestNFConfigs_Deploy(t *testing.T) {
 			cfg := &NFConfigs{
 				HostName: tt.fields.hostName,
 				//				configs:    tt.fields.configs,
-				hostInterfaces: tt.fields.hostInterfaces,
+				HostInterfaces: tt.fields.HostInterfaces,
 				IngressXDPBpfs: tt.fields.ingressXDPBpfs,
 				IngressTCBpfs:  tt.fields.ingressTCBpfs,
 				EgressTCBpfs:   tt.fields.egressTCBpfs,
 				HostConfig:     tt.fields.hostConfig,
-				processMon:     tt.fields.processMon,
-				mu:             new(sync.Mutex),
+				ProcessMon:     tt.fields.ProcessMon,
+				Mu:             new(sync.Mutex),
 			}
 			if err := cfg.Deploy(tt.args.iface, tt.args.hostName, tt.args.bpfProgs); (err != nil) != tt.wantErr {
 				t.Errorf("NFConfigs.Deploy() error = %#v, wantErr %#v", err, tt.wantErr)
@@ -386,7 +386,7 @@ func TestNFConfigs_Close(t *testing.T) {
 		ingressTCBpfs  map[string]*list.List
 		egressTCBpfs   map[string]*list.List
 		hostConfig     *config.Config
-		processMon     *pCheck
+		ProcessMon     *PCheck
 	}
 	tests := []struct {
 		name    string
@@ -404,7 +404,7 @@ func TestNFConfigs_Close(t *testing.T) {
 					BpfMapDefaultPath: "/sys/fs/bpf",
 					ShutdownTimeout:   30 * time.Second,
 				},
-				processMon: pMon,
+				ProcessMon: pMon,
 			},
 			wantErr: false,
 		},
@@ -417,7 +417,7 @@ func TestNFConfigs_Close(t *testing.T) {
 				IngressTCBpfs:  tt.fields.ingressTCBpfs,
 				EgressTCBpfs:   tt.fields.egressTCBpfs,
 				HostConfig:     tt.fields.hostConfig,
-				processMon:     tt.fields.processMon,
+				ProcessMon:     tt.fields.ProcessMon,
 			}
 			ctx, cancelfunc := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancelfunc()
@@ -504,24 +504,24 @@ func Test_BinarySearch(t *testing.T) {
 }
 
 func Test_AddProgramsOnInterface(t *testing.T) {
-	hostInterfaces, err := getHostInterfaces()
+	HostInterfaces, err := getHostInterfaces()
 	if err != nil {
 		log.Info().Msg("getHostInterfaces returned and error")
 	}
-	var hostInterfacesKey string
-	var hostInterfacesValue bool
-	for hostInterfacesKey, hostInterfacesValue = range hostInterfaces {
-		log.Debug().Msgf("hostInterfacesKey: %v, hostInterfacesValue: %v", hostInterfacesKey, hostInterfacesValue)
+	var HostInterfacesKey string
+	var HostInterfacesValue bool
+	for HostInterfacesKey, HostInterfacesValue = range HostInterfaces {
+		log.Debug().Msgf("HostInterfacesKey: %v, HostInterfacesValue: %v", HostInterfacesKey, HostInterfacesValue)
 		break
 	}
 	type fields struct {
 		hostName       string
-		hostInterfaces map[string]bool
+		HostInterfaces map[string]bool
 		ingressXDPBpfs map[string]*list.List
 		ingressTCBpfs  map[string]*list.List
 		egressTCBpfs   map[string]*list.List
 		hostConfig     *config.Config
-		processMon     *pCheck
+		ProcessMon     *PCheck
 		mu             *sync.Mutex
 	}
 	type args struct {
@@ -582,7 +582,7 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 			name: "GoodInput",
 			field: fields{
 				hostName:       "l3af-local-test",
-				hostInterfaces: hostInterfaces,
+				HostInterfaces: HostInterfaces,
 				mu:             new(sync.Mutex),
 				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
 				ingressTCBpfs:  map[string]*list.List{"fakeif0": nil},
@@ -593,7 +593,7 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 			},
 			arg: args{
 				hostName: "l3af-local-test",
-				iface:    hostInterfacesKey,
+				iface:    HostInterfacesKey,
 				bpfProgs: &models.BPFPrograms{
 					XDPIngress: []*models.BPFProgram{},
 					TCEgress:   []*models.BPFProgram{},
@@ -693,9 +693,9 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 				IngressTCBpfs:  tt.field.ingressTCBpfs,
 				EgressTCBpfs:   tt.field.egressTCBpfs,
 				HostConfig:     tt.field.hostConfig,
-				processMon:     tt.field.processMon,
-				hostInterfaces: tt.field.hostInterfaces,
-				mu:             tt.field.mu,
+				ProcessMon:     tt.field.ProcessMon,
+				HostInterfaces: tt.field.HostInterfaces,
+				Mu:             tt.field.mu,
 			}
 			err := cfg.AddProgramsOnInterface(tt.arg.iface, tt.arg.hostName, tt.arg.bpfProgs)
 			if (err != nil) != tt.wanterr {
@@ -706,24 +706,24 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 }
 
 func TestAddeBPFPrograms(t *testing.T) {
-	hostInterfaces, err := getHostInterfaces()
+	HostInterfaces, err := getHostInterfaces()
 	if err != nil {
 		log.Info().Msg("getHostInterfaces returned and error")
 	}
-	var hostInterfacesKey string
-	var hostInterfacesValue bool
-	for hostInterfacesKey, hostInterfacesValue = range hostInterfaces {
-		log.Debug().Msgf("hostInterfacesKey: %v, hostInterfacesValue: %v", hostInterfacesKey, hostInterfacesValue)
+	var HostInterfacesKey string
+	var HostInterfacesValue bool
+	for HostInterfacesKey, HostInterfacesValue = range HostInterfaces {
+		log.Debug().Msgf("HostInterfacesKey: %v, HostInterfacesValue: %v", HostInterfacesKey, HostInterfacesValue)
 		break
 	}
 	type fields struct {
 		hostName       string
-		hostInterfaces map[string]bool
+		HostInterfaces map[string]bool
 		ingressXDPBpfs map[string]*list.List
 		ingressTCBpfs  map[string]*list.List
 		egressTCBpfs   map[string]*list.List
 		hostConfig     *config.Config
-		processMon     *pCheck
+		ProcessMon     *PCheck
 		mu             *sync.Mutex
 		ifaces         map[string]string
 	}
@@ -813,7 +813,7 @@ func TestAddeBPFPrograms(t *testing.T) {
 			name: "GoodInput",
 			field: fields{
 				hostName:       "l3af-local-test",
-				hostInterfaces: hostInterfaces,
+				HostInterfaces: HostInterfaces,
 				// fakeif0 is a fake interface
 				mu:             new(sync.Mutex),
 				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
@@ -827,7 +827,7 @@ func TestAddeBPFPrograms(t *testing.T) {
 			arg: []models.L3afBPFPrograms{
 				{
 					HostName: "l3af-local-test",
-					Iface:    hostInterfacesKey,
+					Iface:    HostInterfacesKey,
 					BpfPrograms: &models.BPFPrograms{
 						XDPIngress: []*models.BPFProgram{},
 						TCIngress:  []*models.BPFProgram{},
@@ -846,9 +846,9 @@ func TestAddeBPFPrograms(t *testing.T) {
 				IngressTCBpfs:  tt.field.ingressTCBpfs,
 				EgressTCBpfs:   tt.field.egressTCBpfs,
 				HostConfig:     tt.field.hostConfig,
-				processMon:     tt.field.processMon,
-				hostInterfaces: tt.field.hostInterfaces,
-				mu:             tt.field.mu,
+				ProcessMon:     tt.field.ProcessMon,
+				HostInterfaces: tt.field.HostInterfaces,
+				Mu:             tt.field.mu,
 			}
 			err := cfg.AddeBPFPrograms(tt.arg)
 			if (err != nil) != tt.wanterr {
@@ -861,12 +861,12 @@ func TestAddeBPFPrograms(t *testing.T) {
 func TestDeleteProgramsOnInterface(t *testing.T) {
 	type fields struct {
 		hostName       string
-		hostInterfaces map[string]bool
+		HostInterfaces map[string]bool
 		ingressXDPBpfs map[string]*list.List
 		ingressTCBpfs  map[string]*list.List
 		egressTCBpfs   map[string]*list.List
 		hostConfig     *config.Config
-		processMon     *pCheck
+		ProcessMon     *PCheck
 		mu             *sync.Mutex
 	}
 	type args struct {
@@ -916,7 +916,7 @@ func TestDeleteProgramsOnInterface(t *testing.T) {
 			name: "GoodInputButNotRealInterface",
 			field: fields{
 				hostName:       "l3af-local-test",
-				hostInterfaces: map[string]bool{"fakeif0": true},
+				HostInterfaces: map[string]bool{"fakeif0": true},
 				mu:             new(sync.Mutex),
 				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
 				ingressTCBpfs:  map[string]*list.List{"fakeif0": nil},
@@ -942,9 +942,9 @@ func TestDeleteProgramsOnInterface(t *testing.T) {
 				IngressTCBpfs:  tt.field.ingressTCBpfs,
 				EgressTCBpfs:   tt.field.egressTCBpfs,
 				HostConfig:     tt.field.hostConfig,
-				processMon:     tt.field.processMon,
-				hostInterfaces: tt.field.hostInterfaces,
-				mu:             tt.field.mu,
+				ProcessMon:     tt.field.ProcessMon,
+				HostInterfaces: tt.field.HostInterfaces,
+				Mu:             tt.field.mu,
 			}
 			err := cfg.DeleteProgramsOnInterface(tt.arg.iface, tt.arg.hostName, tt.arg.bpfProgs)
 			if (err != nil) != tt.wanterr {
@@ -957,12 +957,12 @@ func TestDeleteProgramsOnInterface(t *testing.T) {
 func TestDeleteEbpfPrograms(t *testing.T) {
 	type fields struct {
 		hostName       string
-		hostInterfaces map[string]bool
+		HostInterfaces map[string]bool
 		ingressXDPBpfs map[string]*list.List
 		ingressTCBpfs  map[string]*list.List
 		egressTCBpfs   map[string]*list.List
 		hostConfig     *config.Config
-		processMon     *pCheck
+		ProcessMon     *PCheck
 		mu             *sync.Mutex
 		ifaces         map[string]string
 	}
@@ -1042,7 +1042,7 @@ func TestDeleteEbpfPrograms(t *testing.T) {
 			name: "GoodInputButNotRealInterface",
 			field: fields{
 				hostName:       "l3af-local-test",
-				hostInterfaces: map[string]bool{"fakeif0": true},
+				HostInterfaces: map[string]bool{"fakeif0": true},
 				mu:             new(sync.Mutex),
 				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
 				ingressTCBpfs:  map[string]*list.List{"fakeif0": nil},
@@ -1074,9 +1074,9 @@ func TestDeleteEbpfPrograms(t *testing.T) {
 				IngressTCBpfs:  tt.field.ingressTCBpfs,
 				EgressTCBpfs:   tt.field.egressTCBpfs,
 				HostConfig:     tt.field.hostConfig,
-				processMon:     tt.field.processMon,
-				hostInterfaces: tt.field.hostInterfaces,
-				mu:             tt.field.mu,
+				ProcessMon:     tt.field.ProcessMon,
+				HostInterfaces: tt.field.HostInterfaces,
+				Mu:             tt.field.mu,
 			}
 			err := cfg.DeleteEbpfPrograms(tt.arg)
 			if (err != nil) != tt.wanterr {
@@ -1129,7 +1129,7 @@ func TestAddAndStartBPF(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &NFConfigs{
-				ctx:        tt.fields.ctx,
+				Ctx:        tt.fields.ctx,
 				HostConfig: tt.fields.hostConfig,
 			}
 			e := cfg.AddAndStartBPF(tt.args.bpfProg, tt.args.iface, tt.args.direction)
