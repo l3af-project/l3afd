@@ -6,6 +6,7 @@ package bpfprogs
 import (
 	"container/list"
 	"context"
+	"encoding/json"
 	"errors"
 	"net"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"github.com/l3af-project/l3afd/v2/config"
 	"github.com/l3af-project/l3afd/v2/models"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/rs/zerolog/log"
 )
 
@@ -1489,6 +1491,130 @@ func TestStopNRemoveAllBPFPrograms(t *testing.T) {
 			if got != nil {
             	t.Errorf("StopNRemoveAllBPFPrograms() = %v, want %v", got, "nil")
         	}
+		})
+	}
+}
+
+func TestSaveConfigsToConfigStore(t *testing.T) {
+	type fields struct {
+		hostName       string
+		hostInterfaces map[string]bool
+		ingressXDPBpfs map[string]*list.List
+		ingressTCBpfs  map[string]*list.List
+		egressTCBpfs   map[string]*list.List
+		hostConfig     *config.Config
+		processMon     *pCheck
+		metricsMon     *bpfMetrics
+	}
+
+	type args struct {
+		iface    string
+		hostName string
+		bpfProgs *models.BPFPrograms
+	}
+
+	hostInterfaces, err := getHostInterfaces()
+	if err != nil {
+		log.Info().Msg("getHostInterfaces returned and error")
+	}
+	var hostInterfacesKey string
+	var hostInterfacesValue bool
+	for hostInterfacesKey, hostInterfacesValue = range hostInterfaces {
+		log.Debug().Msgf("hostInterfacesKey: %v, hostInterfacesValue: %v", hostInterfacesKey, hostInterfacesValue)
+		break
+	}
+
+	tests := []struct {
+		name    string
+		fields fields
+		args    args
+		want []models.L3afBPFPrograms
+		wantErr bool
+	}{
+		{
+			name: "GoodInput",
+			fields: fields{
+				hostName:       "l3af-local-test",
+				hostInterfaces: hostInterfaces,
+				ingressXDPBpfs: make(map[string]*list.List),
+				ingressTCBpfs:  make(map[string]*list.List),
+				egressTCBpfs:   make(map[string]*list.List),
+				hostConfig: &config.Config{
+					L3afConfigStoreFileName: filepath.FromSlash("../testdata/Test_SaveConfigsToConfigStore.json"),
+				},
+				processMon:     pMon,
+				metricsMon:     mMon,
+			},
+			args: args{
+				iface:    hostInterfacesKey,
+				hostName: "l3af-local-test",
+				bpfProgs: &models.BPFPrograms{
+					XDPIngress: []*models.BPFProgram{},
+					TCIngress:  []*models.BPFProgram{},
+					TCEgress:   []*models.BPFProgram{},
+				},
+			},
+			want: []models.L3afBPFPrograms{
+				{
+					Iface: hostInterfacesKey,
+					HostName: "l3af-local-test",
+					BpfPrograms: &models.BPFPrograms{},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &NFConfigs{
+				HostName: tt.fields.hostName,
+				hostInterfaces: tt.fields.hostInterfaces,
+				IngressXDPBpfs: tt.fields.ingressXDPBpfs,
+				IngressTCBpfs:  tt.fields.ingressTCBpfs,
+				EgressTCBpfs:   tt.fields.egressTCBpfs,
+				HostConfig:     tt.fields.hostConfig,
+				processMon:     tt.fields.processMon,
+				mu:             new(sync.Mutex),
+			}
+
+			err := cfg.AddProgramsOnInterface(tt.args.iface, tt.args.hostName, tt.args.bpfProgs)
+			if err != nil {
+				t.Errorf("AddProgramsOnInterface() error = %v", err)
+			}
+
+			cfg.ifaces = map[string]string{tt.args.iface: tt.args.iface}
+			if len(cfg.ifaces) == 0 {
+				cfg.ifaces = map[string]string{tt.args.iface: tt.args.iface}
+			} else {
+				cfg.ifaces[tt.args.iface] = tt.args.iface
+			}
+
+			err = cfg.SaveConfigsToConfigStore()
+			if err != nil {
+				t.Errorf("SaveConfigsToConfigStore() error = %v", err)
+				return
+			}
+
+			fileContent, err := os.ReadFile(cfg.HostConfig.L3afConfigStoreFileName)
+			if err != nil {
+				t.Errorf("SaveConfigsToConfigStore() error = %v", err)
+				return
+			}
+
+			var savedBPFProgs []models.L3afBPFPrograms
+			err = json.Unmarshal(fileContent, &savedBPFProgs)
+			if err != nil {
+				t.Errorf("SaveConfigsToConfigStore() error = %v", err)
+				return
+			}
+
+			// if !reflect.DeepEqual(tt.want, savedBPFProgs) {
+			// 	t.Errorf("Saved BPF programs do not match expected data. Expected: %v, Got: %v", tt.want, savedBPFProgs)
+			// }
+
+			if diff := cmp.Diff(tt.want, savedBPFProgs); diff != "" {
+				t.Errorf("SaveConfigsToConfigStore() mismatch (-want +got):\n%s", diff)
+			}
 		})
 	}
 }
