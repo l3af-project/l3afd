@@ -34,7 +34,7 @@ jobs:
 
     steps:
     - name: Harden Runner
-      uses: step-security/harden-runner@17d0e2bd7d51742c71671bd19fa12bdc9d40a3d6
+      uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7
       with:
         egress-policy: audit # TODO: change to 'egress-policy: block' after couple of runs
 
@@ -42,9 +42,9 @@ jobs:
       uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
 
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@4fa2a7953630fd2f3fb380f21be14ede0169dd4f
+      uses: github/codeql-action/init@294a9d92911152fe08befb9ec03e240add280cb3
       with:
         languages: ${{ matrix.language }}
 
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@4fa2a7953630fd2f3fb380f21be14ede0169dd4f
+      uses: github/codeql-action/analyze@294a9d92911152fe08befb9ec03e240add280cb3

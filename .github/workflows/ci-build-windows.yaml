@@ -21,13 +21,13 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Setup Go 1.21.3
-        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32
+      - name: Setup Go 1.22.3
+        uses: actions/setup-go@df1a11710ed378b187f40c71eb3d6c08d82e7108
         with:
-          go-version: '1.21.3'
+          go-version: '1.22.3'
 
       - name: Harden Runner
-        uses: step-security/harden-runner@17d0e2bd7d51742c71671bd19fa12bdc9d40a3d6 
+        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 
         with:
           egress-policy: audit # TODO: change to 'egress-policy: block' after couple of runs
 
@@ -61,9 +61,9 @@ jobs:
 
       - uses: dominikh/staticcheck-action@fe1dd0c3658873b46f8c9bb3291096a617310ca6 
         with:
-          version: "2023.1.1"
+          version: "2024.1.1"
           install-go: false
-          cache-key: "1.21.x"
+          cache-key: "1.22.x"
           build-tags: WINDOWS
 
       - name: Build

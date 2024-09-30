@@ -94,6 +94,37 @@ const docTemplate = `{
                 }
             }
         },
+        "/l3af/configs/v1/restart": {
+            "put": {
+                "description": "Store meta data about ebpf programs and exit",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Store meta data about ebpf programs and exit",
+                "parameters": [
+                    {
+                        "description": "BPF programs",
+                        "name": "cfgs",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.L3afBPFPrograms"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/l3af/configs/v1/update": {
             "post": {
                 "description": "Update eBPF Programs configuration",
@@ -222,11 +253,10 @@ const docTemplate = `{
                 },
                 "map_args": {
                     "description": "Config BPF Map of arguments",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/models.L3afDNFArgs"
-                        }
-                    ]
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.L3afDMapArg"
+                    }
                 },
                 "map_name": {
                     "description": "BPF map to store next program fd",
@@ -375,6 +405,19 @@ const docTemplate = `{
                 }
             }
         },
+        "models.KeyValue": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "description": "Key",
+                    "type": "integer"
+                },
+                "value": {
+                    "description": "Value",
+                    "type": "integer"
+                }
+            }
+        },
         "models.L3afBPFProgramNames": {
             "type": "object",
             "properties": {
@@ -413,6 +456,22 @@ const docTemplate = `{
                 },
                 "iface": {
                     "description": "Interface name",
+                    "type": "string"
+                }
+            }
+        },
+        "models.L3afDMapArg": {
+            "type": "object",
+            "properties": {
+                "args": {
+                    "description": "BPF map arguments",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.KeyValue"
+                    }
+                },
+                "name": {
+                    "description": "BPF map name",
                     "type": "string"
                 }
             }
