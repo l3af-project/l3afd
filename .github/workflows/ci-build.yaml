@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Setup Go 1.22.3
-        uses: actions/setup-go@df1a11710ed378b187f40c71eb3d6c08d82e7108
+        uses: actions/setup-go@d60b41a563a30eac31c3ec623e6ff0b3f16e1a06
         with:
           go-version: '1.22.3'
 
