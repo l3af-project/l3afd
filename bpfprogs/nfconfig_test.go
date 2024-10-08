@@ -1618,3 +1618,109 @@ func TestSaveConfigsToConfigStore(t *testing.T) {
 		})
 	}
 }
+
+func TestStopRootProgram(t *testing.T) {
+	type fields struct {
+		hostName       string
+		hostInterfaces map[string]bool
+		ingressXDPBpfs map[string]*list.List
+		ingressTCBpfs  map[string]*list.List
+		egressTCBpfs   map[string]*list.List
+		hostConfig     *config.Config
+		processMon     *PCheck
+		metricsMon     *BpfMetrics
+	}
+
+	type args struct {
+		iface    string
+		hostName string
+		bpfProgs *models.BPFPrograms
+	}
+
+	hostInterfaces, err := getHostInterfaces()
+	if err != nil {
+		log.Info().Msg("getHostInterfaces returned and error")
+	}
+	var hostInterfacesKey string
+	var hostInterfacesValue bool
+	for hostInterfacesKey, hostInterfacesValue = range hostInterfaces {
+		log.Debug().Msgf("hostInterfacesKey: %v, hostInterfacesValue: %v", hostInterfacesKey, hostInterfacesValue)
+		break
+	}
+
+	tests := []struct {
+		name    string
+		fields fields
+		args    args
+	}{
+		{
+			name: "GoodInput",
+			fields: fields{
+				hostName:       "l3af-local-test",
+				hostInterfaces: hostInterfaces,
+				ingressXDPBpfs: map[string]*list.List{hostInterfacesKey: createBPFList([]string{"foo"})},
+				ingressTCBpfs:  make(map[string]*list.List),
+				egressTCBpfs:   make(map[string]*list.List),
+				hostConfig: &config.Config{
+					BpfChainingEnabled: true,
+				},
+				processMon:     pMon,
+				metricsMon:     mMon,
+			},
+			args: args{
+				iface:    hostInterfacesKey,
+				hostName: "l3af-local-test",
+				bpfProgs: &models.BPFPrograms{
+					XDPIngress: []*models.BPFProgram{
+						&models.BPFProgram{
+							ID:                1,
+							SeqID: 			   0,
+							Name:              "foo",
+							Artifact:          "foo.tar.gz",
+							CmdStart:          "foo",
+							CmdStop:           "",
+							Version:           "1.0",
+							UserProgramDaemon: true,
+							AdminStatus:       "DISABLED",
+						},
+					},
+					TCIngress:  []*models.BPFProgram{},
+					TCEgress:   []*models.BPFProgram{},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &NFConfigs{
+				HostName: tt.fields.hostName,
+				HostInterfaces: tt.fields.hostInterfaces,
+				IngressXDPBpfs: tt.fields.ingressXDPBpfs,
+				IngressTCBpfs:  tt.fields.ingressTCBpfs,
+				EgressTCBpfs:   tt.fields.egressTCBpfs,
+				HostConfig:     tt.fields.hostConfig,
+				ProcessMon:     tt.fields.processMon,
+				Mu:             new(sync.Mutex),
+			}
+
+			if cfg.IngressXDPBpfs[hostInterfacesKey] == nil {
+				t.Errorf("StopRootProgram() error = interface %v is nil", hostInterfacesKey)
+			}
+
+			// err := cfg.AddProgramsOnInterface(tt.args.iface, tt.args.hostName, tt.args.bpfProgs)
+			// if err != nil {
+			// 	t.Errorf("AddProgramsOnInterface() error = %v", err)
+			// }
+
+			err = cfg.StopRootProgram(tt.args.iface, "xdpingress")
+			if  err != nil {
+				t.Errorf("StopRootProgram() error = %v", err)
+			}
+
+			if cfg.IngressXDPBpfs[hostInterfacesKey] == nil {
+				t.Logf("StopRootProgram() expected = interface %v is nil", hostInterfacesKey)
+			}
+		})
+	}
+}
