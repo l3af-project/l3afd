@@ -10,7 +10,7 @@ import (
 
 var (
 	// Version binary version number
-	Version string = "0.0.0"
+	Version string = "2.1.0"
 	// SuffixTag binary tag (e.g. beta, dev, devel, production).
 	SuffixTag string
 	// VersionDate build timestamp (e.g. ).
