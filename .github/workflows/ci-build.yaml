@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Setup Go 1.22.3
-        uses: actions/setup-go@df1a11710ed378b187f40c71eb3d6c08d82e7108
+        uses: actions/setup-go@d60b41a563a30eac31c3ec623e6ff0b3f16e1a06
         with:
           go-version: '1.22.3'
 
@@ -38,7 +38,7 @@ jobs:
           sudo apt-get install -y gcc libc-dev bash perl curl make docker docker.io
 
       - name: Checkout repository
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 
 
       - name: Format
         run: |
@@ -84,7 +84,7 @@ jobs:
 
       - name: build and push docker image to registry
         if: github.ref == 'refs/heads/main'
-        uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75
         with:
           context: ./build-docker
           push: true

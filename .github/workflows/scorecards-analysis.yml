@@ -37,7 +37,7 @@ jobs:
 
     steps:
       - name: "Checkout code"
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
 
@@ -73,6 +73,6 @@ jobs:
       # Upload the results to GitHub's code scanning dashboard so it will be visible
       # at https://github.com/l3af-project/l3afd/security/code-scanning.
       - name: "Upload to code-scanning"
-        uses: github/codeql-action/upload-sarif@294a9d92911152fe08befb9ec03e240add280cb3
+        uses: github/codeql-action/upload-sarif@6db8d6351fd0be61f9ed8ebd12ccd35dcec51fea
         with:
           sarif_file: results.sarif
