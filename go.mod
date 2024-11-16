@@ -6,13 +6,13 @@ require (
 	github.com/cilium/ebpf v0.16.0
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/mitchellh/go-ps v1.0.0
-	github.com/prometheus/client_golang v1.20.4
+	github.com/prometheus/client_golang v1.20.5
 	github.com/robfig/config v0.0.0-20141207224736-0f78529c8c7e
 	github.com/rs/zerolog v1.33.0
 	github.com/safchain/ethtool v0.4.1
 	github.com/swaggo/http-swagger v1.3.4
-	github.com/swaggo/swag v1.16.3
-	golang.org/x/sys v0.26.0 // exclude
+	github.com/swaggo/swag v1.16.4
+	golang.org/x/sys v0.27.0 // exclude
 )
 
 require (

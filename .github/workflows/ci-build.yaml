@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Setup Go 1.22.3
-        uses: actions/setup-go@d60b41a563a30eac31c3ec623e6ff0b3f16e1a06
+        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed
         with:
           go-version: '1.22.3'
 
@@ -92,7 +92,7 @@ jobs:
 
       - name: upload l3afd binary  
         if: github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882
         with:
           name: l3afd-latest-linux-x86_64
           path: l3afd
