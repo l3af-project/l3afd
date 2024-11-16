@@ -1724,3 +1724,296 @@ func TestStopRootProgram(t *testing.T) {
 		})
 	}
 }
+
+func TestLinkBPFPrograms(t *testing.T) {
+	type fields struct {
+		hostName       string
+		hostInterfaces map[string]bool
+		ingressXDPBpfs map[string]*list.List
+		ingressTCBpfs  map[string]*list.List
+		egressTCBpfs   map[string]*list.List
+		hostConfig     *config.Config
+		processMon     *PCheck
+		metricsMon     *BpfMetrics
+	}
+
+	type args struct {
+		iface    string
+		hostName string
+		bpfProgs *models.BPFPrograms
+	}
+
+	hostInterfaces, err := getHostInterfaces()
+	if err != nil {
+		log.Info().Msg("getHostInterfaces returned and error")
+	}
+	hostInterfaces["fakeif0"] = true
+	
+	progList := list.New()
+	progList.PushBack(&BPF{
+		Program: models.BPFProgram{
+			ID:                1,
+			SeqID: 			   0,
+			Name:              "xdp1",
+			Artifact:          "xdp1.tar.gz",
+			CmdStart:          "xdp1",
+			CmdStop:           "",
+			Version:           "1.0",
+			UserProgramDaemon: true,
+			AdminStatus:       "enabled",
+		},
+		MapNamePath: "/path/to/map1",
+		ProgMapID: 1,
+	})
+	progList.PushBack(&BPF{
+		Program: models.BPFProgram{
+			ID:                2,
+			SeqID: 			   1,
+			Name:              "xdp2",
+			Artifact:          "xdp2.tar.gz",
+			CmdStart:          "xdp2",
+			CmdStop:           "",
+			Version:           "1.0",
+			UserProgramDaemon: true,
+			AdminStatus:       "enabled",
+		},
+		MapNamePath: "/path/to/map2",
+		ProgMapID: 2,
+	})
+
+	tests := []struct {
+		name    string
+		fields fields
+		args    args
+	}{
+		{
+			name: "GoodInput",
+			fields: fields{
+				hostName:       "l3af-local-test",
+				hostInterfaces: hostInterfaces,
+				ingressXDPBpfs: map[string]*list.List{"fakeif0": progList},
+				ingressTCBpfs:  make(map[string]*list.List),
+				egressTCBpfs:   make(map[string]*list.List),
+				hostConfig: &config.Config{
+					L3afConfigStoreFileName: filepath.FromSlash("../testdata/Test_LinkBPFPrograms.json"),
+					BpfChainingEnabled: true,
+				},
+				processMon:     pMon,
+				metricsMon:     mMon,
+			},
+			args: args{
+				iface:    "fakeif0",
+				hostName: "l3af-local-test",
+				bpfProgs: &models.BPFPrograms{
+					XDPIngress: []*models.BPFProgram{
+						{
+							ID:                1,
+							SeqID: 			   0,
+							Name:              "xdp1",
+							Artifact:          "xdp1.tar.gz",
+							CmdStart:          "xdp1",
+							CmdStop:           "",
+							Version:           "1.0",
+							UserProgramDaemon: true,
+							AdminStatus:       "enabled",
+						},
+						{
+							ID:                2,
+							SeqID: 			   1,
+							Name:              "xdp2",
+							Artifact:          "xdp2.tar.gz",
+							CmdStart:          "xdp2",
+							CmdStop:           "",
+							Version:           "1.0",
+							UserProgramDaemon: true,
+							AdminStatus:       "enabled",
+						},
+					},
+					TCIngress:  []*models.BPFProgram{},
+					TCEgress:   []*models.BPFProgram{},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &NFConfigs{
+				HostName: tt.fields.hostName,
+				HostInterfaces: tt.fields.hostInterfaces,
+				IngressXDPBpfs: tt.fields.ingressXDPBpfs,
+				IngressTCBpfs:  tt.fields.ingressTCBpfs,
+				EgressTCBpfs:   tt.fields.egressTCBpfs,
+				HostConfig:     tt.fields.hostConfig,
+				ProcessMon:     tt.fields.processMon,
+				Mu:             new(sync.Mutex),
+			}
+
+			var bpfList *list.List
+			bpfList = tt.fields.ingressXDPBpfs["fakeif0"]
+			temp := bpfList.Front()
+			tmpNextBPF := temp.Next()
+
+			bpf1 := tmpNextBPF.Prev().Value.(*BPF)
+			bpf2 := tmpNextBPF.Value.(*BPF)
+
+			err := cfg.LinkBPFPrograms(bpf2, bpf1)
+			if  err != nil {
+				t.Errorf("LinkBPFPrograms() error = %v", err)
+			}
+		})
+	}
+}
+
+func TestRemoveMissingBPFProgramsInConfig(t *testing.T) {
+	type fields struct {
+		hostName       string
+		hostInterfaces map[string]bool
+		ingressXDPBpfs map[string]*list.List
+		ingressTCBpfs  map[string]*list.List
+		egressTCBpfs   map[string]*list.List
+		hostConfig     *config.Config
+		ProcessMon     *PCheck
+		mu             *sync.Mutex
+		ifaces         map[string]string
+	}
+
+	var progList = list.New()
+	progList.PushBack(&BPF{
+		Program: models.BPFProgram{
+			ID:                1,
+			SeqID: 			   0,
+			Name:              "xdp1",
+			Artifact:          "xdp1.tar.gz",
+			CmdStart:          "xdp1",
+			CmdStop:           "",
+			Version:           "1.0",
+			UserProgramDaemon: false,
+			AdminStatus:       "enabled",
+		},
+	})
+	progList.PushBack(&BPF{
+		Program: models.BPFProgram{
+			ID:                2,
+			SeqID: 			   1,
+			Name:              "xdp2",
+			Artifact:          "xdp2.tar.gz",
+			CmdStart:          "xdp2",
+			CmdStop:           "",
+			Version:           "1.0",
+			UserProgramDaemon: false,
+			AdminStatus:       "enabled",
+		},
+	})
+	progList.PushBack(&BPF{
+		Program: models.BPFProgram{
+			ID:                3,
+			SeqID: 			   2,
+			Name:              "xdp3",
+			Artifact:          "xdp3.tar.gz",
+			CmdStart:          "xdp3",
+			CmdStop:           "",
+			Version:           "1.0",
+			UserProgramDaemon: false,
+			AdminStatus:       "enabled",
+		},
+	})
+
+	copyOfProgList := list.New()
+	for e := progList.Front(); e != nil; e = e.Next() {
+		copyOfProgList.PushBack(e.Value)
+	}
+
+	hostInterfaces, err := getHostInterfaces()
+	if err != nil {
+		log.Info().Msg("getHostInterfaces returned and error")
+	}
+
+	var hostInterfacesKey string
+	var hostInterfacesValue bool
+	for hostInterfacesKey, hostInterfacesValue = range hostInterfaces {
+		log.Debug().Msgf("hostInterfacesKey: %v, hostInterfacesValue: %v", hostInterfacesKey, hostInterfacesValue)
+		break
+	}
+
+	tests := []struct {
+		name    string
+		fields   fields
+		args     models.L3afBPFPrograms
+		countOfPrograms int
+		countOfProgramsThatWillBeRemoved int
+	}{
+		{
+			name: "Good Input",
+			fields: fields{
+				hostName:       "l3af-local-test",
+				hostInterfaces: HostInterfaces,
+				mu:             new(sync.Mutex),
+				ingressXDPBpfs: map[string]*list.List{hostInterfacesKey: progList},
+				ingressTCBpfs:  map[string]*list.List{},
+				egressTCBpfs:   map[string]*list.List{},
+				hostConfig: &config.Config{
+					BpfChainingEnabled: true,
+				},
+				ifaces:         map[string]string{},
+			},
+			args: models.L3afBPFPrograms{
+				HostName: "l3af-local-test",
+				Iface:    hostInterfacesKey,
+				BpfPrograms: &models.BPFPrograms{
+					XDPIngress: []*models.BPFProgram{
+						{
+							ID:                1,
+							SeqID: 			   0,
+							Name:              "xdp1",
+							Artifact:          "xdp1.tar.gz",
+							CmdStart:          "xdp1",
+							CmdStop:           "",
+							Version:           "1.0",
+							UserProgramDaemon: false,
+							AdminStatus:       "enabled",
+						},
+						{
+							ID:                2,
+							SeqID: 			   1,
+							Name:              "xdp2",
+							Artifact:          "xdp2.tar.gz",
+							CmdStart:          "xdp2",
+							CmdStop:           "",
+							Version:           "1.0",
+							UserProgramDaemon: false,
+							AdminStatus:       "enabled",
+						},
+					},
+					TCIngress:  []*models.BPFProgram{},
+					TCEgress:   []*models.BPFProgram{},
+				},
+			},
+			countOfPrograms: 3,
+			countOfProgramsThatWillBeRemoved: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &NFConfigs{
+				HostName: tt.fields.hostName,
+				HostInterfaces: tt.fields.hostInterfaces,
+				IngressXDPBpfs: tt.fields.ingressXDPBpfs,
+				IngressTCBpfs:  tt.fields.ingressTCBpfs,
+				EgressTCBpfs:   tt.fields.egressTCBpfs,
+				HostConfig:     tt.fields.hostConfig,
+				Mu:             new(sync.Mutex),
+			}
+
+			err = cfg.RemoveMissingBPFProgramsInConfig(tt.args, tt.args.Iface, models.XDPIngressType)
+			if  err != nil {
+				t.Errorf("RemoveMissingBPFProgramsInConfig() error = %v", err)
+			}
+
+			if cfg.IngressXDPBpfs[tt.args.Iface].Len() != (tt.countOfPrograms - tt.countOfProgramsThatWillBeRemoved){
+				t.Errorf("Two lists should not be equal.")
+			}
+		})
+	}
+}
