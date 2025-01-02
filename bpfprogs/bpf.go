@@ -624,9 +624,9 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 		}
 	}
 
-	urlpath,err := url.JoinPath(RepoURL, b.Program.Name, b.Program.Version, platform, b.Program.Artifact)
+	urlpath, err := url.JoinPath(RepoURL, b.Program.Name, b.Program.Version, platform, b.Program.Artifact)
 	if err != nil {
-		return fmt.Errorf("not able to join the artifact path %w",err)
+		return fmt.Errorf("not able to join the artifact path %w", err)
 	}
 	log.Info().Msgf("Retrieving artifact - %s", urlpath)
 	err = DownloadArtifact(urlpath, conf.HttpClientTimeout, buf)

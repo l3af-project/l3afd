@@ -337,9 +337,9 @@ func GetNewVersion(artifactName, oldVersion, newVersion string, conf *config.Con
 
 	// now I need to download artifacts
 	buf := &bytes.Buffer{}
-	urlpath,err := url.JoinPath(conf.RestartArtifactURL, newVersion, artifactName)
+	urlpath, err := url.JoinPath(conf.RestartArtifactURL, newVersion, artifactName)
 	if err != nil {
-		return fmt.Errorf("error while joining artifact path %w",err)
+		return fmt.Errorf("error while joining artifact path %w", err)
 	}
 	err = bpfprogs.DownloadArtifact(urlpath, conf.HttpClientTimeout, buf)
 	if err != nil {
