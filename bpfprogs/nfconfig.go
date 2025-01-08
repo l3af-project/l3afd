@@ -1389,12 +1389,15 @@ func (c *NFConfigs) DeleteProgramsOnInterfaceHelper(e *list.Element, ifaceName s
 			return fmt.Errorf("DeleteProgramsOnInterfaceHelper - failed LinkBPFPrograms %w", err)
 		}
 	}
-	// Check if list contains root program only then stop the root program.
-	if tmpPreviousBPF.Prev() == nil && tmpPreviousBPF.Next() == nil {
-		log.Info().Msgf("no ebpf programs are running, stopping root program")
+	// check if the program is not probes
+	if len(direction) > 1 {
+		// Check if list contains root program only then stop the root program.
+		if tmpPreviousBPF.Prev() == nil && tmpPreviousBPF.Next() == nil {
+			log.Info().Msgf("no ebpf programs are running, stopping root program")
 
-		if err := c.StopRootProgram(ifaceName, direction); err != nil {
-			return fmt.Errorf("failed to stop to root program of iface %s direction %v with err %w", ifaceName, direction, err)
+			if err := c.StopRootProgram(ifaceName, direction); err != nil {
+				return fmt.Errorf("failed to stop to root program of iface %s direction %v with err %w", ifaceName, direction, err)
+			}
 		}
 	}
 	return nil

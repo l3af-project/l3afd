@@ -29,18 +29,9 @@ func (b *BPF) LoadBPFProgramProbeType(prog *ebpf.Program, sectionName string) er
 		b.ProbeLinks = append(b.ProbeLinks, &tp)
 	case ebpf.Kprobe:
 		progType, hookName, _ = GetProgramSectionDetails(sectionName)
-		var kp link.Link
-		var err error
-		if strings.ToLower(progType) == models.KProbe {
-			kp, err = link.Kprobe(hookName, prog, nil)
-			if err != nil {
-				return fmt.Errorf("failed to link kprobe sec name %s error %v", sectionName, err)
-			}
-		} else if strings.ToLower(progType) == models.KRetProbe {
-			kp, err = link.Kretprobe(hookName, prog, nil)
-			if err != nil {
-				return fmt.Errorf("failed to link kprobe sec name %s error %v", sectionName, err)
-			}
+		kp, err := b.AttachProbePerfEvent(hookName, progType, prog)
+		if err != nil {
+			return fmt.Errorf("failed to attach perf event error %v", err)
 		}
 		b.ProbeLinks = append(b.ProbeLinks, &kp)
 	default:
@@ -78,6 +69,7 @@ func (b *BPF) LoadBPFProgramProbeTypes(objSpec *ebpf.CollectionSpec) error {
 // ret : prog-type, hook, subtype
 // e.g.: tracepoint/sock/inet_sock_set_state
 // e.g.: kprobe/sys_execve
+// e.g.: uprobe/<path>:<provider>:<name>
 func GetProgramSectionDetails(sectionName string) (string, string, string) {
 	sections := strings.Split(sectionName, "/")
 
@@ -86,7 +78,54 @@ func GetProgramSectionDetails(sectionName string) (string, string, string) {
 		return sections[0], sections[1], sections[2]
 	case models.KProbe, models.KRetProbe:
 		return sections[0], sections[1], ""
+	case models.UProbe, models.URetProbe:
+		var funcName string
+		if len(sections) > 2 {
+			funcName = strings.Join(sections[1:], "/")
+		}
+		return sections[0], funcName, ""
 	default:
 		return "", "", ""
 	}
+}
+
+func (b *BPF) AttachProbePerfEvent(hookName, progType string, prog *ebpf.Program) (link.Link, error) {
+	var kp link.Link
+	var err error
+	switch strings.ToLower(progType) {
+	case models.KProbe:
+		kp, err = link.Kprobe(hookName, prog, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to link kprobe hook name %s error %v", hookName, err)
+		}
+	case models.KRetProbe:
+		kp, err = link.Kretprobe(hookName, prog, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to link kretprobe hook name %s error %v", hookName, err)
+		}
+	case models.UProbe, models.URetProbe:
+		funcNames := strings.Split(hookName, ":")
+		var symbol string
+		ex, err := link.OpenExecutable(funcNames[0])
+		if err != nil {
+			return nil, fmt.Errorf("failed to openExecutable binary file %s error %v", hookName, err)
+		}
+
+		if len(funcNames) == 1 {
+			symbol = funcNames[0]
+		} else {
+			symbol = funcNames[len(funcNames)-1]
+		}
+		if progType == models.UProbe {
+			kp, err = ex.Uprobe(symbol, prog, nil)
+		} else {
+			kp, err = ex.Uretprobe(symbol, prog, nil)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to link uprobe/uretprobe symbol %s - %v", symbol, err)
+		}
+	default:
+		return nil, fmt.Errorf("unsupported perf event progType: %s", progType)
+	}
+	return kp, nil
 }
