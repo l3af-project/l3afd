@@ -84,7 +84,7 @@ jobs:
 
       - name: build and push docker image to registry
         if: github.ref == 'refs/heads/main'
-        uses: docker/build-push-action@48aba3b46d1b1fec4febb7c5d0c644b249a11355
+        uses: docker/build-push-action@67a2d409c0a876cbe6b11854e3e25193efe4e62d
         with:
           context: ./build-docker
           push: true
