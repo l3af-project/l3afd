@@ -20,9 +20,10 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/l3af-project/l3afd/v2/config"
 	"github.com/l3af-project/l3afd/v2/models"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/rs/zerolog/log"
 )
@@ -759,18 +760,31 @@ func (c *NFConfigs) Deploy(ifaceName, HostName string, bpfProgs *models.BPFProgr
 
 // DeployeBPFPrograms - Starts eBPF programs on the node if they are not running
 func (c *NFConfigs) DeployeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error {
+	var combinedError error
+
 	for _, bpfProg := range bpfProgs {
 		if err := c.Deploy(bpfProg.Iface, bpfProg.HostName, bpfProg.BpfPrograms); err != nil {
 			if err := c.SaveConfigsToConfigStore(); err != nil {
-				return fmt.Errorf("deploy eBPF Programs failed to save configs %w", err)
+				if combinedError == nil { // saving all the errors for c.Deploy c.SaveConfigsToConfigStore to combinedError instead of returning right away.
+					combinedError = fmt.Errorf("deploy eBPF Programs failed to save configs %w", err)
+				} else {
+					combinedError = fmt.Errorf("%v; %v", combinedError, fmt.Errorf("deploy eBPF Programs failed to save configs %w", err))
+				}
 			}
-			return fmt.Errorf("failed to deploy BPF program on iface %s with error: %w", bpfProg.Iface, err)
+			if combinedError == nil {
+				combinedError = fmt.Errorf("deploy eBPF Programs failed to save configs %w", err)
+			} else {
+				combinedError = fmt.Errorf("%v; %v", combinedError, fmt.Errorf("failed to deploy BPF program on iface %s with error: %w", bpfProg.Iface, err))
+			}
 		}
 		if len(c.Ifaces) == 0 {
 			c.Ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
 		} else {
 			c.Ifaces[bpfProg.Iface] = bpfProg.Iface
 		}
+	}
+	if combinedError != nil {
+		return combinedError
 	}
 
 	if err := c.RemoveMissingNetIfacesNBPFProgsInConfig(bpfProgs); err != nil {
@@ -781,6 +795,8 @@ func (c *NFConfigs) DeployeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error 
 	}
 	return nil
 }
+
+// function to combine all errors in []error and return a single error
 
 // SaveConfigsToConfigStore - Writes configs to persistent store
 func (c *NFConfigs) SaveConfigsToConfigStore() error {
