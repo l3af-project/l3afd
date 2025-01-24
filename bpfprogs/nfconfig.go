@@ -764,13 +764,6 @@ func (c *NFConfigs) DeployeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error 
 
 	for _, bpfProg := range bpfProgs {
 		if err := c.Deploy(bpfProg.Iface, bpfProg.HostName, bpfProg.BpfPrograms); err != nil {
-			if err := c.SaveConfigsToConfigStore(); err != nil {
-				if combinedError == nil { // saving all the errors for c.Deploy c.SaveConfigsToConfigStore to combinedError instead of returning right away.
-					combinedError = fmt.Errorf("deploy eBPF Programs failed to save configs %w", err)
-				} else {
-					combinedError = fmt.Errorf("%v; %v", combinedError, fmt.Errorf("deploy eBPF Programs failed to save configs %w", err))
-				}
-			}
 			if combinedError == nil {
 				combinedError = fmt.Errorf("deploy eBPF Programs failed to save configs %w", err)
 			} else {
@@ -783,9 +776,6 @@ func (c *NFConfigs) DeployeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error 
 			c.Ifaces[bpfProg.Iface] = bpfProg.Iface
 		}
 	}
-	if combinedError != nil {
-		return combinedError
-	}
 
 	if err := c.RemoveMissingNetIfacesNBPFProgsInConfig(bpfProgs); err != nil {
 		log.Warn().Err(err).Msgf("Remove missing interfaces and BPF programs in the config failed with error ")
@@ -793,10 +783,8 @@ func (c *NFConfigs) DeployeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error 
 	if err := c.SaveConfigsToConfigStore(); err != nil {
 		return fmt.Errorf("deploy eBPF Programs failed to save configs %w", err)
 	}
-	return nil
+	return combinedError
 }
-
-// function to combine all errors in []error and return a single error
 
 // SaveConfigsToConfigStore - Writes configs to persistent store
 func (c *NFConfigs) SaveConfigsToConfigStore() error {
