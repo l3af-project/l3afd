@@ -8,6 +8,7 @@ import (
 	"container/list"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -764,12 +765,9 @@ func (c *NFConfigs) DeployeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error 
 
 	for _, bpfProg := range bpfProgs {
 		if err := c.Deploy(bpfProg.Iface, bpfProg.HostName, bpfProg.BpfPrograms); err != nil {
-			if combinedError == nil {
-				combinedError = fmt.Errorf("deploy eBPF Programs failed to save configs %w", err)
-			} else {
-				combinedError = fmt.Errorf("%v; %v", combinedError, fmt.Errorf("failed to deploy BPF program on iface %s with error: %w", bpfProg.Iface, err))
-			}
+			combinedError = errors.Join(combinedError, fmt.Errorf("failed to deploy BPF program on iface %s with error: %w", bpfProg.Iface, err))
 		}
+
 		if len(c.Ifaces) == 0 {
 			c.Ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
 		} else {
