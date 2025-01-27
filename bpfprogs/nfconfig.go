@@ -779,7 +779,7 @@ func (c *NFConfigs) DeployeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error 
 		log.Warn().Err(err).Msgf("Remove missing interfaces and BPF programs in the config failed with error ")
 	}
 	if err := c.SaveConfigsToConfigStore(); err != nil {
-		return fmt.Errorf("deploy eBPF Programs failed to save configs %w", err)
+		combinedError = errors.Join(combinedError, fmt.Errorf("deploy eBPF Programs failed to save configs %w", err))
 	}
 	return combinedError
 }
