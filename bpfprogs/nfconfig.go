@@ -8,6 +8,7 @@ import (
 	"container/list"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -20,9 +21,10 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/l3af-project/l3afd/v2/config"
 	"github.com/l3af-project/l3afd/v2/models"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/rs/zerolog/log"
 )
@@ -759,13 +761,13 @@ func (c *NFConfigs) Deploy(ifaceName, HostName string, bpfProgs *models.BPFProgr
 
 // DeployeBPFPrograms - Starts eBPF programs on the node if they are not running
 func (c *NFConfigs) DeployeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error {
+	var combinedError error
+
 	for _, bpfProg := range bpfProgs {
 		if err := c.Deploy(bpfProg.Iface, bpfProg.HostName, bpfProg.BpfPrograms); err != nil {
-			if err := c.SaveConfigsToConfigStore(); err != nil {
-				return fmt.Errorf("deploy eBPF Programs failed to save configs %w", err)
-			}
-			return fmt.Errorf("failed to deploy BPF program on iface %s with error: %w", bpfProg.Iface, err)
+			combinedError = errors.Join(combinedError, fmt.Errorf("failed to deploy BPF program on iface %s with error: %w", bpfProg.Iface, err))
 		}
+
 		if len(c.Ifaces) == 0 {
 			c.Ifaces = map[string]string{bpfProg.Iface: bpfProg.Iface}
 		} else {
@@ -777,9 +779,9 @@ func (c *NFConfigs) DeployeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error 
 		log.Warn().Err(err).Msgf("Remove missing interfaces and BPF programs in the config failed with error ")
 	}
 	if err := c.SaveConfigsToConfigStore(); err != nil {
-		return fmt.Errorf("deploy eBPF Programs failed to save configs %w", err)
+		combinedError = errors.Join(combinedError, fmt.Errorf("deploy eBPF Programs failed to save configs %w", err))
 	}
-	return nil
+	return combinedError
 }
 
 // SaveConfigsToConfigStore - Writes configs to persistent store
