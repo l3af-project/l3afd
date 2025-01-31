@@ -21,10 +21,11 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/l3af-project/l3afd/v2/config"
 	"github.com/l3af-project/l3afd/v2/models"
+	"github.com/l3af-project/l3afd/v2/stats"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/rs/zerolog/log"
 )
@@ -679,12 +680,14 @@ func (c *NFConfigs) Deploy(ifaceName, HostName string, bpfProgs *models.BPFProgr
 	if HostName != c.HostName {
 		errOut := fmt.Errorf("provided bpf programs do not belong to this host")
 		log.Error().Err(errOut)
+		stats.Add(1, stats.BPFDeployFailedCount, "", "", ifaceName)
 		return errOut
 	}
 
 	if ifaceName == "" || bpfProgs == nil {
 		errOut := fmt.Errorf("iface name or bpf programs are empty")
 		log.Error().Err(errOut)
+		stats.Add(1, stats.BPFDeployFailedCount, "", "", ifaceName)
 		return errOut
 	}
 
@@ -692,6 +695,7 @@ func (c *NFConfigs) Deploy(ifaceName, HostName string, bpfProgs *models.BPFProgr
 	if _, ok := c.HostInterfaces[ifaceName]; !ok {
 		c.CleanupProgramsOnInterface(ifaceName)
 		errOut := fmt.Errorf("%s interface name not found in the host Stop called", ifaceName)
+		stats.Add(1, stats.BPFDeployFailedCount, "", "", ifaceName)
 		log.Error().Err(errOut)
 		return errOut
 	}
@@ -705,14 +709,17 @@ func (c *NFConfigs) Deploy(ifaceName, HostName string, bpfProgs *models.BPFProgr
 				c.IngressXDPBpfs[ifaceName] = list.New()
 				if err := c.VerifyAndStartXDPRootProgram(ifaceName, models.XDPIngressType); err != nil {
 					c.IngressXDPBpfs[ifaceName] = nil
+					stats.Add(1, stats.BPFDeployFailedCount, bpfProg.Name, models.XDPType, ifaceName)
 					return fmt.Errorf("failed to chain XDP BPF programs: %w", err)
 				}
 				log.Info().Msgf("Push Back and Start XDP program : %s seq_id : %d", bpfProg.Name, bpfProg.SeqID)
 				if err := c.PushBackAndStartBPF(bpfProg, ifaceName, models.XDPIngressType); err != nil {
+					stats.Add(1, stats.BPFDeployFailedCount, bpfProg.Name, models.XDPType, ifaceName)
 					return fmt.Errorf("failed to update BPF Program: %w", err)
 				}
 			}
 		} else if err := c.VerifyNUpdateBPFProgram(bpfProg, ifaceName, models.XDPIngressType); err != nil {
+			stats.Add(1, stats.BPFDeployFailedCount, bpfProg.Name, models.XDPType, ifaceName)
 			return fmt.Errorf("failed to update xdp BPF Program: %w", err)
 		}
 	}
@@ -723,13 +730,16 @@ func (c *NFConfigs) Deploy(ifaceName, HostName string, bpfProgs *models.BPFProgr
 				c.IngressTCBpfs[ifaceName] = list.New()
 				if err := c.VerifyAndStartTCRootProgram(ifaceName, models.IngressType); err != nil {
 					c.IngressTCBpfs[ifaceName] = nil
+					stats.Add(1, stats.BPFDeployFailedCount, bpfProg.Name, models.IngressType, ifaceName)
 					return fmt.Errorf("failed to chain ingress tc bpf programs: %w", err)
 				}
 				if err := c.PushBackAndStartBPF(bpfProg, ifaceName, models.IngressType); err != nil {
+					stats.Add(1, stats.BPFDeployFailedCount, bpfProg.Name, models.IngressType, ifaceName)
 					return fmt.Errorf("failed to update BPF Program: %w", err)
 				}
 			}
 		} else if err := c.VerifyNUpdateBPFProgram(bpfProg, ifaceName, models.IngressType); err != nil {
+			stats.Add(1, stats.BPFDeployFailedCount, bpfProg.Name, models.IngressType, ifaceName)
 			return fmt.Errorf("failed to update BPF Program: %w", err)
 		}
 	}
@@ -740,19 +750,23 @@ func (c *NFConfigs) Deploy(ifaceName, HostName string, bpfProgs *models.BPFProgr
 				c.EgressTCBpfs[ifaceName] = list.New()
 				if err := c.VerifyAndStartTCRootProgram(ifaceName, models.EgressType); err != nil {
 					c.EgressTCBpfs[ifaceName] = nil
+					stats.Add(1, stats.BPFDeployFailedCount, bpfProg.Name, models.EgressType, ifaceName)
 					return fmt.Errorf("failed to chain ingress tc bpf programs: %w", err)
 				}
 				if err := c.PushBackAndStartBPF(bpfProg, ifaceName, models.EgressType); err != nil {
+					stats.Add(1, stats.BPFDeployFailedCount, bpfProg.Name, models.EgressType, ifaceName)
 					return fmt.Errorf("failed to update BPF Program: %w", err)
 				}
 			}
 		} else if err := c.VerifyNUpdateBPFProgram(bpfProg, ifaceName, models.EgressType); err != nil {
+			stats.Add(1, stats.BPFDeployFailedCount, bpfProg.Name, models.EgressType, ifaceName)
 			return fmt.Errorf("failed to update BPF Program: %w", err)
 		}
 	}
 
 	for _, bpfProg := range bpfProgs.Probes {
 		if err := c.PushBackAndStartProbe(bpfProg); err != nil {
+			stats.Add(1, stats.BPFDeployFailedCount, bpfProg.Name, bpfProg.ProgType, ifaceName)
 			return fmt.Errorf("failed to update Probe BPF Program: %w", err)
 		}
 	}
