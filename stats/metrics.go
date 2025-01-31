@@ -23,6 +23,7 @@ var (
 	BPFRunning           *prometheus.GaugeVec
 	BPFStartTime         *prometheus.GaugeVec
 	BPFMonitorMap        *prometheus.GaugeVec
+	BPFDeployFailedCount *prometheus.CounterVec
 )
 
 func SetupMetrics(hostname, daemonName, metricsAddr string) {
@@ -31,7 +32,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 		prometheus.CounterOpts{
 			Namespace: daemonName,
 			Name:      "BPFStartCount",
-			Help:      "The count of network functions started",
+			Help:      "The count of BPF program started",
 		},
 		[]string{"host", "ebpf_program", "direction", "interface_name"},
 	)
@@ -42,7 +43,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 		prometheus.CounterOpts{
 			Namespace: daemonName,
 			Name:      "BPFStopCount",
-			Help:      "The count of network functions stopped",
+			Help:      "The count of BPF program stopped",
 		},
 		[]string{"host", "ebpf_program", "direction", "interface_name"},
 	)
@@ -53,7 +54,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 		prometheus.CounterOpts{
 			Namespace: daemonName,
 			Name:      "BPFUpdateCount",
-			Help:      "The count of network functions updated",
+			Help:      "The count of BPF programs updated",
 		},
 		[]string{"host", "ebpf_program", "direction", "interface_name"},
 	)
@@ -64,7 +65,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 		prometheus.CounterOpts{
 			Namespace: daemonName,
 			Name:      "BPFUpdateFailedCount",
-			Help:      "The count of Failed eBPF programs updates",
+			Help:      "The count of Failed BPF program update args",
 		},
 		[]string{"host", "bpf_program", "direction", "interface_name"},
 	)
@@ -75,7 +76,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 		prometheus.GaugeOpts{
 			Namespace: daemonName,
 			Name:      "BPFRunning",
-			Help:      "This value indicates network functions is running or not",
+			Help:      "This value indicates BPF program is running or not",
 		},
 		[]string{"host", "ebpf_program", "version", "direction", "interface_name"},
 	)
@@ -90,7 +91,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 		prometheus.GaugeOpts{
 			Namespace: daemonName,
 			Name:      "BPFStartTime",
-			Help:      "This value indicates start time of the network function since unix epoch in seconds",
+			Help:      "This value indicates start time of the BPF program since unix epoch in seconds",
 		},
 		[]string{"host", "ebpf_program", "direction", "interface_name"},
 	)
@@ -105,7 +106,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 		prometheus.GaugeOpts{
 			Namespace: daemonName,
 			Name:      "BPFMonitorMap",
-			Help:      "This value indicates network function monitor counters",
+			Help:      "This value indicates BPF program monitor counters",
 		},
 		[]string{"host", "ebpf_program", "map_name", "interface_name"},
 	)
@@ -116,6 +117,17 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 
 	BPFMonitorMap = bpfMonitorMapVec.MustCurryWith(prometheus.Labels{"host": hostname})
 
+	BPFDeployFailedCountVec := promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: daemonName,
+			Name:      "BPFDeployFailedCount",
+			Help:      "The count of BPF program failed to start or update",
+		},
+		[]string{"host", "ebpf_program", "direction", "interface_name"},
+	)
+	BPFDeployFailedCount = BPFDeployFailedCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
+
+	BPFStartCount = bpfStartCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
 	// Prometheus handler
 	metricsHandler := promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{})
 	// Adding web endpoint
