@@ -103,29 +103,61 @@ func (b *BPF) AttachProbePerfEvent(hookName, progType string, prog *ebpf.Program
 		if err != nil {
 			return nil, fmt.Errorf("failed to link kretprobe hook name %s error %v", hookName, err)
 		}
-	case models.UProbe, models.URetProbe:
-		funcNames := strings.Split(hookName, ":")
-		var symbol string
-		ex, err := link.OpenExecutable(funcNames[0])
+	case models.UProbe:
+		kp, err = b.AttachUProbePerfEvent(hookName, prog)
 		if err != nil {
-			return nil, fmt.Errorf("failed to openExecutable binary file %s error %v", hookName, err)
+			return nil, fmt.Errorf("failed to attach uprobe program %v", err)
 		}
-
-		if len(funcNames) == 1 {
-			symbol = funcNames[0]
-		} else {
-			symbol = funcNames[len(funcNames)-1]
-		}
-		if progType == models.UProbe {
-			kp, err = ex.Uprobe(symbol, prog, nil)
-		} else {
-			kp, err = ex.Uretprobe(symbol, prog, nil)
-		}
+	case models.URetProbe:
+		kp, err = b.AttachURetProbePerfEvent(hookName, prog)
 		if err != nil {
-			return nil, fmt.Errorf("failed to link uprobe/uretprobe symbol %s - %v", symbol, err)
+			return nil, fmt.Errorf("failed to attach uretprobe program %v", err)
 		}
 	default:
 		return nil, fmt.Errorf("unsupported perf event progType: %s", progType)
 	}
 	return kp, nil
+}
+
+func (b *BPF) AttachUProbePerfEvent(hookName string, prog *ebpf.Program) (link.Link, error) {
+	var kp link.Link
+	funcNames := strings.Split(hookName, ":")
+	ex, err := link.OpenExecutable(funcNames[0])
+	if err != nil {
+		return nil, fmt.Errorf("uprobe failed to openExecutable binary file %s error %v", hookName, err)
+	}
+
+	kp, err = ex.Uprobe(getSymbolName(funcNames), prog, nil)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to link uprobe symbol %s - %v", getSymbolName(funcNames), err)
+	}
+
+	return kp, nil
+}
+
+func (b *BPF) AttachURetProbePerfEvent(hookName string, prog *ebpf.Program) (link.Link, error) {
+	var kp link.Link
+	funcNames := strings.Split(hookName, ":")
+	ex, err := link.OpenExecutable(funcNames[0])
+	if err != nil {
+		return nil, fmt.Errorf("uretprobe failed to openExecutable binary file %s error %v", hookName, err)
+	}
+
+	kp, err = ex.Uretprobe(getSymbolName(funcNames), prog, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to link uretprobe symbol %s - %v", getSymbolName(funcNames), err)
+	}
+
+	return kp, nil
+}
+
+func getSymbolName(funcNames []string) string {
+	var symbol string
+	if len(funcNames) == 1 {
+		symbol = funcNames[0]
+	} else {
+		symbol = funcNames[len(funcNames)-1]
+	}
+	return symbol
 }
