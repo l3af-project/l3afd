@@ -801,6 +801,11 @@ func (c *NFConfigs) DeployeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error 
 // SaveConfigsToConfigStore - Writes configs to persistent store
 func (c *NFConfigs) SaveConfigsToConfigStore() error {
 
+	// StoreFile name is not defined then skip it
+	if len(c.HostConfig.L3afConfigStoreFileName) < 1 {
+		return nil
+	}
+
 	var bpfProgs []models.L3afBPFPrograms
 
 	c.HostInterfaces, _ = getHostInterfaces()
