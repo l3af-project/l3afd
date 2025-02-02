@@ -242,7 +242,7 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 				ingressFound = true
 				ingressHandle = qdisc.Msg.Handle
 			default:
-				log.Info().Msgf("Un-supported qdisc kind for interface %s ", ifaceName)
+				log.Info().Msgf("Un-supported qdisc kind for interface %s : %s ", ifaceName, qdisc.Kind)
 			}
 		}
 	}
@@ -402,7 +402,7 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 				ingressFound = true
 				ingressHandle = qdisc.Msg.Handle
 			default:
-				log.Info().Msgf("qdisc kind for %s : %v", ifaceName, err)
+				log.Info().Msgf("qdisc kind for %s : %v", ifaceName, qdisc.Kind)
 			}
 		}
 	}
@@ -436,21 +436,25 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 		// Netlink attribute used in the Linux kernel
 		bpfFlag := uint32(tc.BpfActDirect)
 
-		filter = tc.Object{
-			Msg: tc.Msg{
-				Family:  unix.AF_UNSPEC,
-				Ifindex: uint32(iface.Index),
-				Handle:  0,
-				Parent:  core.BuildHandle(tc.HandleRoot, parent),
-				Info:    tcfilts[0].Msg.Info,
-			},
-			Attribute: tc.Attribute{
-				Kind: "bpf",
-				BPF: &tc.Bpf{
-					FD:    &progFD,
-					Flags: &bpfFlag,
+		if len(tcfilts) > 0 {
+			filter = tc.Object{
+				Msg: tc.Msg{
+					Family:  unix.AF_UNSPEC,
+					Ifindex: uint32(iface.Index),
+					Handle:  0,
+					Parent:  core.BuildHandle(tc.HandleRoot, parent),
+					Info:    tcfilts[0].Msg.Info,
 				},
-			},
+				Attribute: tc.Attribute{
+					Kind: "bpf",
+					BPF: &tc.Bpf{
+						FD:    &progFD,
+						Flags: &bpfFlag,
+					},
+				},
+			}
+		} else {
+			log.Warn().Msgf("unload TC program clasct filters not found  for interface %s direction %s", ifaceName, direction)
 		}
 	} else if !clsactFound && ingressFound && htbFound {
 		if direction == models.EgressType {
@@ -483,21 +487,25 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 			}
 		}
 		// Add a check for if tcFilterIndex out of bounds
-		filter = tc.Object{
-			Msg: tc.Msg{
-				Family:  unix.AF_UNSPEC,
-				Ifindex: uint32(iface.Index),
-				Handle:  0,
-				Parent:  parentHandle,
-				Info:    tcfilts[tcFilterIndex].Msg.Info,
-			},
-			Attribute: tc.Attribute{
-				Kind: "bpf",
-				BPF: &tc.Bpf{
-					FD:    &progFD,
-					Flags: &bpfFlag,
+		if len(tcfilts) > 0 {
+			filter = tc.Object{
+				Msg: tc.Msg{
+					Family:  unix.AF_UNSPEC,
+					Ifindex: uint32(iface.Index),
+					Handle:  0,
+					Parent:  parentHandle,
+					Info:    tcfilts[tcFilterIndex].Msg.Info,
 				},
-			},
+				Attribute: tc.Attribute{
+					Kind: "bpf",
+					BPF: &tc.Bpf{
+						FD:    &progFD,
+						Flags: &bpfFlag,
+					},
+				},
+			}
+		} else {
+			log.Warn().Msgf("unload TC program ingress or htp filters not found for interface %s direction %s", ifaceName, direction)
 		}
 	}
 
