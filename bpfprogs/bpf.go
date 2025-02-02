@@ -27,15 +27,15 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/l3af-project/l3afd/v2/config"
-	"github.com/l3af-project/l3afd/v2/models"
-	"github.com/l3af-project/l3afd/v2/stats"
-
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/rlimit"
 	ps "github.com/mitchellh/go-ps"
 	"github.com/rs/zerolog/log"
+
+	"github.com/l3af-project/l3afd/v2/config"
+	"github.com/l3af-project/l3afd/v2/models"
+	"github.com/l3af-project/l3afd/v2/stats"
 )
 
 var (
@@ -666,7 +666,7 @@ func fileExists(filename string) bool {
 	if os.IsNotExist(err) {
 		return false
 	}
-	return !info.IsDir()
+	return err == nil && !info.IsDir()
 }
 
 // Add eBPF map into BPFMaps list
@@ -1392,6 +1392,10 @@ func (b *BPF) AttachBPFProgram(ifaceName, direction string) error {
 func (b *BPF) PinBpfMaps(ifaceName string) error {
 	for k, v := range b.ProgMapCollection.Maps {
 		var mapFilename string
+		// ebpf programs temporary storage created by eBPF program skip it
+		if k == ".bss" {
+			continue
+		}
 		if b.Program.ProgType == models.TCType {
 			mapFilename = filepath.Join(b.HostConfig.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, k)
 		} else {
