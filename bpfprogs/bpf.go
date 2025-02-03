@@ -666,7 +666,7 @@ func fileExists(filename string) bool {
 	if os.IsNotExist(err) {
 		return false
 	}
-	return !info.IsDir()
+	return err == nil && !info.IsDir()
 }
 
 // Add eBPF map into BPFMaps list
@@ -1392,6 +1392,10 @@ func (b *BPF) AttachBPFProgram(ifaceName, direction string) error {
 func (b *BPF) PinBpfMaps(ifaceName string) error {
 	for k, v := range b.ProgMapCollection.Maps {
 		var mapFilename string
+		// ebpf programs temporary storage created by eBPF program skip it
+		if k == ".bss" {
+			continue
+		}
 		if b.Program.ProgType == models.TCType {
 			mapFilename = filepath.Join(b.HostConfig.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, k)
 		} else {
