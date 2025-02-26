@@ -27,6 +27,8 @@ const (
 	KProbe     = "kprobe"
 	TracePoint = "tracepoint"
 	KRetProbe  = "kretprobe"
+	UProbe     = "uprobe"
+	URetProbe  = "uretprobe"
 )
 
 type L3afDNFArgs map[string]interface{}
