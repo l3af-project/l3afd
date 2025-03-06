@@ -23,6 +23,10 @@ const (
 	EgressType     = "egress"
 	XDPIngressType = "xdpingress"
 	TCMapPinPath   = "tc/globals"
+
+	KProbe     = "kprobe"
+	TracePoint = "tracepoint"
+	KRetProbe  = "kretprobe"
 )
 
 type L3afDNFArgs map[string]interface{}

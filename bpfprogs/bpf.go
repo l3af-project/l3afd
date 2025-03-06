@@ -624,7 +624,10 @@ func (b *BPF) GetArtifacts(conf *config.Config) error {
 		}
 	}
 
-	urlpath := path.Join(RepoURL, b.Program.Name, b.Program.Version, platform, b.Program.Artifact)
+	urlpath, err := url.JoinPath(RepoURL, b.Program.Name, b.Program.Version, platform, b.Program.Artifact)
+	if err != nil {
+		return fmt.Errorf("not able to join the artifact path %w", err)
+	}
 	log.Info().Msgf("Retrieving artifact - %s", urlpath)
 	err = DownloadArtifact(urlpath, conf.HttpClientTimeout, buf)
 	if err != nil {
@@ -663,7 +666,7 @@ func fileExists(filename string) bool {
 	if os.IsNotExist(err) {
 		return false
 	}
-	return !info.IsDir()
+	return err == nil && !info.IsDir()
 }
 
 // Add eBPF map into BPFMaps list
@@ -1389,6 +1392,10 @@ func (b *BPF) AttachBPFProgram(ifaceName, direction string) error {
 func (b *BPF) PinBpfMaps(ifaceName string) error {
 	for k, v := range b.ProgMapCollection.Maps {
 		var mapFilename string
+		// ebpf programs temporary storage created by eBPF program skip it
+		if k == ".bss" {
+			continue
+		}
 		if b.Program.ProgType == models.TCType {
 			mapFilename = filepath.Join(b.HostConfig.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, k)
 		} else {

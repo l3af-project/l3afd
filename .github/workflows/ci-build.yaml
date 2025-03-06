@@ -22,12 +22,12 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Setup Go 1.22.3
-        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed
+        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34
         with:
           go-version: '1.22.3'
 
       - name: Harden Runner
-        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7
+        uses: step-security/harden-runner@4d991eb9b905ef189e4c376166672c3f2f230481
         with:
           egress-policy: audit # TODO: change to 'egress-policy: block' after couple of runs
 
@@ -84,7 +84,7 @@ jobs:
 
       - name: build and push docker image to registry
         if: github.ref == 'refs/heads/main'
-        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75
+        uses: docker/build-push-action@ca877d9245402d1537745e0e356eab47c3520991
         with:
           context: ./build-docker
           push: true
@@ -92,7 +92,7 @@ jobs:
 
       - name: upload l3afd binary  
         if: github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
         with:
           name: l3afd-latest-linux-x86_64
           path: l3afd

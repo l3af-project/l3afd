@@ -22,12 +22,12 @@ jobs:
 
     steps:
       - name: Setup Go 1.22.3
-        uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed
+        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34
         with:
           go-version: '1.22.3'
 
       - name: Harden Runner
-        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 
+        uses: step-security/harden-runner@4d991eb9b905ef189e4c376166672c3f2f230481 
         with:
           egress-policy: audit # TODO: change to 'egress-policy: block' after couple of runs
 

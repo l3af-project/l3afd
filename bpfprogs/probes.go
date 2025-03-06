@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/l3af-project/l3afd/v2/stats"
 
 	"github.com/cilium/ebpf"
@@ -16,26 +17,36 @@ import (
 )
 
 func (b *BPF) LoadBPFProgramProbeType(prog *ebpf.Program, sectionName string) error {
-	var probeName, group string
+	var progType, hookName, subType string
+
 	switch prog.Type() {
 	case ebpf.TracePoint:
-		group, probeName = GetProgramSectionDetails(sectionName)
-		tp, err := link.Tracepoint(group, probeName, prog, nil)
+		progType, hookName, subType = GetProgramSectionDetails(sectionName)
+		tp, err := link.Tracepoint(hookName, subType, prog, nil)
 		if err != nil {
 			return fmt.Errorf("failed to link tracepoint sec name %s error %v", sectionName, err)
 		}
 		b.ProbeLinks = append(b.ProbeLinks, &tp)
 	case ebpf.Kprobe:
-		_, probeName = GetProgramSectionDetails(sectionName)
-		kp, err := link.Kprobe(probeName, prog, nil)
-		if err != nil {
-			return fmt.Errorf("failed to link kprobe sec name %s error %v", sectionName, err)
+		progType, hookName, _ = GetProgramSectionDetails(sectionName)
+		var kp link.Link
+		var err error
+		if strings.ToLower(progType) == models.KProbe {
+			kp, err = link.Kprobe(hookName, prog, nil)
+			if err != nil {
+				return fmt.Errorf("failed to link kprobe sec name %s error %v", sectionName, err)
+			}
+		} else if strings.ToLower(progType) == models.KRetProbe {
+			kp, err = link.Kretprobe(hookName, prog, nil)
+			if err != nil {
+				return fmt.Errorf("failed to link kprobe sec name %s error %v", sectionName, err)
+			}
 		}
 		b.ProbeLinks = append(b.ProbeLinks, &kp)
 	default:
 		return fmt.Errorf("un-supported probe type %s ", prog.Type())
 	}
-	ebpfProgName := b.Program.Name + "_" + probeName
+	ebpfProgName := b.Program.Name + "_" + progType + "_" + hookName
 	stats.Add(1, stats.BPFStartCount, ebpfProgName, "", "")
 	stats.Set(float64(time.Now().Unix()), stats.BPFStartTime, ebpfProgName, "", "")
 	return nil
@@ -63,16 +74,19 @@ func (b *BPF) LoadBPFProgramProbeTypes(objSpec *ebpf.CollectionSpec) error {
 }
 
 // GetProgramSectionDetails returns group and name details
-// Section name format /prob type/group/name
+// Section name format prog-type/hook/subtype
+// ret : prog-type, hook, subtype
 // e.g.: tracepoint/sock/inet_sock_set_state
 // e.g.: kprobe/sys_execve
-func GetProgramSectionDetails(sectionName string) (string, string) {
+func GetProgramSectionDetails(sectionName string) (string, string, string) {
 	sections := strings.Split(sectionName, "/")
-	length := len(sections)
-	if length > 1 {
-		return sections[length-2], sections[length-1]
-	} else if length == 1 {
-		return "", sections[0]
+
+	switch strings.ToLower(sections[0]) {
+	case models.TracePoint:
+		return sections[0], sections[1], sections[2]
+	case models.KProbe, models.KRetProbe:
+		return sections[0], sections[1], ""
+	default:
+		return "", "", ""
 	}
-	return "", ""
 }
