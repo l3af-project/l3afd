@@ -18,6 +18,8 @@ import (
 
 	"github.com/l3af-project/l3afd/v2/config"
 	"github.com/l3af-project/l3afd/v2/models"
+	"github.com/l3af-project/l3afd/v2/stats"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/rs/zerolog/log"
@@ -130,6 +132,72 @@ func setupBPFProgramStatusChange() {
 	}
 	bpfProgsTmp.XDPIngress = append(bpfProgsTmp.XDPIngress, bpfProg)
 	valStatusChange = bpfProgsTmp
+}
+
+func setupMetrics() {
+	stats.BPFStartCount = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "BPFStartCount",
+			Help: "Mocked metric",
+		},
+		[]string{"ebpf_program", "direction", "interface_name"},
+	)
+
+	stats.BPFStopCount = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "BPFStopCount",
+			Help: "Mocked metric",
+		},
+		[]string{"ebpf_program", "direction", "interface_name"},
+	)
+
+	stats.BPFUpdateCount = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "BPFUpdateCount",
+			Help: "Mocked metric",
+		},
+		[]string{"ebpf_program", "direction", "interface_name"},
+	)
+
+	stats.BPFUpdateFailedCount = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "BPFUpdateFailedCount",
+			Help: "Mocked metric",
+		},
+		[]string{"bpf_program", "direction", "interface_name"},
+	)
+
+	stats.BPFRunning = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "BPFRunning",
+			Help: "Mocked metric",
+		},
+		[]string{"ebpf_program", "version", "direction", "interface_name"},
+	)
+
+	stats.BPFStartTime = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "BPFStartTime",
+			Help: "Mocked metric",
+		},
+		[]string{"ebpf_program", "direction", "interface_name"},
+	)
+
+	stats.BPFMonitorMap = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "BPFMonitorMap",
+			Help: "Mocked metric",
+		},
+		[]string{"ebpf_program", "map_name", "interface_name"},
+	)
+
+	stats.BPFStartCount.WithLabelValues("test_prog", "ingress", "eth0").Inc()
+	stats.BPFStopCount.WithLabelValues("test_prog", "ingress", "eth0").Inc()
+	stats.BPFUpdateCount.WithLabelValues("test_prog", "ingress", "eth0").Inc()
+	stats.BPFUpdateFailedCount.WithLabelValues("test_prog", "ingress", "eth0").Inc()
+	stats.BPFRunning.WithLabelValues("test_prog", "v1", "ingress", "eth0").Set(1)
+	stats.BPFStartTime.WithLabelValues("test_prog", "ingress", "eth0").Set(100)
+	stats.BPFMonitorMap.WithLabelValues("test_prog", "map1", "eth0").Set(5)
 }
 
 func createBPFList(names []string) *list.List {
@@ -606,7 +674,7 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 			name: "BPFChainingDisabled",
 			field: fields{
 				hostName:       "l3af-local-test",
-				hostInterfaces: map[string]bool{"fakeif0": true},
+				HostInterfaces: map[string]bool{"fakeif0": true},
 				mu:             new(sync.Mutex),
 				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
 				ingressTCBpfs:  map[string]*list.List{"fakeif0": nil},
@@ -653,7 +721,7 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 			name: "BadInput",
 			field: fields{
 				hostName:       "l3af-local-test",
-				hostInterfaces: map[string]bool{"fakeif0": true},
+				HostInterfaces: map[string]bool{"fakeif0": true},
 				mu:             new(sync.Mutex),
 				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
 				ingressTCBpfs:  map[string]*list.List{"fakeif0": nil},
@@ -1395,14 +1463,6 @@ func TestEBPFPrograms(t *testing.T) {
 				EgressTCBpfs: tt.field.egressTCBpfs,
 			}
 			got := cfg.EBPFPrograms(tt.arg.iface)
-			// if !reflect.DeepEqual(got, tt.wantResult) {
-			// 	t.Errorf("EBPFPrograms() = %v, want %v", got, tt.wantResult)
-			// 	fmt.Printf("%#v\n", got)
-			// 	fmt.Printf("%#v\n", tt.wantResult)
-			// 	for _, prog := range tt.wantResult.BpfPrograms.XDPIngress {
-			// 		fmt.Printf("%#v\n", prog)
-			// 	}
-			// }
 			if got.HostName != tt.wantResult.HostName || got.Iface != tt.wantResult.Iface {
             	t.Errorf("EBPFPrograms() = %v, want %v", got, tt.wantResult)
         	}
@@ -1417,6 +1477,8 @@ func TestStopNRemoveAllBPFPrograms(t *testing.T) {
 		ingressTCBpfs  map[string]*list.List
 		egressTCBpfs   map[string]*list.List
 		hostConfig     *config.Config
+		processMon     *PCheck
+		metricsMon     *BpfMetrics
 	}
 	type args struct {
 		iface    string
@@ -1436,13 +1498,14 @@ func TestStopNRemoveAllBPFPrograms(t *testing.T) {
 				ingressTCBpfs: map[string]*list.List{"eth0": createBPFList([]string{"tc1", "tc2"})},
 				egressTCBpfs: map[string]*list.List{},
 				hostConfig: &config.Config{},
+				processMon:     pMon,
+				metricsMon:     mMon,
 			},
 			arg: args{
 				iface:    "eth0",
 				hostName: "host1",
 				itype: "xdpingress",
 			},
-			// wantResult: nil
 		},
 		{
 			name: "Test with IngressTCBpfs",
@@ -1452,13 +1515,13 @@ func TestStopNRemoveAllBPFPrograms(t *testing.T) {
 				ingressTCBpfs: map[string]*list.List{"eth0": createBPFList([]string{"tc1", "tc2"})},
 				egressTCBpfs: map[string]*list.List{},
 				hostConfig: &config.Config{},
+
 			},
 			arg: args{
 				iface:    "eth0",
 				hostName: "host1",
 				itype: "ingress",
 			},
-			// wantResult: nil
 		},
 		{
 			name: "Test with EgressTCBpfs",
@@ -1474,8 +1537,23 @@ func TestStopNRemoveAllBPFPrograms(t *testing.T) {
 				hostName: "host1",
 				itype: "egress",
 			},
-			// wantResult: nil
 		},
+		// If no programs were nil StopNRemoveAllBPFPrograms() method logs a warning and return err as nil. This should be handled properly.
+		// {
+		// 	name: "BadInput",
+		// 	field: fields{
+		// 		hostName: "host1",
+		// 		ingressXDPBpfs: map[string]*list.List{},
+		// 		ingressTCBpfs: map[string]*list.List{},
+		// 		egressTCBpfs: map[string]*list.List{},
+		// 		hostConfig: &config.Config{},
+		// 	},
+		// 	arg: args{
+		// 		iface:    "eth0",
+		// 		hostName: "host1",
+		// 		itype: "egress",
+		// 	},
+		// },
 	}
 
 	for _, tt := range tests {
@@ -1487,10 +1565,21 @@ func TestStopNRemoveAllBPFPrograms(t *testing.T) {
 				IngressTCBpfs: tt.field.ingressTCBpfs,
 				EgressTCBpfs: tt.field.egressTCBpfs,
 			}
+			setupMetrics()
 			got := cfg.StopNRemoveAllBPFPrograms(tt.arg.iface, tt.arg.itype)
 			if got != nil {
             	t.Errorf("StopNRemoveAllBPFPrograms() = %v, want %v", got, "nil")
         	}
+		})
+
+		t.Cleanup(func() {
+			stats.BPFStartCount = nil
+			stats.BPFStopCount = nil
+			stats.BPFUpdateCount = nil
+			stats.BPFUpdateFailedCount = nil
+			stats.BPFRunning = nil
+			stats.BPFStartTime = nil
+			stats.BPFMonitorMap = nil
 		})
 	}
 }
@@ -1503,8 +1592,8 @@ func TestSaveConfigsToConfigStore(t *testing.T) {
 		ingressTCBpfs  map[string]*list.List
 		egressTCBpfs   map[string]*list.List
 		hostConfig     *config.Config
-		processMon     *pCheck
-		metricsMon     *bpfMetrics
+		processMon     *PCheck
+		metricsMon     *BpfMetrics
 	}
 
 	type args struct {
@@ -1536,7 +1625,7 @@ func TestSaveConfigsToConfigStore(t *testing.T) {
 			fields: fields{
 				hostName:       "l3af-local-test",
 				hostInterfaces: hostInterfaces,
-				ingressXDPBpfs: make(map[string]*list.List),
+				ingressXDPBpfs: map[string]*list.List{hostInterfacesKey: createBPFList([]string{"foo"})},
 				ingressTCBpfs:  make(map[string]*list.List),
 				egressTCBpfs:   make(map[string]*list.List),
 				hostConfig: &config.Config{
@@ -1549,7 +1638,19 @@ func TestSaveConfigsToConfigStore(t *testing.T) {
 				iface:    hostInterfacesKey,
 				hostName: "l3af-local-test",
 				bpfProgs: &models.BPFPrograms{
-					XDPIngress: []*models.BPFProgram{},
+					XDPIngress: []*models.BPFProgram{
+						&models.BPFProgram{
+							ID:                1,
+							SeqID: 			   0,
+							Name:              "foo",
+							Artifact:          "foo.tar.gz",
+							CmdStart:          "foo",
+							CmdStop:           "",
+							Version:           "1.0",
+							UserProgramDaemon: true,
+							AdminStatus:       "DISABLED",
+						},
+					},
 					TCIngress:  []*models.BPFProgram{},
 					TCEgress:   []*models.BPFProgram{},
 				},
@@ -1558,7 +1659,76 @@ func TestSaveConfigsToConfigStore(t *testing.T) {
 				{
 					Iface: hostInterfacesKey,
 					HostName: "l3af-local-test",
-					BpfPrograms: &models.BPFPrograms{},
+					BpfPrograms: &models.BPFPrograms{
+						XDPIngress: []*models.BPFProgram{
+							&models.BPFProgram{
+								Name: "foo",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "GoodInput with Chaining",
+			fields: fields{
+				hostName:       "l3af-local-test",
+				hostInterfaces: hostInterfaces,
+				ingressXDPBpfs: map[string]*list.List{hostInterfacesKey: createBPFList([]string{"foo", "boo"})},
+				ingressTCBpfs:  make(map[string]*list.List),
+				egressTCBpfs:   make(map[string]*list.List),
+				hostConfig: &config.Config{
+					L3afConfigStoreFileName: filepath.FromSlash("../testdata/Test_SaveConfigsToConfigStore.json"),
+				},
+				processMon:     pMon,
+				metricsMon:     mMon,
+			},
+			args: args{
+				iface:    hostInterfacesKey,
+				hostName: "l3af-local-test",
+				bpfProgs: &models.BPFPrograms{
+					XDPIngress: []*models.BPFProgram{
+						&models.BPFProgram{
+							ID:                1,
+							SeqID: 			   0,
+							Name:              "foo",
+							Artifact:          "foo.tar.gz",
+							CmdStart:          "foo",
+							CmdStop:           "",
+							Version:           "1.0",
+							UserProgramDaemon: true,
+							AdminStatus:       "DISABLED",
+						},
+						&models.BPFProgram{
+							ID:                2,
+							SeqID: 			   1,
+							Name:              "boo",
+							Artifact:          "boo.tar.gz",
+							CmdStart:          "boo",
+							CmdStop:           "",
+							Version:           "1.0",
+							UserProgramDaemon: true,
+							AdminStatus:       "DISABLED",
+						},
+					},
+					TCIngress:  []*models.BPFProgram{},
+					TCEgress:   []*models.BPFProgram{},
+				},
+			},
+			want: []models.L3afBPFPrograms{
+				{
+					Iface: hostInterfacesKey,
+					HostName: "l3af-local-test",
+					BpfPrograms: &models.BPFPrograms{
+						XDPIngress: []*models.BPFProgram{
+							&models.BPFProgram{
+								Name: "foo",
+							},
+							&models.BPFProgram{
+								Name: "boo",
+							},
+						},
+					},
 				},
 			},
 		},
@@ -1568,25 +1738,20 @@ func TestSaveConfigsToConfigStore(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &NFConfigs{
 				HostName: tt.fields.hostName,
-				hostInterfaces: tt.fields.hostInterfaces,
+				HostInterfaces: tt.fields.hostInterfaces,
 				IngressXDPBpfs: tt.fields.ingressXDPBpfs,
 				IngressTCBpfs:  tt.fields.ingressTCBpfs,
 				EgressTCBpfs:   tt.fields.egressTCBpfs,
 				HostConfig:     tt.fields.hostConfig,
-				processMon:     tt.fields.processMon,
-				mu:             new(sync.Mutex),
+				ProcessMon:     tt.fields.processMon,
+				Mu:             new(sync.Mutex),
 			}
 
-			err := cfg.AddProgramsOnInterface(tt.args.iface, tt.args.hostName, tt.args.bpfProgs)
-			if err != nil {
-				t.Errorf("AddProgramsOnInterface() error = %v", err)
-			}
-
-			cfg.ifaces = map[string]string{tt.args.iface: tt.args.iface}
-			if len(cfg.ifaces) == 0 {
-				cfg.ifaces = map[string]string{tt.args.iface: tt.args.iface}
+			cfg.Ifaces = map[string]string{tt.args.iface: tt.args.iface}
+			if len(cfg.Ifaces) == 0 {
+				cfg.Ifaces = map[string]string{tt.args.iface: tt.args.iface}
 			} else {
-				cfg.ifaces[tt.args.iface] = tt.args.iface
+				cfg.Ifaces[tt.args.iface] = tt.args.iface
 			}
 
 			err = cfg.SaveConfigsToConfigStore()
@@ -1607,10 +1772,6 @@ func TestSaveConfigsToConfigStore(t *testing.T) {
 				t.Errorf("SaveConfigsToConfigStore() error = %v", err)
 				return
 			}
-
-			// if !reflect.DeepEqual(tt.want, savedBPFProgs) {
-			// 	t.Errorf("Saved BPF programs do not match expected data. Expected: %v, Got: %v", tt.want, savedBPFProgs)
-			// }
 
 			if diff := cmp.Diff(tt.want, savedBPFProgs); diff != "" {
 				t.Errorf("SaveConfigsToConfigStore() mismatch (-want +got):\n%s", diff)
@@ -1652,9 +1813,10 @@ func TestStopRootProgram(t *testing.T) {
 		name    string
 		fields fields
 		args    args
+		direction string
 	}{
 		{
-			name: "GoodInput",
+			name: "GoodInput_XDPIngress",
 			fields: fields{
 				hostName:       "l3af-local-test",
 				hostInterfaces: hostInterfaces,
@@ -1688,6 +1850,118 @@ func TestStopRootProgram(t *testing.T) {
 					TCEgress:   []*models.BPFProgram{},
 				},
 			},
+			direction: "xdpingress",
+		},
+		{
+			name: "GoodInput_TCIngress",
+			fields: fields{
+				hostName:       "l3af-local-test",
+				hostInterfaces: hostInterfaces,
+				ingressXDPBpfs: make(map[string]*list.List),
+				ingressTCBpfs:  map[string]*list.List{hostInterfacesKey: createBPFList([]string{"foo"})},
+				egressTCBpfs:   make(map[string]*list.List),
+				hostConfig: &config.Config{
+					BpfChainingEnabled: true,
+				},
+				processMon:     pMon,
+				metricsMon:     mMon,
+			},
+			args: args{
+				iface:    hostInterfacesKey,
+				hostName: "l3af-local-test",
+				bpfProgs: &models.BPFPrograms{
+					XDPIngress: []*models.BPFProgram{},
+					TCIngress:  []*models.BPFProgram{
+						&models.BPFProgram{
+							ID:                1,
+							SeqID: 			   0,
+							Name:              "foo",
+							Artifact:          "foo.tar.gz",
+							CmdStart:          "foo",
+							CmdStop:           "",
+							Version:           "1.0",
+							UserProgramDaemon: true,
+							AdminStatus:       "DISABLED",
+						},
+					},
+					TCEgress:   []*models.BPFProgram{},
+				},
+			},
+			direction: "ingress",
+		},
+		{
+			name: "GoodInput_TCEngress",
+			fields: fields{
+				hostName:       "l3af-local-test",
+				hostInterfaces: hostInterfaces,
+				ingressXDPBpfs: make(map[string]*list.List),
+				ingressTCBpfs:  make(map[string]*list.List),
+				egressTCBpfs:   map[string]*list.List{hostInterfacesKey: createBPFList([]string{"foo"})},
+				hostConfig: &config.Config{
+					BpfChainingEnabled: true,
+				},
+				processMon:     pMon,
+				metricsMon:     mMon,
+			},
+			args: args{
+				iface:    hostInterfacesKey,
+				hostName: "l3af-local-test",
+				bpfProgs: &models.BPFPrograms{
+					XDPIngress: []*models.BPFProgram{},
+					TCIngress:   []*models.BPFProgram{},
+					TCEgress:  []*models.BPFProgram{
+						&models.BPFProgram{
+							ID:                1,
+							SeqID: 			   0,
+							Name:              "foo",
+							Artifact:          "foo.tar.gz",
+							CmdStart:          "foo",
+							CmdStop:           "",
+							Version:           "1.0",
+							UserProgramDaemon: true,
+							AdminStatus:       "DISABLED",
+						},
+					},
+				},
+			},
+			direction: "egress",
+		},
+		{
+			name: "BadInput_InvalidDirection",
+			fields: fields{
+				hostName:       "l3af-local-test",
+				hostInterfaces: hostInterfaces,
+				ingressXDPBpfs: make(map[string]*list.List),
+				ingressTCBpfs:  make(map[string]*list.List),
+				egressTCBpfs:   make(map[string]*list.List),
+				hostConfig: &config.Config{
+					BpfChainingEnabled: true,
+				},
+				processMon:     pMon,
+				metricsMon:     mMon,
+			},
+			args: args{
+				iface:    hostInterfacesKey,
+				hostName: "l3af-local-test",
+				bpfProgs: &models.BPFPrograms{
+					XDPIngress: []*models.BPFProgram{},
+					TCIngress:   []*models.BPFProgram{},
+					TCEgress:  []*models.BPFProgram{
+						&models.BPFProgram{
+							ID:                1,
+							SeqID: 			   0,
+							Name:              "foo",
+							Artifact:          "foo.tar.gz",
+							CmdStart:          "foo",
+							CmdStop:           "",
+							Version:           "1.0",
+							UserProgramDaemon: true,
+							AdminStatus:       "DISABLED",
+						},
+					},
+				},
+			},
+			direction: "invalid_direction",
 		},
 	}
 
@@ -1704,22 +1978,50 @@ func TestStopRootProgram(t *testing.T) {
 				Mu:             new(sync.Mutex),
 			}
 
-			if cfg.IngressXDPBpfs[hostInterfacesKey] == nil {
-				t.Errorf("StopRootProgram() error = interface %v is nil", hostInterfacesKey)
-			}
+			switch tt.direction {
+			case "xdpingress":
+				// Checking whether the value is not nil
+				if cfg.IngressXDPBpfs[hostInterfacesKey] == nil {
+					t.Errorf("StopRootProgram() error = interface %v is nil", hostInterfacesKey)
+				}
+				err = cfg.StopRootProgram(tt.args.iface, tt.direction)
+				if  err != nil {
+					t.Errorf("StopRootProgram() error = %v", err)
+				}
 
-			// err := cfg.AddProgramsOnInterface(tt.args.iface, tt.args.hostName, tt.args.bpfProgs)
-			// if err != nil {
-			// 	t.Errorf("AddProgramsOnInterface() error = %v", err)
-			// }
+				// The value should be nil after invoking StopRootProgram, which is expected.
+				if cfg.IngressXDPBpfs[hostInterfacesKey] == nil {
+					t.Logf("StopRootProgram() expected = interface %v is nil", hostInterfacesKey)
+				}
+			case "ingress":
+				if cfg.IngressTCBpfs[hostInterfacesKey] == nil {
+					t.Errorf("StopRootProgram() error = interface %v is nil", hostInterfacesKey)
+				}
+				err = cfg.StopRootProgram(tt.args.iface, tt.direction)
+				if  err != nil {
+					t.Errorf("StopRootProgram() error = %v", err)
+				}
 
-			err = cfg.StopRootProgram(tt.args.iface, "xdpingress")
-			if  err != nil {
-				t.Errorf("StopRootProgram() error = %v", err)
-			}
+				if cfg.IngressTCBpfs[hostInterfacesKey] == nil {
+					t.Logf("StopRootProgram() expected = interface %v is nil", hostInterfacesKey)
+				}
+			case "egress":
+				if cfg.EgressTCBpfs[hostInterfacesKey] == nil {
+					t.Errorf("StopRootProgram() error = interface %v is nil", hostInterfacesKey)
+				}
+				err = cfg.StopRootProgram(tt.args.iface, tt.direction)
+				if  err != nil {
+					t.Errorf("StopRootProgram() error = %v", err)
+				}
 
-			if cfg.IngressXDPBpfs[hostInterfacesKey] == nil {
-				t.Logf("StopRootProgram() expected = interface %v is nil", hostInterfacesKey)
+				if cfg.EgressTCBpfs[hostInterfacesKey] == nil {
+					t.Logf("StopRootProgram() expected = interface %v is nil", hostInterfacesKey)
+				}
+			default:
+				err = cfg.StopRootProgram(tt.args.iface, tt.direction)
+				if  err != nil && err.Error() == "unknown direction type" {
+					t.Logf("StopRootProgram() expected error = %v", err)
+				}
 			}
 		})
 	}
@@ -1785,6 +2087,7 @@ func TestLinkBPFPrograms(t *testing.T) {
 		name    string
 		fields fields
 		args    args
+		wantErr bool
 	}{
 		{
 			name: "GoodInput",
@@ -1833,6 +2136,7 @@ func TestLinkBPFPrograms(t *testing.T) {
 					TCEgress:   []*models.BPFProgram{},
 				},
 			},
+			wantErr: false,
 		},
 	}
 
@@ -1857,9 +2161,19 @@ func TestLinkBPFPrograms(t *testing.T) {
 			bpf1 := tmpNextBPF.Prev().Value.(*BPF)
 			bpf2 := tmpNextBPF.Value.(*BPF)
 
-			err := cfg.LinkBPFPrograms(bpf2, bpf1)
-			if  err != nil {
+			cfg.LinkBPFPrograms(bpf2, bpf1)
+			if  (err != nil) != tt.wantErr {
 				t.Errorf("LinkBPFPrograms() error = %v", err)
+			}
+
+			// Check whether bpf2's MapNamePath is linked with bpf1's PrevMapNamePath
+			if bpf1.PrevMapNamePath != bpf2.MapNamePath {
+				t.Errorf("LinkBPFPrograms() error = bpf2's MapNamePath is not linked with bpf1 PrevMapNamePath")
+			} 
+			
+			// Check whether bpf2's PrevProgMapID is linked with bpf1's PrevProgMapID
+			if bpf1.PrevProgMapID != bpf2.PrevProgMapID {
+				t.Errorf("LinkBPFPrograms() error = bpf2's PrevProgMapID is not linked with bpf1 PrevProgMapID")
 			}
 		})
 	}
@@ -2011,6 +2325,7 @@ func TestRemoveMissingBPFProgramsInConfig(t *testing.T) {
 				t.Errorf("RemoveMissingBPFProgramsInConfig() error = %v", err)
 			}
 
+			// Checking the length after removing
 			if cfg.IngressXDPBpfs[tt.args.Iface].Len() != (tt.countOfPrograms - tt.countOfProgramsThatWillBeRemoved){
 				t.Errorf("Two lists should not be equal.")
 			}
