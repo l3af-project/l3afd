@@ -16,7 +16,7 @@ require (
 )
 
 require (
-	github.com/florianl/go-tc v0.4.4
+	github.com/florianl/go-tc v0.4.5
 	github.com/golang/mock v1.6.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
