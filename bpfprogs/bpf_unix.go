@@ -17,6 +17,8 @@ import (
 	"syscall"
 	"unsafe"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
 	"github.com/florianl/go-tc"
 	"github.com/florianl/go-tc/core"
 	"github.com/l3af-project/l3afd/v2/models"
@@ -514,5 +516,49 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 		return fmt.Errorf("could not dettach tc filter for interface %s : Direction: %v, parentHandle: %v, Error:%w", ifaceName, direction, parentHandle, err)
 	}
 
+	return nil
+}
+
+// LoadTCXAttachProgram - Load and attach xdp root program or any xdp program when chaining is disabled
+func (b *BPF) LoadTCXAttachProgram(ifaceName, direction string) error {
+
+	iface, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		log.Error().Err(err).Msgf("LoadXDPAttachProgram -look up network iface %q", ifaceName)
+		return err
+	}
+
+	if err := b.LoadBPFProgram(ifaceName); err != nil {
+		return err
+	}
+
+	var attachType ebpf.AttachType
+	if direction == models.IngressType {
+		attachType = ebpf.AttachTCXIngress
+	} else {
+		attachType = ebpf.AttachTCXEgress
+	}
+
+	b.Link, err = link.AttachTCX(link.TCXOptions{
+		Program:   b.ProgMapCollection.Programs[b.Program.EntryFunctionName],
+		Interface: iface.Index,
+		Attach:    attachType,
+	})
+
+	if err != nil {
+		return fmt.Errorf("could not attach tc program %s to interface %s direction %s : %w", b.Program.Name, ifaceName, direction, err)
+	}
+
+	// Pin the Link
+	linkPinPath := fmt.Sprintf("%s/links/%s/%s_%s_%s", b.HostConfig.BpfMapDefaultPath, ifaceName, b.Program.Name, b.Program.ProgType, direction)
+	if err := b.Link.Pin(linkPinPath); err != nil {
+		return fmt.Errorf("tcx program pinning failed program %s direction %s interface %s : %w", b.Program.Name, direction, ifaceName, err)
+	}
+
+	if b.HostConfig.BpfChainingEnabled {
+		if err = b.UpdateProgramMap(ifaceName); err != nil {
+			return err
+		}
+	}
 	return nil
 }

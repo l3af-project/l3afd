@@ -150,10 +150,10 @@ func deserializeProgram(ctx context.Context, r *models.L3AFMetaData, hostconfig 
 		Programs: make(map[string]*ebpf.Program),
 		Maps:     make(map[string]*ebpf.Map),
 	}
-	if r.XDPLink {
+	if r.Link {
 		linkPinPath := fmt.Sprintf("%s/links/%s/%s_%s", hostconfig.BpfMapDefaultPath, iface, g.Program.Name, g.Program.ProgType)
 		var err error
-		g.XDPLink, err = link.LoadPinnedLink(linkPinPath, nil)
+		g.Link, err = link.LoadPinnedLink(linkPinPath, nil)
 		if err != nil {
 			return nil, err
 		}
