@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net/netip"
+	"strconv"
 	"unsafe"
 
 	"github.com/cilium/ebpf"
@@ -24,10 +26,15 @@ type BPFMap struct {
 	BPFProg *BPF `json:"-"`
 }
 
+type MetricKeyValue struct {
+	Key   string
+	Value float64
+}
+
 // This stores Metrics map details.
 type MetricsBPFMap struct {
 	BPFMap
-	Key        int
+	Key        string
 	Values     *ring.Ring
 	Aggregator string
 	LastValue  float64
@@ -87,7 +94,7 @@ func (b *BPFMap) Update(key, value int) error {
 // max-rate - this calculates delta requests / sec and stores absolute value.
 // avg - stores the values in the circular queue
 // We can implement more aggregate function as needed.
-func (b *MetricsBPFMap) GetValue() float64 {
+func (b *MetricsBPFMap) GetValue(keyType string) float64 {
 	ebpfMap, err := ebpf.NewMapFromID(b.MapID)
 	if err != nil {
 		// We have observed in smaller configuration VM's, if we restart BPF's
@@ -107,11 +114,33 @@ func (b *MetricsBPFMap) GetValue() float64 {
 		}
 	}
 	defer ebpfMap.Close()
-
 	var value int64
-	if err = ebpfMap.Lookup(unsafe.Pointer(&b.Key), unsafe.Pointer(&value)); err != nil {
-		log.Warn().Err(err).Msgf("GetValue Lookup failed : Name %s ID %d", b.Name, b.MapID)
-		return 0
+	switch keyType {
+	case "int":
+		var k int
+		k, err = strconv.Atoi(b.Key)
+		if err != nil {
+			log.Warn().Err(err).Msgf("conversion of key to int failed : Name %s ID %d", b.Name, b.MapID)
+			return 0
+		}
+		if err = ebpfMap.Lookup(unsafe.Pointer(&k), unsafe.Pointer(&value)); err != nil {
+			log.Warn().Err(err).Msgf("GetValue Lookup failed : Name %s ID %d", b.Name, b.MapID)
+			return 0
+		}
+		break
+	case "ipv4":
+		ip, err := netip.ParseAddr(b.Key)
+		if err != nil {
+			log.Warn().Err(err).Msgf("Parsing of IP address failed %v : Name %s ID %d", b.Key, b.Name, b.MapID)
+			return 0
+		}
+		if err = ebpfMap.Lookup(ip, unsafe.Pointer(&value)); err != nil {
+			log.Warn().Err(err).Msgf("GetValue Lookup failed : Name %s ID %d", b.Name, b.MapID)
+			return 0
+		}
+		break
+	default:
+		fmt.Errorf("unsupported keytype")
 	}
 
 	var retVal float64
@@ -131,6 +160,47 @@ func (b *MetricsBPFMap) GetValue() float64 {
 		log.Warn().Msgf("unsupported aggregator %s and value %d", b.Aggregator, value)
 	}
 	return retVal
+}
+
+func (b *MetricsBPFMap) GetAllKeysAndValues(KeyType string) ([]MetricKeyValue, error) {
+	var result []MetricKeyValue
+	ebpfMap, err := ebpf.NewMapFromID(b.MapID)
+	if err != nil {
+		return nil, fmt.Errorf("access new map from ID failed %w", err)
+	}
+	defer ebpfMap.Close()
+	if KeyType == "ipv4" {
+		var key netip.Addr
+		var val int64
+		iter := ebpfMap.Iterate()
+		for iter.Next(&key, &val) {
+			result = append(result, MetricKeyValue{
+				Key:   key.String(),
+				Value: float64(val),
+			})
+		}
+		if iter.Err() != nil {
+			return nil, iter.Err()
+		}
+	} else {
+		if KeyType == "int" {
+			var key int
+			var val int64
+			iter := ebpfMap.Iterate()
+			for iter.Next(unsafe.Pointer(&key), unsafe.Pointer(&val)) {
+				result = append(result, MetricKeyValue{
+					Key:   strconv.Itoa(key),
+					Value: float64(val),
+				})
+			}
+			if iter.Err() != nil {
+				return nil, iter.Err()
+			}
+		} else {
+			return nil, fmt.Errorf("unsupported keytype")
+		}
+	}
+	return result, nil
 }
 
 // This method  finds the max value in the circular list

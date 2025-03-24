@@ -5,6 +5,7 @@ package stats
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 
@@ -108,7 +109,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 			Name:      "BPFMonitorMap",
 			Help:      "This value indicates BPF program monitor counters",
 		},
-		[]string{"host", "ebpf_program", "map_name", "interface_name"},
+		[]string{"host", "ebpf_program", "map_name", "interface_name", "key", "aggregator"},
 	)
 
 	if err := prometheus.Register(bpfMonitorMapVec); err != nil {
@@ -197,7 +198,7 @@ func Set(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, direction, i
 }
 
 // Set gaugevec metrics value with given mapName and other fields
-func SetValue(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, mapName, ifaceName string) {
+func SetValue(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, mapName, ifaceName, aggregator, key string) {
 
 	if gaugeVec == nil {
 		log.Warn().Msg("Metrics: gauge vector is nil and needs to be initialized before SetValue")
@@ -208,11 +209,14 @@ func SetValue(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, mapName
 			"ebpf_program":   ebpfProgram,
 			"map_name":       mapName,
 			"interface_name": ifaceName,
+			"key":            key,
+			"aggregator":     aggregator,
 		}),
 	)
 	if err != nil {
-		log.Warn().Msgf("Metrics: unable to fetch gauge with fields: ebpf_program: %s, map_name: %s, interface_name: %s",
-			ebpfProgram, mapName, ifaceName)
+		log.Warn().Msgf("Metrics: unable to fetch gauge with fields: ebpf_program: %s, map_name: %s, interface_name: %s , key %s , aggregator %s",
+			ebpfProgram, mapName, ifaceName, key, aggregator)
+		fmt.Println(err)
 		return
 	}
 	bpfGauge.Set(value)
