@@ -127,7 +127,6 @@ func (b *MetricsBPFMap) GetValue(keyType string) float64 {
 			log.Warn().Err(err).Msgf("GetValue Lookup failed : Name %s ID %d", b.Name, b.MapID)
 			return 0
 		}
-		break
 	case "ipv4":
 		ip, err := netip.ParseAddr(b.Key)
 		if err != nil {
@@ -138,9 +137,9 @@ func (b *MetricsBPFMap) GetValue(keyType string) float64 {
 			log.Warn().Err(err).Msgf("GetValue Lookup failed : Name %s ID %d", b.Name, b.MapID)
 			return 0
 		}
-		break
 	default:
-		fmt.Errorf("unsupported keytype")
+		log.Warn().Msgf("unsupported keytype %s", keyType)
+		return 0
 	}
 
 	var retVal float64

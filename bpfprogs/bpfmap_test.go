@@ -43,7 +43,7 @@ func TestMetricsBPFMapMaxValue(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			metricsMap := &MetricsBPFMap{
 				Values:     TestValues,
-				Key:        0,
+				Key:        "0",
 				Aggregator: tt.args.aggregator,
 				LastValue:  0,
 			}
