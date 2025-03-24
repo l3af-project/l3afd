@@ -69,8 +69,9 @@ type BPFProgram struct {
 // L3afDNFMetricsMap defines BPF map
 type L3afDNFMetricsMap struct {
 	Name       string `json:"name"`       // BPF map name
-	Key        int    `json:"key"`        // Index of the bpf map
+	Key        string `json:"key"`        // Index of the bpf map
 	Aggregator string `json:"aggregator"` // Aggregation function names
+	KeyType    string `json:"key_type"`   // Type of key
 }
 
 // KeyValue defines struct for key and value
@@ -122,7 +123,7 @@ type MetaColl struct {
 
 type MetaMetricsBPFMap struct {
 	MapName    string
-	Key        int
+	Key        string
 	Values     []float64
 	Aggregator string
 	LastValue  float64
