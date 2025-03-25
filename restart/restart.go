@@ -125,7 +125,7 @@ func getMetricsMaps(input map[string]models.MetaMetricsBPFMap, b *bpfprogs.BPF, 
 }
 
 // deserializeProgram will deserialize individual program from given *models.L3AFMetaData
-func deserializeProgram(ctx context.Context, r *models.L3AFMetaData, hostconfig *config.Config, iface string) (*bpfprogs.BPF, error) {
+func deserializeProgram(ctx context.Context, r *models.L3AFMetaData, hostconfig *config.Config, iface, direction string) (*bpfprogs.BPF, error) {
 	g := &bpfprogs.BPF{}
 	g.Program = r.Program
 	g.FilePath = r.FilePath
@@ -151,7 +151,12 @@ func deserializeProgram(ctx context.Context, r *models.L3AFMetaData, hostconfig 
 		Maps:     make(map[string]*ebpf.Map),
 	}
 	if r.Link {
-		linkPinPath := fmt.Sprintf("%s/links/%s/%s_%s", hostconfig.BpfMapDefaultPath, iface, g.Program.Name, g.Program.ProgType)
+		var linkPinPath string
+		if g.Program.ProgType == models.XDPType {
+			linkPinPath = fmt.Sprintf("%s/links/%s/%s_%s", hostconfig.BpfMapDefaultPath, iface, g.Program.Name, g.Program.ProgType)
+		} else {
+			linkPinPath = fmt.Sprintf("%s/links/%s/%s_%s_%s", hostconfig.BpfMapDefaultPath, models.TCMapPinPath, iface, g.Program.Name, g.Program.ProgType, direction)
+		}
 		var err error
 		g.Link, err = link.LoadPinnedLink(linkPinPath, nil)
 		if err != nil {
@@ -221,7 +226,7 @@ func Convert(ctx context.Context, t models.L3AFALLHOSTDATA, hostconfig *config.C
 		for k, v := range t.IngressXDPBpfs {
 			l := list.New()
 			for _, r := range v {
-				f, err := deserializeProgram(ctx, r, hostconfig, k)
+				f, err := deserializeProgram(ctx, r, hostconfig, k, models.XDPIngressType)
 				if err != nil {
 					log.Err(err).Msg("Deserialization failed for xdp ingress programs")
 					return nil, err
@@ -235,7 +240,7 @@ func Convert(ctx context.Context, t models.L3AFALLHOSTDATA, hostconfig *config.C
 		for k, v := range t.IngressTCBpfs {
 			l := list.New()
 			for _, r := range v {
-				f, err := deserializeProgram(ctx, r, hostconfig, k)
+				f, err := deserializeProgram(ctx, r, hostconfig, k, models.IngressType)
 				if err != nil {
 					log.Err(err).Msg("Deserialization failed for tc ingress programs")
 					return nil, err
@@ -249,7 +254,7 @@ func Convert(ctx context.Context, t models.L3AFALLHOSTDATA, hostconfig *config.C
 		for k, v := range t.EgressTCBpfs {
 			l := list.New()
 			for _, r := range v {
-				f, err := deserializeProgram(ctx, r, hostconfig, k)
+				f, err := deserializeProgram(ctx, r, hostconfig, k, models.EgressType)
 				if err != nil {
 					log.Err(err).Msg("Deserialization failed for tc egress programs")
 					return nil, err
