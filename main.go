@@ -27,6 +27,8 @@ import (
 	"github.com/l3af-project/l3afd/v2/pidfile"
 	"github.com/l3af-project/l3afd/v2/restart"
 	"github.com/l3af-project/l3afd/v2/stats"
+	"github.com/l3af-project/l3afd/v2/utils"
+
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/rs/zerolog"
@@ -175,7 +177,7 @@ func SetupNFConfigs(ctx context.Context, conf *config.Config) (*bpfprogs.NFConfi
 func checkKernelVersion(conf *config.Config) error {
 	const minVerLen = 2
 
-	kernelVersion, err := getKernelVersion()
+	kernelVersion, err := utils.GetKernelVersion()
 	if err != nil {
 		return fmt.Errorf("failed to find kernel version: %v", err)
 	}
@@ -202,20 +204,6 @@ func checkKernelVersion(conf *config.Config) error {
 	}
 
 	return fmt.Errorf("expected Kernel version >=  %d.%d", conf.MinKernelMajorVer, conf.MinKernelMinorVer)
-}
-
-func getKernelVersion() (string, error) {
-	osVersion, err := os.ReadFile("/proc/version")
-	if err != nil {
-		return "", fmt.Errorf("failed to read procfs: %v", err)
-	}
-	var u1, u2, kernelVersion string
-	_, err = fmt.Sscanf(string(osVersion), "%s %s %s", &u1, &u2, &kernelVersion)
-	if err != nil {
-		return "", fmt.Errorf("failed to scan procfs version: %v", err)
-	}
-
-	return kernelVersion, nil
 }
 
 func ReadConfigsFromConfigStore(conf *config.Config) ([]models.L3afBPFPrograms, error) {

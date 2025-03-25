@@ -194,8 +194,8 @@ func VerifyNCreateTCDirs() error {
 		return nil
 	}
 	log.Info().Msgf(" %s tc directory doesn't exists, creating", path)
-	err := os.MkdirAll(path, 0700)
-	if err != nil {
+
+	if err := os.MkdirAll(path, 0700); err != nil {
 		return fmt.Errorf("unable to create directories to pin tc maps %s : %w", path, err)
 	}
 	return nil

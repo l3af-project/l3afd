@@ -30,6 +30,7 @@ import (
 	"github.com/l3af-project/l3afd/v2/config"
 	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/l3af-project/l3afd/v2/stats"
+	"github.com/l3af-project/l3afd/v2/utils"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
@@ -188,13 +189,16 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 		if err := rootProgBPF.ProgMapCollection.Programs[rootProgBPF.Program.EntryFunctionName].Pin(progPinPath); err != nil {
 			return nil, err
 		}
-	} else if progType == models.TCType {
-		if err := rootProgBPF.LoadTCXAttachProgram(ifaceName, direction); err != nil {
+	} else {
+		if utils.CheckTCXSupport() {
+			if err := rootProgBPF.LoadTCXAttachProgram(ifaceName, direction); err != nil {
+				return nil, fmt.Errorf("failed to load tcx root program on iface \"%s\" name %s direction %s with err %w", ifaceName, rootProgBPF.Program.Name, direction, err)
+			}
+		} else {
 			if err := rootProgBPF.LoadTCAttachProgram(ifaceName, direction); err != nil {
 				return nil, fmt.Errorf("failed to load tc root program on iface \"%s\" name %s direction %s with err %w", ifaceName, rootProgBPF.Program.Name, direction, err)
 			}
 		}
-
 		// pin the program also
 		progPinPath := fmt.Sprintf("%s/progs/%s/%s_%s", rootProgBPF.HostConfig.BpfMapDefaultPath, ifaceName, rootProgBPF.Program.EntryFunctionName, rootProgBPF.Program.ProgType)
 		if err := rootProgBPF.ProgMapCollection.Programs[rootProgBPF.Program.EntryFunctionName].Pin(progPinPath); err != nil {
@@ -975,9 +979,13 @@ func (b *BPF) UnloadProgram(ifaceName, direction string) error {
 	// SeqID will be 0 for root program or any other program without chaining
 	if b.Program.SeqID == 0 || !b.HostConfig.BpfChainingEnabled {
 		if b.Program.ProgType == models.TCType {
-			if b.Link != nil {
-				if err := b.Link.Close(); err != nil {
-					log.Warn().Msgf("removing tc attached program failed iface %q direction %s error - %v", ifaceName, direction, err)
+			if utils.CheckTCXSupport() {
+				if b.Link != nil {
+					if err := b.Link.Close(); err != nil {
+						log.Warn().Msgf("removing tc attached program %s failed iface %q direction %s error - %v", b.Program.Name, ifaceName, direction, err)
+					}
+				} else {
+					log.Warn().Msgf("attach program %s link file is missing iface %q direction %s", b.Program.Name, ifaceName, direction)
 				}
 			} else {
 				if err := b.UnloadTCProgram(ifaceName, direction); err != nil {
@@ -1385,9 +1393,13 @@ func (b *BPF) AttachBPFProgram(ifaceName, direction string) error {
 			return err
 		}
 	} else if b.Program.ProgType == models.TCType {
-		if err := b.LoadTCXAttachProgram(ifaceName, direction); err != nil {
+		if utils.CheckTCXSupport() {
+			if err := b.LoadTCXAttachProgram(ifaceName, direction); err != nil {
+				return fmt.Errorf("failed to attach tcx program %s to interface %s direction %s with err %w", b.Program.Name, ifaceName, direction, err)
+			}
+		} else {
 			if err := b.LoadTCAttachProgram(ifaceName, direction); err != nil {
-				return fmt.Errorf("failed to attach tc program %s to inferface %s direction %s with err: %w", b.Program.Name, ifaceName, direction, err)
+				return fmt.Errorf("failed to attach tc program %s to interface %s direction %s with err %w", b.Program.Name, ifaceName, direction, err)
 			}
 		}
 
