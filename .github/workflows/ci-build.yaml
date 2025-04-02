@@ -21,10 +21,10 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - name: Setup Go 1.22.3
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34
+      - name: Setup Go 1.23.0
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b
         with:
-          go-version: '1.22.3'
+          go-version: '1.23.0'
 
       - name: Harden Runner
         uses: step-security/harden-runner@4d991eb9b905ef189e4c376166672c3f2f230481
