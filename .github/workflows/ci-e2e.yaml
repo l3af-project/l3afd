@@ -19,7 +19,10 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        ubuntu_version: [ ubuntu-22.04, ubuntu-24.04 ]
+    runs-on: ${{ matrix.ubuntu_version }}
     steps:
       - name: Update and firewall stop
         run: |
