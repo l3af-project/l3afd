@@ -62,6 +62,12 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 	return fmt.Errorf("LoadTCAttachProgram - TC programs Unsupported on windows")
 }
 
+// LoadTCXAttachProgram - not implemented in windows
+func (b *BPF) LoadTCXAttachProgram(ifaceName, direction string) error {
+	// not implement nothing todo
+	return fmt.Errorf("LoadTCXAttachProgram - TC programs Unsupported on windows")
+}
+
 // UnloadTCProgram - Remove TC filters
 func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 	return fmt.Errorf("UnloadTCProgram - TC programs Unsupported on windows")
