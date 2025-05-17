@@ -19,7 +19,12 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        codename: [ jammy, noble ]
+    container:
+      image: ubuntu:${{ matrix.codename }}
     steps:
       - name: Update and firewall stop
         run: |
