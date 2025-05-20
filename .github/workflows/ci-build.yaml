@@ -39,8 +39,21 @@ jobs:
       - name: Set up environment
         run: |
           sudo apt-get update
-          sudo apt-get remove containerd.io
-          sudo apt-get install -y gcc libc-dev bash perl curl make docker docker.io
+          sudo apt-get remove -y containerd.io docker docker.io moby-engine moby-cli || true  # Remove any existing Docker-related packages
+          sudo apt-get install -y \
+            apt-transport-https \
+            ca-certificates \
+            curl \
+            software-properties-common
+          # Add Docker’s official GPG key
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+          # Add the Docker repository
+          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+          # Update package database and install Docker
+          sudo apt-get update
+          sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+          # Install other necessary packages
+          sudo apt-get install -y gcc libc-dev bash perl curl make
 
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 
