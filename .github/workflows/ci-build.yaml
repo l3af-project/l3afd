@@ -52,7 +52,6 @@ jobs:
           # Update package database and install Docker
           sudo apt-get update
           sudo apt-get install -y docker-ce docker-ce-cli containerd.io
-          # Install other necessary packages
           sudo apt-get install -y gcc libc-dev bash perl curl make
 
       - name: Checkout repository
