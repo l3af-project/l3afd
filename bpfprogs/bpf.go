@@ -21,7 +21,6 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -713,7 +712,7 @@ func (b *BPF) GetBPFMap(mapName string) (*BPFMap, error) {
 }
 
 // Add eBPF map into BPFMaps list
-func (b *BPF) AddMetricsBPFMap(mapName, aggregator string, key, samplesLength int) error {
+func (b *BPF) AddMetricsBPFMap(mapName, key, aggregator string, samplesLength int) error {
 	var tmpMetricsBPFMap MetricsBPFMap
 	bpfMap, err := b.GetBPFMap(mapName)
 	if err != nil {
@@ -725,8 +724,8 @@ func (b *BPF) AddMetricsBPFMap(mapName, aggregator string, key, samplesLength in
 	tmpMetricsBPFMap.Aggregator = aggregator
 	tmpMetricsBPFMap.Values = ring.New(samplesLength)
 
-	log.Info().Msgf("added Metrics map ID %d Name %s Type %s Key %d Aggregator %s", tmpMetricsBPFMap.MapID, tmpMetricsBPFMap.Name, tmpMetricsBPFMap.Type, tmpMetricsBPFMap.Key, tmpMetricsBPFMap.Aggregator)
-	map_key := mapName + strconv.Itoa(key) + aggregator
+	log.Info().Msgf("added Metrics map ID %d Name %s Type %s Key %s Aggregator %s", tmpMetricsBPFMap.MapID, tmpMetricsBPFMap.Name, tmpMetricsBPFMap.Type, tmpMetricsBPFMap.Key, tmpMetricsBPFMap.Aggregator)
+	map_key := mapName + key + aggregator
 	b.MetricsBpfMaps[map_key] = &tmpMetricsBPFMap
 
 	return nil
@@ -735,17 +734,26 @@ func (b *BPF) AddMetricsBPFMap(mapName, aggregator string, key, samplesLength in
 // This method to fetch values from bpf maps and publish to metrics
 func (b *BPF) MonitorMaps(ifaceName string, intervals int) error {
 	for _, element := range b.Program.MonitorMaps {
-		log.Debug().Msgf("monitor maps element %s key %d aggregator %s", element.Name, element.Key, element.Aggregator)
-		mapKey := element.Name + strconv.Itoa(element.Key) + element.Aggregator
+		log.Debug().Msgf("monitor maps element %s key %s aggregator %s", element.Name, element.Key, element.Aggregator)
+		mapKey := element.Name + element.Key + element.Aggregator
 		_, ok := b.MetricsBpfMaps[mapKey]
 		if !ok {
-			if err := b.AddMetricsBPFMap(element.Name, element.Aggregator, element.Key, intervals); err != nil {
-				return fmt.Errorf("unable to fetch map %s key %d aggregator %s : %w", element.Name, element.Key, element.Aggregator, err)
+			if err := b.AddMetricsBPFMap(element.Name, element.Key, element.Aggregator, intervals); err != nil {
+				return fmt.Errorf("unable to fetch map %s key %s aggregator %s : %w", element.Name, element.Key, element.Aggregator, err)
 			}
 		}
 		bpfMap := b.MetricsBpfMaps[mapKey]
-		MetricName := element.Name + "_" + strconv.Itoa(element.Key) + "_" + element.Aggregator
-		stats.SetValue(bpfMap.GetValue(), stats.BPFMonitorMap, b.Program.Name, MetricName, ifaceName)
+		if element.Key != "*" {
+			stats.SetValue(bpfMap.GetValue(element.KeyType), stats.BPFMonitorMap, b.Program.Name, element.Name, ifaceName, bpfMap.Aggregator, element.Key)
+		} else {
+			allKV, err := bpfMap.GetAllKeysAndValues(element.KeyType)
+			if err != nil {
+				return fmt.Errorf("GetAllKeysAndValues failed with error %w", err)
+			}
+			for _, kv := range allKV {
+				stats.SetValue(kv.Value, stats.BPFMonitorMap, b.Program.Name, element.Name, ifaceName, bpfMap.Aggregator, kv.Key)
+			}
+		}
 	}
 	return nil
 }
