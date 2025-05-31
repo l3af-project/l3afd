@@ -1,6 +1,6 @@
 module github.com/l3af-project/l3afd/v2
 
-go 1.23.0
+go 1.24.2
 
 require (
 	github.com/cilium/ebpf v0.17.3
@@ -9,7 +9,7 @@ require (
 	github.com/prometheus/client_golang v1.22.0
 	github.com/robfig/config v0.0.0-20141207224736-0f78529c8c7e
 	github.com/rs/zerolog v1.33.0
-	github.com/safchain/ethtool v0.5.10
+	github.com/safchain/ethtool v0.6.1
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/swaggo/swag v1.16.4
 	golang.org/x/sys v0.33.0 // exclude
