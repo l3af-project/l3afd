@@ -19,7 +19,12 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        os:
+          - ubuntu-24.04
+          - ubuntu-22.04
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Update and firewall stop
         run: |
