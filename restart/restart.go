@@ -59,7 +59,7 @@ func convertBPFMap(in []string, g *bpfprogs.BPF, output *map[string]bpfprogs.BPF
 // getCollection will populate ebpf Collection from deserialized meta collection object
 func getCollection(input models.MetaColl, output **ebpf.Collection, b *bpfprogs.BPF, iface string) error {
 	for _, v := range input.Programs {
-		progPinPath := fmt.Sprintf("%s/progs/%s/%s_%s", b.HostConfig.BpfMapDefaultPath, iface, b.Program.EntryFunctionName, b.Program.ProgType)
+		progPinPath := fmt.Sprintf("%s/progs/%s/%s/%s/%s_%s", b.HostConfig.BpfMapDefaultPath, iface, b.Program.Name, b.Program.Version, b.Program.EntryFunctionName, b.Program.ProgType)
 		prog, err := ebpf.LoadPinnedProgram(progPinPath, nil)
 		if err != nil {
 			return err
@@ -151,7 +151,7 @@ func deserializeProgram(ctx context.Context, r *models.L3AFMetaData, hostconfig 
 		Maps:     make(map[string]*ebpf.Map),
 	}
 	if r.XDPLink {
-		linkPinPath := fmt.Sprintf("%s/links/%s/%s_%s", hostconfig.BpfMapDefaultPath, iface, g.Program.Name, g.Program.ProgType)
+		linkPinPath := fmt.Sprintf("%s/links/%s/%s/%s/%s_%s", hostconfig.BpfMapDefaultPath, iface, g.Program.Name, g.Program.Version, g.Program.Name, g.Program.ProgType)
 		var err error
 		g.XDPLink, err = link.LoadPinnedLink(linkPinPath, nil)
 		if err != nil {
