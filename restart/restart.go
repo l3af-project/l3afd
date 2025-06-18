@@ -58,8 +58,9 @@ func convertBPFMap(in []string, g *bpfprogs.BPF, output *map[string]bpfprogs.BPF
 
 // getCollection will populate ebpf Collection from deserialized meta collection object
 func getCollection(input models.MetaColl, output **ebpf.Collection, b *bpfprogs.BPF, iface string) error {
+	version := strings.ReplaceAll(b.Program.Version, ".", "_")
 	for _, v := range input.Programs {
-		progPinPath := fmt.Sprintf("%s/progs/%s/%s/%s/%s_%s", b.HostConfig.BpfMapDefaultPath, iface, b.Program.Name, b.Program.Version, b.Program.EntryFunctionName, b.Program.ProgType)
+		progPinPath := fmt.Sprintf("%s/progs/%s/%s/%s/%s_%s", b.HostConfig.BpfMapDefaultPath, iface, b.Program.Name, version, b.Program.EntryFunctionName, b.Program.ProgType)
 		prog, err := ebpf.LoadPinnedProgram(progPinPath, nil)
 		if err != nil {
 			return err
@@ -69,9 +70,9 @@ func getCollection(input models.MetaColl, output **ebpf.Collection, b *bpfprogs.
 	for _, v := range input.Maps {
 		var mapPinPath string
 		if b.Program.ProgType == models.TCType {
-			mapPinPath = filepath.Join(b.HostConfig.BpfMapDefaultPath, models.TCMapPinPath, iface, v)
+			mapPinPath = filepath.Join(b.HostConfig.BpfMapDefaultPath, models.TCMapPinPath, iface, b.Program.Name, version, v)
 		} else if b.Program.ProgType == models.XDPType {
-			mapPinPath = filepath.Join(b.HostConfig.BpfMapDefaultPath, iface, v)
+			mapPinPath = filepath.Join(b.HostConfig.BpfMapDefaultPath, iface, b.Program.Name, version, v)
 		}
 		m, err := ebpf.LoadPinnedMap(mapPinPath, nil)
 		if err != nil {
@@ -87,13 +88,14 @@ func getMetricsMaps(input map[string]models.MetaMetricsBPFMap, b *bpfprogs.BPF, 
 	if input == nil {
 		return nil
 	}
+	version := strings.ReplaceAll(b.Program.Version, ".", "_")
 	for k, v := range input {
 		fg := &bpfprogs.MetricsBPFMap{}
 		var pinnedPath string
 		if b.Program.ProgType == models.XDPType {
-			pinnedPath = filepath.Join(b.HostConfig.BpfMapDefaultPath, iface, v.MapName)
+			pinnedPath = filepath.Join(b.HostConfig.BpfMapDefaultPath, iface, b.Program.Name, version, v.MapName)
 		} else {
-			pinnedPath = filepath.Join(b.HostConfig.BpfMapDefaultPath, models.TCMapPinPath, iface, v.MapName)
+			pinnedPath = filepath.Join(b.HostConfig.BpfMapDefaultPath, models.TCMapPinPath, iface, b.Program.Name, version, v.MapName)
 		}
 		m, err := ebpf.LoadPinnedMap(pinnedPath, nil)
 		if err != nil {
@@ -151,7 +153,8 @@ func deserializeProgram(ctx context.Context, r *models.L3AFMetaData, hostconfig 
 		Maps:     make(map[string]*ebpf.Map),
 	}
 	if r.XDPLink {
-		linkPinPath := fmt.Sprintf("%s/links/%s/%s/%s/%s_%s", hostconfig.BpfMapDefaultPath, iface, g.Program.Name, g.Program.Version, g.Program.Name, g.Program.ProgType)
+		version := strings.ReplaceAll(g.Program.Version, ".", "_")
+		linkPinPath := fmt.Sprintf("%s/links/%s/%s/%s/%s_%s", hostconfig.BpfMapDefaultPath, iface, g.Program.Name, version, g.Program.Name, g.Program.ProgType)
 		var err error
 		g.XDPLink, err = link.LoadPinnedLink(linkPinPath, nil)
 		if err != nil {
@@ -283,7 +286,7 @@ func SetMetrics(t models.L3AFALLHOSTDATA) {
 	}
 }
 
-// GetNetListener will get tcp listner from provided file descriptor
+// GetNetListener will get tcp listener from provided file descriptor
 func GetNetListener(fd int, fname string) (*net.TCPListener, error) {
 	file := os.NewFile(uintptr(fd), "DupFd"+fname)
 	l, err := net.FileListener(file)
