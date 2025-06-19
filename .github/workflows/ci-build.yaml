@@ -19,7 +19,12 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        os:
+          - ubuntu-24.04
+          - ubuntu-22.04
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Setup Go 1.23.0
         uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
@@ -34,8 +39,18 @@ jobs:
       - name: Set up environment
         run: |
           sudo apt-get update
-          sudo apt-get remove containerd.io
-          sudo apt-get install -y gcc libc-dev bash perl curl make docker docker.io
+          sudo apt-get remove -y containerd.io docker docker.io moby-engine moby-cli || true  # Remove any existing Docker-related packages
+          sudo apt-get install -y \
+            apt-transport-https \
+            ca-certificates \
+            curl \
+            software-properties-common
+          # docker src 
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+          sudo apt-get install -y gcc libc-dev bash perl curl make
 
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 
@@ -94,6 +109,6 @@ jobs:
         if: github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
         with:
-          name: l3afd-latest-linux-x86_64
+          name: l3afd-latest-linux-x86_64-${{ matrix.os }}
           path: l3afd
 
