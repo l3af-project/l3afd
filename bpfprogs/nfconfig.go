@@ -1561,9 +1561,9 @@ func SerialzeProgram(e *list.Element) *models.L3AFMetaData {
 			}
 		}
 	}
-	tmp.XDPLink = false
-	if bpf.XDPLink != nil {
-		tmp.XDPLink = true
+	tmp.Link = false
+	if bpf.Link != nil {
+		tmp.Link = true
 	}
 	return tmp
 }
