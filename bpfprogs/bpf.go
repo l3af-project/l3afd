@@ -71,11 +71,12 @@ type BPF struct {
 func NewBpfProgram(ctx context.Context, program models.BPFProgram, conf *config.Config, ifaceName string) *BPF {
 
 	var progMapFilePath string
+	version := strings.ReplaceAll(program.Version, ".", "_")
 	if len(program.MapName) > 0 {
 		if program.ProgType == models.XDPType {
-			progMapFilePath = filepath.Join(conf.BpfMapDefaultPath, ifaceName, program.MapName)
+			progMapFilePath = filepath.Join(conf.BpfMapDefaultPath, ifaceName, program.Name, version, program.MapName)
 		} else if program.ProgType == models.TCType {
-			progMapFilePath = filepath.Join(conf.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, program.MapName)
+			progMapFilePath = filepath.Join(conf.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, program.Name, version, program.MapName)
 		}
 		if strings.Contains(progMapFilePath, "..") {
 			log.Error().Msgf("program map file contains relative path %s", progMapFilePath)
@@ -104,9 +105,9 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 
 	log.Info().Msgf("LoadRootProgram iface %s direction %s progType %s", ifaceName, direction, progType)
 	var rootProgBPF *BPF
-	version := strings.ReplaceAll(rootProgBPF.Program.Version, ".", "_")
 	switch progType {
 	case models.XDPType:
+		version := strings.ReplaceAll(conf.XDPRootVersion, ".", "_")
 		rootProgBPF = &BPF{
 			Program: models.BPFProgram{
 				Name:              conf.XDPRootPackageName,
@@ -128,7 +129,7 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 			FilePath:        "",
 			PrevMapNamePath: "",
 			HostConfig:      conf,
-			MapNamePath:     filepath.Join(conf.BpfMapDefaultPath, ifaceName, conf.XDPRootMapName),
+			MapNamePath:     filepath.Join(conf.BpfMapDefaultPath, ifaceName, conf.XDPRootPackageName, version, conf.XDPRootMapName),
 			XDPLink:         nil,
 		}
 	case models.TCType:
@@ -159,6 +160,7 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 			rootProgBPF.Program.ObjectFile = conf.TCRootEgressObjectFile
 			rootProgBPF.Program.EntryFunctionName = conf.TCRootEgressEntryFunctionName
 		}
+		version := strings.ReplaceAll(rootProgBPF.Program.Version, ".", "_")
 		rootProgBPF.MapNamePath = filepath.Join(conf.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, rootProgBPF.Program.Name, version, rootProgBPF.Program.MapName)
 	default:
 		return nil, fmt.Errorf("unknown direction %s for root program in iface %s", direction, ifaceName)
@@ -178,6 +180,7 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 		}
 	}
 
+	version := strings.ReplaceAll(rootProgBPF.Program.Version, ".", "_")
 	if progType == models.XDPType {
 		rlimit.RemoveMemlock()
 		if err := rootProgBPF.LoadXDPAttachProgram(ifaceName); err != nil {
