@@ -71,11 +71,12 @@ type BPF struct {
 func NewBpfProgram(ctx context.Context, program models.BPFProgram, conf *config.Config, ifaceName string) *BPF {
 
 	var progMapFilePath string
+	version := strings.ReplaceAll(program.Version, ".", "_")
 	if len(program.MapName) > 0 {
 		if program.ProgType == models.XDPType {
-			progMapFilePath = filepath.Join(conf.BpfMapDefaultPath, ifaceName, program.MapName)
+			progMapFilePath = filepath.Join(conf.BpfMapDefaultPath, ifaceName, program.Name, version, program.MapName)
 		} else if program.ProgType == models.TCType {
-			progMapFilePath = filepath.Join(conf.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, program.MapName)
+			progMapFilePath = filepath.Join(conf.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, program.Name, version, program.MapName)
 		}
 		if strings.Contains(progMapFilePath, "..") {
 			log.Error().Msgf("program map file contains relative path %s", progMapFilePath)
@@ -104,9 +105,9 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 
 	log.Info().Msgf("LoadRootProgram iface %s direction %s progType %s", ifaceName, direction, progType)
 	var rootProgBPF *BPF
-
 	switch progType {
 	case models.XDPType:
+		version := strings.ReplaceAll(conf.XDPRootVersion, ".", "_")
 		rootProgBPF = &BPF{
 			Program: models.BPFProgram{
 				Name:              conf.XDPRootPackageName,
@@ -128,7 +129,7 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 			FilePath:        "",
 			PrevMapNamePath: "",
 			HostConfig:      conf,
-			MapNamePath:     filepath.Join(conf.BpfMapDefaultPath, ifaceName, conf.XDPRootMapName),
+			MapNamePath:     filepath.Join(conf.BpfMapDefaultPath, ifaceName, conf.XDPRootPackageName, version, conf.XDPRootMapName),
 			XDPLink:         nil,
 		}
 	case models.TCType:
@@ -159,7 +160,8 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 			rootProgBPF.Program.ObjectFile = conf.TCRootEgressObjectFile
 			rootProgBPF.Program.EntryFunctionName = conf.TCRootEgressEntryFunctionName
 		}
-		rootProgBPF.MapNamePath = filepath.Join(conf.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, rootProgBPF.Program.MapName)
+		version := strings.ReplaceAll(rootProgBPF.Program.Version, ".", "_")
+		rootProgBPF.MapNamePath = filepath.Join(conf.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, rootProgBPF.Program.Name, version, rootProgBPF.Program.MapName)
 	default:
 		return nil, fmt.Errorf("unknown direction %s for root program in iface %s", direction, ifaceName)
 	}
@@ -178,13 +180,14 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 		}
 	}
 
+	version := strings.ReplaceAll(rootProgBPF.Program.Version, ".", "_")
 	if progType == models.XDPType {
 		rlimit.RemoveMemlock()
 		if err := rootProgBPF.LoadXDPAttachProgram(ifaceName); err != nil {
 			return nil, fmt.Errorf("failed to load xdp root program on iface \"%s\" name %s direction %s with err %w", ifaceName, rootProgBPF.Program.Name, direction, err)
 		}
 		// pin the program also
-		progPinPath := fmt.Sprintf("%s/progs/%s/%s_%s", rootProgBPF.HostConfig.BpfMapDefaultPath, ifaceName, rootProgBPF.Program.EntryFunctionName, rootProgBPF.Program.ProgType)
+		progPinPath := fmt.Sprintf("%s/progs/%s/%s/%s/%s_%s", rootProgBPF.HostConfig.BpfMapDefaultPath, ifaceName, rootProgBPF.Program.Name, version, rootProgBPF.Program.EntryFunctionName, rootProgBPF.Program.ProgType)
 		if err := rootProgBPF.ProgMapCollection.Programs[rootProgBPF.Program.EntryFunctionName].Pin(progPinPath); err != nil {
 			return nil, err
 		}
@@ -193,7 +196,7 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 			return nil, fmt.Errorf("failed to load tc root program on iface \"%s\" name %s direction %s with err %w", ifaceName, rootProgBPF.Program.Name, direction, err)
 		}
 		// pin the program also
-		progPinPath := fmt.Sprintf("%s/progs/%s/%s_%s", rootProgBPF.HostConfig.BpfMapDefaultPath, ifaceName, rootProgBPF.Program.EntryFunctionName, rootProgBPF.Program.ProgType)
+		progPinPath := fmt.Sprintf("%s/progs/%s/%s/%s/%s_%s", rootProgBPF.HostConfig.BpfMapDefaultPath, ifaceName, rootProgBPF.Program.Name, version, rootProgBPF.Program.EntryFunctionName, rootProgBPF.Program.ProgType)
 		if err := rootProgBPF.ProgMapCollection.Programs[rootProgBPF.Program.EntryFunctionName].Pin(progPinPath); err != nil {
 			return nil, err
 		}
@@ -484,6 +487,7 @@ func (b *BPF) UpdateArgs(ifaceName, direction string) error {
 		return errors.New("update - no program binary path found")
 	}
 
+	version := strings.ReplaceAll(b.Program.Version, ".", "_")
 	cmd := filepath.Join(b.FilePath, b.Program.CmdUpdate)
 	// Validate
 	if err := assertExecutable(cmd); err != nil {
@@ -494,6 +498,7 @@ func (b *BPF) UpdateArgs(ifaceName, direction string) error {
 	args = append(args, "--iface="+ifaceName)       // attaching to interface
 	args = append(args, "--direction="+direction)   // direction xdpingress or ingress or egress
 	args = append(args, "--cmd="+models.UpdateType) // argument cmd to update configs
+	args = append(args, "--version="+version)       // argument version of ebpf program
 
 	if len(b.HostConfig.BPFLogDir) > 1 {
 		args = append(args, "--log-dir="+b.HostConfig.BPFLogDir)
@@ -948,8 +953,9 @@ func (b *BPF) LoadXDPAttachProgram(ifaceName string) error {
 		return fmt.Errorf("could not attach xdp program %s to interface %s : %w", b.Program.Name, ifaceName, err)
 	}
 
+	version := strings.ReplaceAll(b.Program.Version, ".", "_")
 	// Pin the Link
-	linkPinPath := fmt.Sprintf("%s/links/%s/%s_%s", b.HostConfig.BpfMapDefaultPath, ifaceName, b.Program.Name, b.Program.ProgType)
+	linkPinPath := fmt.Sprintf("%s/links/%s/%s/%s/%s_%s", b.HostConfig.BpfMapDefaultPath, ifaceName, b.Program.Name, version, b.Program.Name, b.Program.ProgType)
 	if err := b.XDPLink.Pin(linkPinPath); err != nil {
 		return err
 	}
@@ -998,10 +1004,11 @@ func (b *BPF) RemovePinnedFiles(ifaceName string) error {
 	if b.ProgMapCollection != nil {
 		for k, v := range b.ProgMapCollection.Maps {
 			var mapFilename string
+			version := strings.ReplaceAll(b.Program.Version, ".", "_")
 			if b.Program.ProgType == models.TCType {
-				mapFilename = filepath.Join(b.HostConfig.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, k)
+				mapFilename = filepath.Join(b.HostConfig.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, b.Program.Name, version, k)
 			} else {
-				mapFilename = filepath.Join(b.HostConfig.BpfMapDefaultPath, ifaceName, k)
+				mapFilename = filepath.Join(b.HostConfig.BpfMapDefaultPath, ifaceName, b.Program.Name, version, k)
 			}
 			if err := v.Unpin(); err != nil {
 				return fmt.Errorf("BPF program %s prog type %s ifacename %s map %s:failed to pin the map err - %w",
@@ -1031,11 +1038,12 @@ func (b *BPF) RemovePinnedFiles(ifaceName string) error {
 // This is invoked if any stale map file persists for root map
 func (b *BPF) RemoveRootProgMapFile(ifacename string) error {
 	var mapFilename string
+	version := strings.ReplaceAll(b.Program.Version, ".", "_")
 	switch b.Program.ProgType {
 	case models.TCType:
-		mapFilename = filepath.Join(b.HostConfig.BpfMapDefaultPath, models.TCMapPinPath, ifacename, b.Program.MapName)
+		mapFilename = filepath.Join(b.HostConfig.BpfMapDefaultPath, models.TCMapPinPath, ifacename, b.Program.Name, version, b.Program.MapName)
 	case models.XDPType:
-		mapFilename = filepath.Join(b.HostConfig.BpfMapDefaultPath, ifacename, b.Program.MapName)
+		mapFilename = filepath.Join(b.HostConfig.BpfMapDefaultPath, ifacename, b.Program.Name, version, b.Program.MapName)
 	default:
 		log.Warn().Msgf("RemoveRootProgMapFile: program %s map file %s - unknown type", b.Program.Name, b.MapNamePath)
 		return fmt.Errorf("removeMapFile: program %s unknown type %s", b.Program.Name, b.Program.ProgType)
@@ -1090,14 +1098,15 @@ func (b *BPF) LoadBPFProgram(ifaceName string) error {
 		return fmt.Errorf("%s: loading collection spec failed - %w", ObjectFile, err)
 	}
 
-	if err := b.CreatePinDirectories(ifaceName); err != nil {
+	version := strings.ReplaceAll(b.Program.Version, ".", "_")
+	if err := b.CreatePinDirectories(ifaceName, b.Program.Name, version); err != nil {
 		return err
 	}
 	var mapPinPath string
 	if b.Program.ProgType == models.TCType {
-		mapPinPath = filepath.Join(b.HostConfig.BpfMapDefaultPath, models.TCMapPinPath, ifaceName)
+		mapPinPath = filepath.Join(b.HostConfig.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, b.Program.Name, version)
 	} else if b.Program.ProgType == models.XDPType {
-		mapPinPath = filepath.Join(b.HostConfig.BpfMapDefaultPath, ifaceName)
+		mapPinPath = filepath.Join(b.HostConfig.BpfMapDefaultPath, ifaceName, b.Program.Name, version)
 	}
 	collOptions := ebpf.CollectionOptions{
 		Maps: ebpf.MapOptions{
@@ -1273,6 +1282,11 @@ func (b *BPF) StartUserProgram(ifaceName, direction string, chain bool) error {
 		args = append(args, "--direction="+direction) // direction xdpingress or ingress or egress
 	}
 
+	version := strings.ReplaceAll(b.Program.Version, ".", "_")
+	if len(b.Program.Version) > 0 {
+		args = append(args, "--version="+version) // version xdpingress or ingress or egress
+	}
+
 	if chain && b.ProgMapCollection == nil {
 		// chaining from user program
 		if len(b.PrevMapNamePath) > 1 {
@@ -1328,12 +1342,12 @@ func (b *BPF) StartUserProgram(ifaceName, direction string, chain bool) error {
 // XDP maps are pinned to directory /sys/fs/bpf/<ifaceName>
 // links are pinned to directory /sys/fs/bpf/links/<ifaceName>
 // Program are pinned to directory  /sys/fs/bpf/progs/<ifaceName>
-func (b *BPF) CreatePinDirectories(ifaceName string) error {
+func (b *BPF) CreatePinDirectories(ifaceName, progName, progVersion string) error {
 	var mapPathDir string
 	if b.Program.ProgType == models.XDPType {
-		mapPathDir = filepath.Join(b.HostConfig.BpfMapDefaultPath, ifaceName)
+		mapPathDir = filepath.Join(b.HostConfig.BpfMapDefaultPath, ifaceName, progName, progVersion)
 	} else if b.Program.ProgType == models.TCType {
-		mapPathDir = filepath.Join(b.HostConfig.BpfMapDefaultPath, models.TCMapPinPath, ifaceName)
+		mapPathDir = filepath.Join(b.HostConfig.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, progName, progVersion)
 	}
 	// Create map dir for XDP and TC programs only
 	if len(mapPathDir) > 0 {
@@ -1346,7 +1360,7 @@ func (b *BPF) CreatePinDirectories(ifaceName string) error {
 		}
 	}
 
-	linksPathDir := filepath.Join(b.HostConfig.BpfMapDefaultPath, "links", ifaceName)
+	linksPathDir := filepath.Join(b.HostConfig.BpfMapDefaultPath, "links", ifaceName, progName, progVersion)
 	if strings.Contains(linksPathDir, "..") {
 		return fmt.Errorf("%s contains relative path is not supported - %s", linksPathDir, b.Program.Name)
 	}
@@ -1354,7 +1368,7 @@ func (b *BPF) CreatePinDirectories(ifaceName string) error {
 		return fmt.Errorf("%s failed to create map dir path of %s program %s with err : %w", linksPathDir, b.Program.ProgType, b.Program.Name, err)
 	}
 
-	ProgPathDir := filepath.Join(b.HostConfig.BpfMapDefaultPath, "progs", ifaceName)
+	ProgPathDir := filepath.Join(b.HostConfig.BpfMapDefaultPath, "progs", ifaceName, progName, progVersion)
 	if strings.Contains(ProgPathDir, "..") {
 		return fmt.Errorf("%s contains relative path is not supported - %s", ProgPathDir, b.Program.Name)
 	}
@@ -1366,12 +1380,13 @@ func (b *BPF) CreatePinDirectories(ifaceName string) error {
 
 // AttachBPFProgram - method to attach bpf program to interface
 func (b *BPF) AttachBPFProgram(ifaceName, direction string) error {
+	version := strings.ReplaceAll(b.Program.Version, ".", "_")
 	if b.Program.ProgType == models.XDPType {
 		if err := b.LoadXDPAttachProgram(ifaceName); err != nil {
 			return fmt.Errorf("failed to attach xdp program %s to inferface %s with err: %w", b.Program.Name, ifaceName, err)
 		}
 		// pin the program also
-		progPinPath := fmt.Sprintf("%s/progs/%s/%s_%s", b.HostConfig.BpfMapDefaultPath, ifaceName, b.Program.EntryFunctionName, b.Program.ProgType)
+		progPinPath := fmt.Sprintf("%s/progs/%s/%s/%s/%s_%s", b.HostConfig.BpfMapDefaultPath, ifaceName, b.Program.Name, version, b.Program.EntryFunctionName, b.Program.ProgType)
 		if err := b.ProgMapCollection.Programs[b.Program.EntryFunctionName].Pin(progPinPath); err != nil {
 			return err
 		}
@@ -1380,7 +1395,7 @@ func (b *BPF) AttachBPFProgram(ifaceName, direction string) error {
 			return fmt.Errorf("failed to attach tc program %s to inferface %s direction %s with err: %w", b.Program.Name, ifaceName, direction, err)
 		}
 		// pin the program also
-		progPinPath := fmt.Sprintf("%s/progs/%s/%s_%s", b.HostConfig.BpfMapDefaultPath, ifaceName, b.Program.EntryFunctionName, b.Program.ProgType)
+		progPinPath := fmt.Sprintf("%s/progs/%s/%s/%s/%s_%s", b.HostConfig.BpfMapDefaultPath, ifaceName, b.Program.Name, version, b.Program.EntryFunctionName, b.Program.ProgType)
 		if err := b.ProgMapCollection.Programs[b.Program.EntryFunctionName].Pin(progPinPath); err != nil {
 			return err
 		}
@@ -1390,6 +1405,7 @@ func (b *BPF) AttachBPFProgram(ifaceName, direction string) error {
 
 // PinBpfMaps - Pinning tc and xdp maps
 func (b *BPF) PinBpfMaps(ifaceName string) error {
+	version := strings.ReplaceAll(b.Program.Version, ".", "_")
 	for k, v := range b.ProgMapCollection.Maps {
 		var mapFilename string
 		// ebpf programs temporary storage created by eBPF program skip it
@@ -1397,9 +1413,9 @@ func (b *BPF) PinBpfMaps(ifaceName string) error {
 			continue
 		}
 		if b.Program.ProgType == models.TCType {
-			mapFilename = filepath.Join(b.HostConfig.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, k)
+			mapFilename = filepath.Join(b.HostConfig.BpfMapDefaultPath, models.TCMapPinPath, ifaceName, b.Program.Name, version, k)
 		} else {
-			mapFilename = filepath.Join(b.HostConfig.BpfMapDefaultPath, ifaceName, k)
+			mapFilename = filepath.Join(b.HostConfig.BpfMapDefaultPath, ifaceName, b.Program.Name, version, k)
 		}
 		// In case one of the program pins the map then other program will skip
 		if !fileExists(mapFilename) {
@@ -1441,8 +1457,9 @@ func (b *BPF) LoadBPFProgramChain(ifaceName, direction string) error {
 		return err
 	}
 
+	version := strings.ReplaceAll(b.Program.Version, ".", "_")
 	// pin the program also
-	progPinPath := fmt.Sprintf("%s/progs/%s/%s_%s", b.HostConfig.BpfMapDefaultPath, ifaceName, b.Program.EntryFunctionName, b.Program.ProgType)
+	progPinPath := fmt.Sprintf("%s/progs/%s/%s/%s/%s_%s", b.HostConfig.BpfMapDefaultPath, ifaceName, b.Program.Name, version, b.Program.EntryFunctionName, b.Program.ProgType)
 	if err := b.ProgMapCollection.Programs[b.Program.EntryFunctionName].Pin(progPinPath); err != nil {
 		return err
 	}
