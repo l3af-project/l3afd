@@ -274,7 +274,7 @@ func SetMetrics(t models.L3AFALLHOSTDATA) {
 					getValueofLabel("version", f.Labels), getValueofLabel("direction", f.Labels), getValueofLabel("interface_name", f.Labels))
 			} else if len(getValueofLabel("map_name", f.Labels)) > 0 {
 				stats.SetValue(f.Value, getGaugeVecByMetricName(f.MetricName), getValueofLabel("ebpf_program", f.Labels),
-					getValueofLabel("map_name", f.Labels), getValueofLabel("interface_name", f.Labels))
+					getValueofLabel("map_name", f.Labels), getValueofLabel("interface_name", f.Labels), getValueofLabel("aggregator", f.Labels), getValueofLabel("key", f.Labels))
 			} else {
 				stats.Set(f.Value, getGaugeVecByMetricName(f.MetricName), getValueofLabel("ebpf_program", f.Labels),
 					getValueofLabel("direction", f.Labels), getValueofLabel("interface_name", f.Labels))
