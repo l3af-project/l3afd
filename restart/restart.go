@@ -17,24 +17,27 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/link"
 	"github.com/l3af-project/l3afd/v2/bpfprogs"
 	"github.com/l3af-project/l3afd/v2/config"
 	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/l3af-project/l3afd/v2/stats"
+	"github.com/l3af-project/l3afd/v2/utils"
+
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
 )
 
 // convertBPFMap will  populate bpf maps from deserialized map names
 func convertBPFMap(in []string, g *bpfprogs.BPF, output *map[string]bpfprogs.BPFMap, iface string) error {
+	version := utils.ReplaceDotsWithUnderscores(g.Program.Version)
 	for _, v := range in {
 		var pinnedPath string
 		if g.Program.ProgType == models.XDPType {
-			pinnedPath = filepath.Join(g.HostConfig.BpfMapDefaultPath, iface, v)
+			pinnedPath = filepath.Join(g.HostConfig.BpfMapDefaultPath, iface, g.Program.Name, version, v)
 		} else {
-			pinnedPath = filepath.Join(g.HostConfig.BpfMapDefaultPath, models.TCMapPinPath, iface, v)
+			pinnedPath = filepath.Join(g.HostConfig.BpfMapDefaultPath, models.TCMapPinPath, iface, g.Program.Name, version, v)
 		}
 		m, err := ebpf.LoadPinnedMap(pinnedPath, nil)
 		if err != nil {
@@ -58,9 +61,9 @@ func convertBPFMap(in []string, g *bpfprogs.BPF, output *map[string]bpfprogs.BPF
 
 // getCollection will populate ebpf Collection from deserialized meta collection object
 func getCollection(input models.MetaColl, output **ebpf.Collection, b *bpfprogs.BPF, iface string) error {
-	version := strings.ReplaceAll(b.Program.Version, ".", "_")
+	version := utils.ReplaceDotsWithUnderscores(b.Program.Version)
 	for _, v := range input.Programs {
-		progPinPath := fmt.Sprintf("%s/progs/%s/%s/%s/%s_%s", b.HostConfig.BpfMapDefaultPath, iface, b.Program.Name, version, b.Program.EntryFunctionName, b.Program.ProgType)
+		progPinPath := utils.ProgPinPath(b.HostConfig.BpfMapDefaultPath, iface, b.Program.Name, version, b.Program.EntryFunctionName, b.Program.ProgType)
 		prog, err := ebpf.LoadPinnedProgram(progPinPath, nil)
 		if err != nil {
 			return err
@@ -88,7 +91,7 @@ func getMetricsMaps(input map[string]models.MetaMetricsBPFMap, b *bpfprogs.BPF, 
 	if input == nil {
 		return nil
 	}
-	version := strings.ReplaceAll(b.Program.Version, ".", "_")
+	version := utils.ReplaceDotsWithUnderscores(b.Program.Version)
 	for k, v := range input {
 		fg := &bpfprogs.MetricsBPFMap{}
 		var pinnedPath string
@@ -153,8 +156,8 @@ func deserializeProgram(ctx context.Context, r *models.L3AFMetaData, hostconfig 
 		Maps:     make(map[string]*ebpf.Map),
 	}
 	if r.XDPLink {
-		version := strings.ReplaceAll(g.Program.Version, ".", "_")
-		linkPinPath := fmt.Sprintf("%s/links/%s/%s/%s/%s_%s", hostconfig.BpfMapDefaultPath, iface, g.Program.Name, version, g.Program.Name, g.Program.ProgType)
+		version := utils.ReplaceDotsWithUnderscores(g.Program.Version)
+		linkPinPath := utils.LinkPinPath(hostconfig.BpfMapDefaultPath, iface, g.Program.Name, version, g.Program.ProgType)
 		var err error
 		g.XDPLink, err = link.LoadPinnedLink(linkPinPath, nil)
 		if err != nil {
