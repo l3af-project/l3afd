@@ -44,7 +44,7 @@ func GetConfig(w http.ResponseWriter, r *http.Request) {
 	iface := chi.URLParam(r, "iface")
 	if len(iface) == 0 {
 		mesg = "iface value is empty"
-		log.Error().Msgf(mesg)
+		log.Error().Msg(mesg)
 		statusCode = http.StatusBadRequest
 		return
 	}
