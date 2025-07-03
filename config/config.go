@@ -177,7 +177,7 @@ func loadTLSVersion(cfgRdr *config.Config, fieldName string) (uint16, error) {
 	case "TLS_1.3":
 		return tls.VersionTLS13, nil
 	default:
-		return 0, fmt.Errorf("Unsupported TLS version: \"" + ver + "\". Use: TLS_1.{2,3}.")
+		return 0, fmt.Errorf("unsupported TLS version: %s; use: TLS_1.{2,3}", ver)
 	}
 }
 
