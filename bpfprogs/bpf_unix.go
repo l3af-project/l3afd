@@ -17,11 +17,13 @@ import (
 	"syscall"
 	"unsafe"
 
+	"github.com/l3af-project/l3afd/v2/models"
+	"github.com/l3af-project/l3afd/v2/utils"
+
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/florianl/go-tc"
 	"github.com/florianl/go-tc/core"
-	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/rs/zerolog/log"
 	"github.com/safchain/ethtool"
 	"golang.org/x/sys/unix"
@@ -549,8 +551,9 @@ func (b *BPF) LoadTCXAttachProgram(ifaceName, direction string) error {
 		return fmt.Errorf("could not attach tc program %s to interface %s direction %s : %w", b.Program.Name, ifaceName, direction, err)
 	}
 
+	version := utils.ReplaceDotsWithUnderscores(b.Program.Version)
 	// Pin the Link
-	linkPinPath := fmt.Sprintf("%s/links/%s/%s_%s_%s", b.HostConfig.BpfMapDefaultPath, ifaceName, b.Program.Name, b.Program.ProgType, direction)
+	linkPinPath := utils.TCLinkPinPath(b.HostConfig.BpfMapDefaultPath, ifaceName, b.Program.Name, version, b.Program.ProgType, direction)
 	if err := b.Link.Pin(linkPinPath); err != nil {
 		return fmt.Errorf("tcx program pinning failed program %s direction %s interface %s : %w", b.Program.Name, direction, ifaceName, err)
 	}
