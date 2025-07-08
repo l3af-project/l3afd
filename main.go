@@ -19,6 +19,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"gopkg.in/natefinch/lumberjack.v2"
+
 	"github.com/l3af-project/l3afd/v2/apis"
 	"github.com/l3af-project/l3afd/v2/apis/handlers"
 	"github.com/l3af-project/l3afd/v2/bpfprogs"
@@ -27,55 +31,66 @@ import (
 	"github.com/l3af-project/l3afd/v2/pidfile"
 	"github.com/l3af-project/l3afd/v2/restart"
 	"github.com/l3af-project/l3afd/v2/stats"
-	"gopkg.in/natefinch/lumberjack.v2"
-
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
 
 const daemonName = "l3afd"
 
 var stateSockPath string
 
-func setupLogging() {
+func setupLogging(conf *config.Config) {
+	zerolog.TimeFieldFormat = time.RFC3339Nano
+	log.Info().Msgf("Log level set to %q", conf.PrettyLogs)
+	if conf.PrettyLogs == true {
+		log.Logger = log.Output(zerolog.ConsoleWriter{
+			Out: os.Stderr, TimeFormat: time.RFC3339Nano})
+	} else {
+		log.Logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
+	}
+
 	const logLevelEnvName = "L3AF_LOG_LEVEL"
-
-	// If this is removed, zerolog will do structured logging. For now,
-	// we set zerolog to do human-readable logging just to keep the same
-	// behavior as the closed-source logging package that we replaced with
-	// zerolog.
-	log.Logger = log.Output(zerolog.ConsoleWriter{
-		Out: os.Stderr, TimeFormat: time.RFC3339Nano})
-
-	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 
 	// Set the default
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
 	logLevelStr := os.Getenv(logLevelEnvName)
-	if logLevelStr == "" {
+	if logLevelStr != "" {
+		logLevel, err := zerolog.ParseLevel(logLevelStr)
+		if err != nil {
+			log.Error().Err(err).Msg("Invalid Environment-specified Log Level. Log Level:INFO will be used")
+		} else {
+			zerolog.SetGlobalLevel(logLevel)
+			log.Info().Msgf("Log level set to %q", logLevel)
+		}
+	}
+
+	if conf.FileLogLocation != "" {
+		log.Info().Msgf("Saving logs to file: %s", conf.FileLogLocation)
+		saveLogsToFile(conf)
 		return
 	}
-	logLevel, err := zerolog.ParseLevel(logLevelStr)
-	if err != nil {
-		log.Error().Err(err).Msg("Invalid L3AF_LOG_LEVEL")
-		return
-	}
-	zerolog.SetGlobalLevel(logLevel)
-	log.Debug().Msgf("Log level set to %q", logLevel)
+
 }
 
 func saveLogsToFile(conf *config.Config) {
-
+	zerolog.TimeFieldFormat = time.RFC3339Nano
 	logFileWithRotation := &lumberjack.Logger{
 		Filename:   conf.FileLogLocation,
 		MaxSize:    conf.FileLogMaxSize,    // Max size in megabytes
 		MaxBackups: conf.FileLogMaxBackups, // Max number of old log files to keep
 		MaxAge:     conf.FileLogMaxAge,     // Max number of days to keep log files
 	}
-	multi := zerolog.MultiLevelWriter(os.Stdout, logFileWithRotation)
-	log.Logger = log.Output(zerolog.ConsoleWriter{
-		Out: multi, TimeFormat: time.RFC3339Nano})
+	// Create a multi-writer for stdout and the file
+	multiWriter := zerolog.MultiLevelWriter(os.Stdout, logFileWithRotation)
+
+	if conf.PrettyLogs == false {
+		logger := zerolog.New(multiWriter).With().Timestamp().Logger()
+		// Set the global logger to the one we just created
+		log.Logger = logger
+
+	} else {
+		log.Logger = log.Output(zerolog.ConsoleWriter{
+			Out: multiWriter, TimeFormat: time.RFC3339Nano})
+	}
 }
 
 func main() {
@@ -83,9 +98,13 @@ func main() {
 	models.IsReadOnly = false
 	models.CurrentWriteReq = 0
 	models.StateLock = sync.Mutex{}
-	setupLogging()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	//Default Loggger 
+	zerolog.TimeFieldFormat = time.RFC3339Nano
+	log.Logger = log.Output(zerolog.ConsoleWriter{
+                        Out: os.Stderr, TimeFormat: time.RFC3339Nano})
+
 	log.Info().Msgf("%s started.", daemonName)
 
 	var confPath string
@@ -97,10 +116,7 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msgf("Unable to parse config %q", confPath)
 	}
-	if conf.FileLogLocation != "" {
-		log.Info().Msgf("Saving logs to file: %s", conf.FileLogLocation)
-		saveLogsToFile(conf)
-	}
+	setupLogging(conf)
 	populateVersions(conf)
 	if err = pidfile.CheckPIDConflict(conf.PIDFilename); err != nil {
 		if err = setupForRestartOuter(ctx, conf); err != nil {
