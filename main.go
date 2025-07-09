@@ -19,8 +19,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/l3af-project/l3afd/v2/apis"
@@ -31,6 +29,9 @@ import (
 	"github.com/l3af-project/l3afd/v2/pidfile"
 	"github.com/l3af-project/l3afd/v2/restart"
 	"github.com/l3af-project/l3afd/v2/stats"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 const daemonName = "l3afd"
@@ -39,7 +40,7 @@ var stateSockPath string
 
 func setupLogging(conf *config.Config) {
 	zerolog.TimeFieldFormat = time.RFC3339Nano
-	log.Info().Msgf("Log level set to %q", conf.PrettyLogs)
+	// ConsoleWriter formats the logs for user-readability
 	if conf.PrettyLogs == true {
 		log.Logger = log.Output(zerolog.ConsoleWriter{
 			Out: os.Stderr, TimeFormat: time.RFC3339Nano})
@@ -47,11 +48,11 @@ func setupLogging(conf *config.Config) {
 		log.Logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
 	}
 
-	const logLevelEnvName = "L3AF_LOG_LEVEL"
-
 	// Set the default
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	log.Info().Msgf("Log level set to %q", zerolog.InfoLevel)
 
+	const logLevelEnvName = "L3AF_LOG_LEVEL"
 	logLevelStr := os.Getenv(logLevelEnvName)
 	if logLevelStr != "" {
 		logLevel, err := zerolog.ParseLevel(logLevelStr)
@@ -59,7 +60,7 @@ func setupLogging(conf *config.Config) {
 			log.Error().Err(err).Msg("Invalid Environment-specified Log Level. Log Level:INFO will be used")
 		} else {
 			zerolog.SetGlobalLevel(logLevel)
-			log.Info().Msgf("Log level set to %q", logLevel)
+			log.Info().Msgf("Log level set to %q via environment variable", logLevel)
 		}
 	}
 
@@ -84,9 +85,7 @@ func saveLogsToFile(conf *config.Config) {
 
 	if conf.PrettyLogs == false {
 		logger := zerolog.New(multiWriter).With().Timestamp().Logger()
-		// Set the global logger to the one we just created
 		log.Logger = logger
-
 	} else {
 		log.Logger = log.Output(zerolog.ConsoleWriter{
 			Out: multiWriter, TimeFormat: time.RFC3339Nano})
@@ -100,10 +99,11 @@ func main() {
 	models.StateLock = sync.Mutex{}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	//Default Loggger 
+
+	//Default Logger
 	zerolog.TimeFieldFormat = time.RFC3339Nano
 	log.Logger = log.Output(zerolog.ConsoleWriter{
-                        Out: os.Stderr, TimeFormat: time.RFC3339Nano})
+		Out: os.Stderr, TimeFormat: time.RFC3339Nano})
 
 	log.Info().Msgf("%s started.", daemonName)
 
@@ -116,6 +116,8 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msgf("Unable to parse config %q", confPath)
 	}
+
+	// Setup logging according to the configuration provided
 	setupLogging(conf)
 	populateVersions(conf)
 	if err = pidfile.CheckPIDConflict(conf.PIDFilename); err != nil {
