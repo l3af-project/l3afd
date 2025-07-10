@@ -41,23 +41,17 @@ var stateSockPath string
 func setupLogging(conf *config.Config) {
 	zerolog.TimeFieldFormat = time.RFC3339Nano
 	// ConsoleWriter formats the logs for user-readability
-	if conf.PrettyLogs == true {
-		log.Logger = log.Output(zerolog.ConsoleWriter{
-			Out: os.Stderr, TimeFormat: time.RFC3339Nano})
-	} else {
+	if conf.JSONLogs == true {
 		log.Logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
 	}
 
-	// Set the default
+	// Set the default Log level
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	log.Info().Msgf("Log level set to %q", zerolog.InfoLevel)
 
-	const logLevelEnvName = "L3AF_LOG_LEVEL"
-	logLevelStr := os.Getenv(logLevelEnvName)
-	if logLevelStr != "" {
-		logLevel, err := zerolog.ParseLevel(logLevelStr)
-		if err != nil {
-			log.Error().Err(err).Msg("Invalid Environment-specified Log Level. Log Level:INFO will be used")
+	if logLevelStr := os.Getenv("L3AF_LOG_LEVEL"); logLevelStr != "" {
+		if logLevel, err := zerolog.ParseLevel(logLevelStr); err != nil {
+			log.Error().Err(err).Msg("Invalid environment-specified log level. Defaulting to INFO.")
 		} else {
 			zerolog.SetGlobalLevel(logLevel)
 			log.Info().Msgf("Log level set to %q via environment variable", logLevel)
@@ -83,12 +77,12 @@ func saveLogsToFile(conf *config.Config) {
 	// Create a multi-writer for stdout and the file
 	multiWriter := zerolog.MultiLevelWriter(os.Stdout, logFileWithRotation)
 
-	if conf.PrettyLogs == false {
-		logger := zerolog.New(multiWriter).With().Timestamp().Logger()
-		log.Logger = logger
-	} else {
+	if conf.JSONLogs == true {
 		log.Logger = log.Output(zerolog.ConsoleWriter{
 			Out: multiWriter, TimeFormat: time.RFC3339Nano})
+
+	} else {
+		log.Logger = zerolog.New(multiWriter).With().Timestamp().Logger()
 	}
 }
 

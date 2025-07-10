@@ -37,7 +37,7 @@ type Config struct {
 	FileLogMaxSize    int
 	FileLogMaxBackups int
 	FileLogMaxAge     int
-	PrettyLogs         bool // pretty print logs
+	JSONLogs          bool
 
 	// stats
 	// Prometheus endpoint for pull/scrape the metrics.
@@ -121,7 +121,7 @@ func ReadConfig(configPath string) (*Config, error) {
 		FileLogMaxSize:                 LoadOptionalConfigInt(confReader, "l3afd", "file-log-max-size", 100),
 		FileLogMaxBackups:              LoadOptionalConfigInt(confReader, "l3afd", "file-log-max-backups", 20),
 		FileLogMaxAge:                  LoadOptionalConfigInt(confReader, "l3afd", "file-log-max-age", 60),
-		PrettyLogs:              		LoadOptionalConfigBool(confReader, "l3afd", "log-pretty-print", true),
+		JSONLogs:                       LoadOptionalConfigBool(confReader, "l3afd", "json-logs", true),
 		EBPFRepoURL:                    LoadConfigString(confReader, "ebpf-repo", "url"),
 		HttpClientTimeout:              LoadOptionalConfigDuration(confReader, "l3afd", "http-client-timeout", 30*time.Second),
 		MaxEBPFReStartCount:            LoadOptionalConfigInt(confReader, "l3afd", "max-ebpf-restart-count", 3),
