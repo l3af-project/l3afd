@@ -41,7 +41,7 @@ var stateSockPath string
 func setupLogging(conf *config.Config) {
 	zerolog.TimeFieldFormat = time.RFC3339Nano
 	// ConsoleWriter formats the logs for user-readability
-	if conf.JSONLogs == true {
+	if conf.JSONLogs {
 		log.Logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
 	}
 
@@ -77,7 +77,7 @@ func saveLogsToFile(conf *config.Config) {
 	// Create a multi-writer for stdout and the file
 	multiWriter := zerolog.MultiLevelWriter(os.Stdout, logFileWithRotation)
 
-	if conf.JSONLogs == true {
+	if conf.JSONLogs {
 		log.Logger = log.Output(zerolog.ConsoleWriter{
 			Out: multiWriter, TimeFormat: time.RFC3339Nano})
 
