@@ -39,7 +39,6 @@ const daemonName = "l3afd"
 var stateSockPath string
 
 func setupLogging(conf *config.Config) {
-	zerolog.TimeFieldFormat = time.RFC3339Nano
 	// ConsoleWriter formats the logs for user-readability
 	if conf.JSONFormatLogs {
 		log.Logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
@@ -67,7 +66,6 @@ func setupLogging(conf *config.Config) {
 }
 
 func saveLogsToFile(conf *config.Config) {
-	zerolog.TimeFieldFormat = time.RFC3339Nano
 	logFileWithRotation := &lumberjack.Logger{
 		Filename:   conf.FileLogLocation,
 		MaxSize:    conf.FileLogMaxSize,    // Max size in megabytes
@@ -79,7 +77,7 @@ func saveLogsToFile(conf *config.Config) {
 
 	if conf.JSONFormatLogs {
 		log.Logger = log.Output(zerolog.ConsoleWriter{
-			Out: multiWriter, TimeFormat: time.RFC3339Nano})
+			Out: multiWriter})
 
 	} else {
 		log.Logger = zerolog.New(multiWriter).With().Timestamp().Logger()
@@ -94,10 +92,10 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	//Default Logger
+	//Default Logger (uses user-friendly colored log statements in RFC3339Nano (e.g., 2006-01-02T15:04:05.999999999Z07:00) format)
 	zerolog.TimeFieldFormat = time.RFC3339Nano
 	log.Logger = log.Output(zerolog.ConsoleWriter{
-		Out: os.Stderr, TimeFormat: time.RFC3339Nano})
+		Out: os.Stderr})
 
 	log.Info().Msgf("%s started.", daemonName)
 
