@@ -26,25 +26,26 @@ environment: PROD
 
 ## [l3afd]
 
-| FieldName     | Default                | Description     | Required        |
-| ------------- |------------------------| --------------- | --------------- |
-|pid-file| `"/var/l3afd/l3afd.pid"` | The path to the l3afd.pid file which contains process id of L3afd | Yes |
-|datacenter| `"dc"`                 | Name of Datacenter| Yes |
-|bpf-dir| `"/dev/shm"`           | Absolute Path where eBPF packages are to be extracted | Yes |
-|bpf-log-dir| `""`                   | Absolute Path for log files, which is passed to applications on the command line. L3afd does not store any logs itself.| No |
-|kernel-major-version| `"5"`                  |Major version of the kernel required to run eBPF programs (Linux Only) | No |
-|kernel-minor-version| `"1"`                  |Minor version of the kernel required to run eBPF programs (Linux Only)| No |
-|shutdown-timeout| `"1s"`                 |Maximum amount of time allowed for l3afd to gracefully stop. After shutdown-timeout, l3afd will exit even if it could not stop applications.| No |
-|http-client-timeout| `"10s"`                |Maximum amount of time allowed to get HTTP response headers when fetching a package from a repository| No |
-|max-nf-restart-count| `"3"`                  |Maximum number of tries to restart eBPF applications if they are not running| No |
-|bpf-chaining-enabled| `"true"`               |Boolean to set bpf-chaining. For more info about bpf chaining check [L3AF_KFaaS.pdf](https://github.com/l3af-project/l3af-arch/blob/main/L3AF_KFaaS.pdf)| Yes |
-|swagger-api-enabled| `"false"`              |Whether the swagger API is enabled or not.  For more info see [swagger.md](https://github.com/l3af-project/l3afd/blob/main/docs/swagger.md)| No |
-|environment| `"PROD"`               |If set to anything other than "PROD", mTLS security will not be checked| Yes |
-|BpfMapDefaultPath| `"/sys/fs/bpf"`        |The base pin path for eBPF maps| Yes |
-| file-log-location | `"/var/log/l3afd.log"`            | Location of the log file | No |
-| file-log-max-size | `"100"`            | Max size in megabytes for Log file rotation | No |
-| file-log-max-backups | `"20"`            | Max size in megabytes for Log file rotation | No |
-| file-log-max-age | `"60"`            | Max number of days to keep Log files | No |
+| FieldName     | Default                  | Description                                                                                                                                              | Required        |
+| ------------- |--------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------| --------------- |
+|pid-file| `"/var/l3afd/l3afd.pid"` | The path to the l3afd.pid file which contains process id of L3afd                                                                                        | Yes |
+|datacenter| `"dc"`                   | Name of Datacenter                                                                                                                                       | Yes |
+|bpf-dir| `"/dev/shm"`             | Absolute Path where eBPF packages are to be extracted                                                                                                    | Yes |
+|bpf-log-dir| `""`                     | Absolute Path for log files, which is passed to applications on the command line. L3afd does not store any logs itself.                                  | No |
+|kernel-major-version| `"5"`                    | Major version of the kernel required to run eBPF programs (Linux Only)                                                                                   | No |
+|kernel-minor-version| `"1"`                    | Minor version of the kernel required to run eBPF programs (Linux Only)                                                                                   | No |
+|shutdown-timeout| `"1s"`                   | Maximum amount of time allowed for l3afd to gracefully stop. After shutdown-timeout, l3afd will exit even if it could not stop applications.             | No |
+|http-client-timeout| `"10s"`                  | Maximum amount of time allowed to get HTTP response headers when fetching a package from a repository                                                    | No |
+|max-nf-restart-count| `"3"`                    | Maximum number of tries to restart eBPF applications if they are not running                                                                             | No |
+|bpf-chaining-enabled| `"true"`                 | Boolean to set bpf-chaining. For more info about bpf chaining check [L3AF_KFaaS.pdf](https://github.com/l3af-project/l3af-arch/blob/main/L3AF_KFaaS.pdf) | Yes |
+|swagger-api-enabled| `"false"`                | Whether the swagger API is enabled or not.  For more info see [swagger.md](https://github.com/l3af-project/l3afd/blob/main/docs/swagger.md)              | No |
+|environment| `"PROD"`                 | If set to anything other than "PROD", mTLS security will not be checked                                                                                  | Yes |
+|BpfMapDefaultPath| `"/sys/fs/bpf"`          | The base pin path for eBPF maps                                                                                                                          | Yes |
+| file-log-location | `"/var/log/l3afd.log"`   | Location of the log file                                                                                                                                 | No |
+| file-log-max-size | `"100"`                  | Max size in megabytes for Log file rotation                                                                                                              | No |
+| file-log-max-backups | `"20"`                   | Max size in megabytes for Log file rotation                                                                                                              | No |
+| file-log-max-age | `"60"`                   | Max number of days to keep Log files                                                                                                                     | No |
+| json-format-logs | `"false"`                | Logs to be printed as a JSON object                                                                                                                      | No |
 
 ## [ebpf-repo]
 | FieldName     | Default                    | Description     | Required |
