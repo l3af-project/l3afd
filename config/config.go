@@ -121,7 +121,7 @@ func ReadConfig(configPath string) (*Config, error) {
 		FileLogMaxSize:                 LoadOptionalConfigInt(confReader, "l3afd", "file-log-max-size", 100),
 		FileLogMaxBackups:              LoadOptionalConfigInt(confReader, "l3afd", "file-log-max-backups", 20),
 		FileLogMaxAge:                  LoadOptionalConfigInt(confReader, "l3afd", "file-log-max-age", 60),
-		JSONFormatLogs:                 LoadOptionalConfigBool(confReader, "l3afd", "json-format-logs", true),
+		JSONFormatLogs:                 LoadOptionalConfigBool(confReader, "l3afd", "json-format-logs", false),
 		EBPFRepoURL:                    LoadConfigString(confReader, "ebpf-repo", "url"),
 		HttpClientTimeout:              LoadOptionalConfigDuration(confReader, "l3afd", "http-client-timeout", 30*time.Second),
 		MaxEBPFReStartCount:            LoadOptionalConfigInt(confReader, "l3afd", "max-ebpf-restart-count", 3),
