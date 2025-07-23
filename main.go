@@ -19,6 +19,8 @@ import (
 	"sync"
 	"time"
 
+	"gopkg.in/natefinch/lumberjack.v2"
+
 	"github.com/l3af-project/l3afd/v2/apis"
 	"github.com/l3af-project/l3afd/v2/apis/handlers"
 	"github.com/l3af-project/l3afd/v2/bpfprogs"
@@ -29,8 +31,6 @@ import (
 	"github.com/l3af-project/l3afd/v2/stats"
 	"github.com/l3af-project/l3afd/v2/utils"
 
-	"gopkg.in/natefinch/lumberjack.v2"
-
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -39,45 +39,50 @@ const daemonName = "l3afd"
 
 var stateSockPath string
 
-func setupLogging() {
-	const logLevelEnvName = "L3AF_LOG_LEVEL"
+func setupLogging(conf *config.Config) {
+	// ConsoleWriter formats the logs for user-readability
+	if conf.JSONFormatLogs {
+		log.Logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
+	}
 
-	// If this is removed, zerolog will do structured logging. For now,
-	// we set zerolog to do human-readable logging just to keep the same
-	// behavior as the closed-source logging package that we replaced with
-	// zerolog.
-	log.Logger = log.Output(zerolog.ConsoleWriter{
-		Out: os.Stderr, TimeFormat: time.RFC3339Nano})
-
-	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-
-	// Set the default
+	// Set the default Log level
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	log.Info().Msgf("Log level set to %q", zerolog.InfoLevel)
 
-	logLevelStr := os.Getenv(logLevelEnvName)
-	if logLevelStr == "" {
+	if logLevelStr := os.Getenv("L3AF_LOG_LEVEL"); logLevelStr != "" {
+		if logLevel, err := zerolog.ParseLevel(logLevelStr); err != nil {
+			log.Error().Err(err).Msg("Invalid environment-specified log level. Defaulting to INFO.")
+		} else {
+			zerolog.SetGlobalLevel(logLevel)
+			log.Info().Msgf("Log level set to %q via environment variable", logLevel)
+		}
+	}
+
+	if conf.FileLogLocation != "" {
+		log.Info().Msgf("Saving logs to file: %s", conf.FileLogLocation)
+		saveLogsToFile(conf)
 		return
 	}
-	logLevel, err := zerolog.ParseLevel(logLevelStr)
-	if err != nil {
-		log.Error().Err(err).Msg("Invalid L3AF_LOG_LEVEL")
-		return
-	}
-	zerolog.SetGlobalLevel(logLevel)
-	log.Debug().Msgf("Log level set to %q", logLevel)
+
 }
 
 func saveLogsToFile(conf *config.Config) {
-
 	logFileWithRotation := &lumberjack.Logger{
 		Filename:   conf.FileLogLocation,
 		MaxSize:    conf.FileLogMaxSize,    // Max size in megabytes
 		MaxBackups: conf.FileLogMaxBackups, // Max number of old log files to keep
 		MaxAge:     conf.FileLogMaxAge,     // Max number of days to keep log files
 	}
-	multi := zerolog.MultiLevelWriter(os.Stdout, logFileWithRotation)
-	log.Logger = log.Output(zerolog.ConsoleWriter{
-		Out: multi, TimeFormat: time.RFC3339Nano})
+	// Create a multi-writer for stdout and the file
+	multiWriter := zerolog.MultiLevelWriter(os.Stdout, logFileWithRotation)
+
+	if conf.JSONFormatLogs {
+		log.Logger = log.Output(zerolog.ConsoleWriter{
+			Out: multiWriter})
+
+	} else {
+		log.Logger = zerolog.New(multiWriter).With().Timestamp().Logger()
+	}
 }
 
 func main() {
@@ -85,9 +90,14 @@ func main() {
 	models.IsReadOnly = false
 	models.CurrentWriteReq = 0
 	models.StateLock = sync.Mutex{}
-	setupLogging()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	//Default Logger (uses user-friendly colored log statements in RFC3339Nano (e.g., 2006-01-02T15:04:05.999999999Z07:00) format)
+	zerolog.TimeFieldFormat = time.RFC3339Nano
+	log.Logger = log.Output(zerolog.ConsoleWriter{
+		Out: os.Stderr})
+
 	log.Info().Msgf("%s started.", daemonName)
 
 	var confPath string
@@ -99,10 +109,9 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msgf("Unable to parse config %q", confPath)
 	}
-	if conf.FileLogLocation != "" {
-		log.Info().Msgf("Saving logs to file: %s", conf.FileLogLocation)
-		saveLogsToFile(conf)
-	}
+
+	// Setup logging according to the configuration provided
+	setupLogging(conf)
 	populateVersions(conf)
 	if err = pidfile.CheckPIDConflict(conf.PIDFilename); err != nil {
 		if err = setupForRestartOuter(ctx, conf); err != nil {

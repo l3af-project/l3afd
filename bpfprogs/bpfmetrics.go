@@ -48,7 +48,7 @@ func (c *BpfMetrics) BpfMetricsWorker(bpfProgs map[string]*list.List) {
 					continue
 				}
 				if err := bpf.MonitorMaps(ifaceName, c.Intervals); err != nil {
-					log.Error().Err(err).Msgf("pMonitor monitor maps failed - %s", bpf.Program.Name)
+					log.Debug().Err(err).Msgf("pMonitor monitor maps failed - %s", bpf.Program.Name)
 				}
 			}
 		}
@@ -67,7 +67,7 @@ func (c *BpfMetrics) BpfMetricsProbeWorker(bpfProgs *list.List) {
 				continue
 			}
 			if err := bpf.MonitorMaps("", c.Intervals); err != nil {
-				log.Error().Err(err).Msgf("pMonitor probe monitor maps failed - %s", bpf.Program.Name)
+				log.Debug().Err(err).Msgf("pMonitor probe monitor maps failed - %s", bpf.Program.Name)
 			}
 		}
 	}
