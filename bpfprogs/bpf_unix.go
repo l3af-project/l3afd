@@ -17,9 +17,13 @@ import (
 	"syscall"
 	"unsafe"
 
+	"github.com/l3af-project/l3afd/v2/models"
+	"github.com/l3af-project/l3afd/v2/utils"
+
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
 	"github.com/florianl/go-tc"
 	"github.com/florianl/go-tc/core"
-	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/rs/zerolog/log"
 	"github.com/safchain/ethtool"
 	"golang.org/x/sys/unix"
@@ -192,8 +196,8 @@ func VerifyNCreateTCDirs() error {
 		return nil
 	}
 	log.Info().Msgf(" %s tc directory doesn't exists, creating", path)
-	err := os.MkdirAll(path, 0700)
-	if err != nil {
+
+	if err := os.MkdirAll(path, 0700); err != nil {
 		return fmt.Errorf("unable to create directories to pin tc maps %s : %w", path, err)
 	}
 	return nil
@@ -514,5 +518,50 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 		return fmt.Errorf("could not dettach tc filter for interface %s : Direction: %v, parentHandle: %v, Error:%w", ifaceName, direction, parentHandle, err)
 	}
 
+	return nil
+}
+
+// LoadTCXAttachProgram - Load and attach xdp root program or any xdp program when chaining is disabled
+func (b *BPF) LoadTCXAttachProgram(ifaceName, direction string) error {
+
+	iface, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		log.Error().Err(err).Msgf("LoadXDPAttachProgram -look up network iface %q", ifaceName)
+		return err
+	}
+
+	if err := b.LoadBPFProgram(ifaceName); err != nil {
+		return err
+	}
+
+	var attachType ebpf.AttachType
+	if direction == models.IngressType {
+		attachType = ebpf.AttachTCXIngress
+	} else {
+		attachType = ebpf.AttachTCXEgress
+	}
+
+	b.Link, err = link.AttachTCX(link.TCXOptions{
+		Program:   b.ProgMapCollection.Programs[b.Program.EntryFunctionName],
+		Interface: iface.Index,
+		Attach:    attachType,
+	})
+
+	if err != nil {
+		return fmt.Errorf("could not attach tc program %s to interface %s direction %s : %w", b.Program.Name, ifaceName, direction, err)
+	}
+
+	version := utils.ReplaceDotsWithUnderscores(b.Program.Version)
+	// Pin the Link
+	linkPinPath := utils.TCLinkPinPath(b.HostConfig.BpfMapDefaultPath, ifaceName, b.Program.Name, version, b.Program.ProgType, direction)
+	if err := b.Link.Pin(linkPinPath); err != nil {
+		return fmt.Errorf("tcx program pinning failed program %s direction %s interface %s : %w", b.Program.Name, direction, ifaceName, err)
+	}
+
+	if b.HostConfig.BpfChainingEnabled {
+		if err = b.UpdateProgramMap(ifaceName); err != nil {
+			return err
+		}
+	}
 	return nil
 }
