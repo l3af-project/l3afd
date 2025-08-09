@@ -10,7 +10,8 @@ RUN apt-get update && \
     clang \
     llvm \
     libelf-dev \
-    linux-headers-$(uname -r) \
+    linux-headers-generic \
+    linux-tools-common linux-tools-generic \
     libbpf-dev \
     tzdata \
     cmake \
