@@ -11,6 +11,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+
+	"github.com/cilium/ebpf"
 )
 
 // DisableLRO - XDP programs are failing when Large Receive Offload is enabled, to fix this we use to manually disable.
@@ -70,5 +72,18 @@ func (b *BPF) LoadTCXAttachProgram(ifaceName, direction string) error {
 
 // UnloadTCProgram - Remove TC filters
 func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
+	// not implement nothing todo
 	return fmt.Errorf("UnloadTCProgram - TC programs Unsupported on windows")
+}
+
+// LoadXDPAttachProgram - Attaches XDP program to interface
+func (b *BPF) LoadXDPAttachProgram(ifaceName string) error {
+	// not implement nothing todo
+	return fmt.Errorf("LoadXDPAttachProgram - AttachXDP method is Unsupported on windows")
+}
+
+// LoadBPFProgramProbeType - Loads Probe type bpf program
+func (b *BPF) LoadBPFProgramProbeTypes(objSpec *ebpf.CollectionSpec) error {
+	// not implement nothing todo
+	return fmt.Errorf("LoadBPFProgramProbeTypes - Probes are Unsupported on windows")
 }

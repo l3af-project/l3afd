@@ -14,7 +14,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -938,41 +937,6 @@ func (b *BPF) VerifyMetricsMapsVanish() error {
 	err := fmt.Errorf("metrics maps are never removed by Kernel %s", b.Program.Name)
 	log.Error().Err(err).Msg("")
 	return err
-}
-
-// LoadXDPAttachProgram - Load and attach xdp root program or any xdp program when chaining is disabled
-func (b *BPF) LoadXDPAttachProgram(ifaceName string) error {
-	iface, err := net.InterfaceByName(ifaceName)
-	if err != nil {
-		log.Error().Err(err).Msgf("LoadXDPAttachProgram -look up network iface %q", ifaceName)
-		return err
-	}
-
-	if err := b.LoadBPFProgram(ifaceName); err != nil {
-		return err
-	}
-	b.Link, err = link.AttachXDP(link.XDPOptions{
-		Program:   b.ProgMapCollection.Programs[b.Program.EntryFunctionName],
-		Interface: iface.Index,
-	})
-
-	if err != nil {
-		return fmt.Errorf("could not attach xdp program %s to interface %s : %w", b.Program.Name, ifaceName, err)
-	}
-
-	version := utils.ReplaceDotsWithUnderscores(b.Program.Version)
-	// Pin the Link
-	linkPinPath := utils.LinkPinPath(b.HostConfig.BpfMapDefaultPath, ifaceName, b.Program.Name, version, b.Program.ProgType)
-	if err := b.Link.Pin(linkPinPath); err != nil {
-		return fmt.Errorf("xdp program pinning failed program %s interface %s : %w", b.Program.Name, ifaceName, err)
-	}
-
-	if b.HostConfig.BpfChainingEnabled {
-		if err = b.UpdateProgramMap(ifaceName); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // UnloadProgram - Unload or detach the program from the interface and close all the program resources
