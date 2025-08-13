@@ -126,7 +126,7 @@ func ReadConfig(configPath string) (*Config, error) {
 		HttpClientTimeout:              LoadOptionalConfigDuration(confReader, "l3afd", "http-client-timeout", 30*time.Second),
 		MaxEBPFReStartCount:            LoadOptionalConfigInt(confReader, "l3afd", "max-ebpf-restart-count", 3),
 		BpfChainingEnabled:             LoadConfigBool(confReader, "l3afd", "bpf-chaining-enabled"),
-		MetricsAddr:                    LoadConfigString(confReader, "web", "metrics-addr"),
+		MetricsAddr:                    LoadOptionalConfigString(confReader, "web", "metrics-addr", "localhost:8898"),
 		EBPFPollInterval:               LoadOptionalConfigDuration(confReader, "web", "ebpf-poll-interval", 30*time.Second),
 		NMetricSamples:                 LoadOptionalConfigInt(confReader, "web", "n-metric-samples", 20),
 		ShutdownTimeout:                LoadOptionalConfigDuration(confReader, "l3afd", "shutdown-timeout", 25*time.Second),
