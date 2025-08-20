@@ -11,7 +11,7 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/safchain/ethtool v0.6.2
 	github.com/swaggo/http-swagger v1.3.4
-	github.com/swaggo/swag v1.16.4
+	github.com/swaggo/swag v1.16.6
 	golang.org/x/sys v0.34.0 // exclude
 )
 
@@ -42,6 +42,7 @@ require (
 	github.com/prometheus/common v0.65.0 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
 	github.com/swaggo/files v1.0.1 // indirect
+	golang.org/x/mod v0.20.0 // indirect
 	golang.org/x/net v0.40.0 // indirect
 	golang.org/x/sync v0.13.0 // indirect
 	golang.org/x/tools v0.24.0 // indirect
