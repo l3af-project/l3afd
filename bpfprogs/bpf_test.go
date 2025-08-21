@@ -18,10 +18,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/l3af-project/l3afd/v2/config"
 	"github.com/l3af-project/l3afd/v2/mocks"
 	"github.com/l3af-project/l3afd/v2/models"
+	"go.uber.org/mock/gomock"
 )
 
 var mockedExitStatus = 1
