@@ -565,3 +565,39 @@ func (b *BPF) LoadTCXAttachProgram(ifaceName, direction string) error {
 	}
 	return nil
 }
+
+// LoadXDPAttachProgram - Load and attach xdp root program or any xdp program when chaining is disabled
+// This method has been moved to linux specific till cilium windows library implements link.AttachXDP
+func (b *BPF) LoadXDPAttachProgram(ifaceName string) error {
+	iface, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		log.Error().Err(err).Msgf("LoadXDPAttachProgram -look up network iface %q", ifaceName)
+		return err
+	}
+
+	if err := b.LoadBPFProgram(ifaceName); err != nil {
+		return err
+	}
+	b.Link, err = link.AttachXDP(link.XDPOptions{
+		Program:   b.ProgMapCollection.Programs[b.Program.EntryFunctionName],
+		Interface: iface.Index,
+	})
+
+	if err != nil {
+		return fmt.Errorf("could not attach xdp program %s to interface %s : %w", b.Program.Name, ifaceName, err)
+	}
+
+	version := utils.ReplaceDotsWithUnderscores(b.Program.Version)
+	// Pin the Link
+	linkPinPath := utils.LinkPinPath(b.HostConfig.BpfMapDefaultPath, ifaceName, b.Program.Name, version, b.Program.ProgType)
+	if err := b.Link.Pin(linkPinPath); err != nil {
+		return fmt.Errorf("xdp program pinning failed program %s interface %s : %w", b.Program.Name, ifaceName, err)
+	}
+
+	if b.HostConfig.BpfChainingEnabled {
+		if err = b.UpdateProgramMap(ifaceName); err != nil {
+			return err
+		}
+	}
+	return nil
+}
