@@ -26,10 +26,10 @@ jobs:
           - ubuntu-22.04
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Setup Go 1.23.0
-        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+      - name: Setup Go 1.24.0
+        uses: actions/setup-go@c0137caad775660c0844396c52da96e560aba63d
         with:
-          go-version: '1.23.0'
+          go-version: '1.24.0'
 
       - name: Harden Runner
         uses: step-security/harden-runner@ec9f2d5744a09debf3a187a3f4f675c53b671911
@@ -74,11 +74,11 @@ jobs:
           go test ./...
           go clean -modcache
 
-      - uses: dominikh/staticcheck-action@024238d2898c874f26d723e7d0ff4308c35589a2 
+      - uses: dominikh/staticcheck-action@024238d2898c874f26d723e7d0ff4308c35589a2
         with:
-          version: "2024.1.1"
+          version: "2025.1.1"
           install-go: false
-          cache-key: "1.22.x"
+          cache-key: "1.24.x"
 
       - name: Build
         run: |
