@@ -26,13 +26,14 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/link"
-	"github.com/cilium/ebpf/rlimit"
 	"github.com/l3af-project/l3afd/v2/config"
 	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/l3af-project/l3afd/v2/stats"
 	"github.com/l3af-project/l3afd/v2/utils"
+
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
+	"github.com/cilium/ebpf/rlimit"
 	ps "github.com/mitchellh/go-ps"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
