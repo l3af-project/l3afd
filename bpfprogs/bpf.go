@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/rlimit"
 	ps "github.com/mitchellh/go-ps"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
 )
 
@@ -281,8 +282,9 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 
 	stats.Add(1, stats.BPFStopCount, b.Program.Name, direction, ifaceName)
 
-	// Setting NFRunning to 0, indicates not running
-	stats.SetWithVersion(0.0, stats.BPFRunning, b.Program.Name, b.Program.Version, direction, ifaceName)
+	// Deleting stale metrics indicates that the ebpf program is not running.
+	stats.BPFRunning.Delete(prometheus.Labels{"ebpf_program": b.Program.Name, "version": b.Program.Version, "direction": direction, "interface_name": ifaceName})
+	stats.BPFStartTime.Delete(prometheus.Labels{"ebpf_program": b.Program.Name, "direction": direction, "interface_name": ifaceName})
 
 	// Stop User Programs if any
 	if len(b.Program.CmdStop) < 1 && b.Program.UserProgramDaemon {
