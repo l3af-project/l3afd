@@ -21,13 +21,13 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 	"unsafe"
 
 	"github.com/l3af-project/l3afd/v2/config"
+	"github.com/l3af-project/l3afd/v2/decode"
 	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/l3af-project/l3afd/v2/stats"
 	"github.com/l3af-project/l3afd/v2/utils"
@@ -476,13 +476,28 @@ func (b *BPF) UpdateBPFMaps(ifaceName, direction string) error {
 			}
 			bpfMap = b.BpfMaps[val.Name]
 		}
+		var vs []models.KeyValueInternal
 		for _, v := range val.Args {
 			log.Info().Msgf("Update map args key %v val %v", v.Key, v.Value)
-			bpfMap.Update(v.Key, v.Value)
+			ck, err := decode.ParseSchema(v.Key)
+			if err != nil {
+				fmt.Println(err)
+				return fmt.Errorf("failed to parse map key %v with err %w", v.Key, err)
+			}
+			cv, err := decode.ParseSchema(v.Value)
+			if err != nil {
+				fmt.Println(err)
+				return fmt.Errorf("failed to parse map value %v with err %w", v.Value, err)
+			}
+			vs = append(vs, models.KeyValueInternal{
+				Key:   ck,
+				Value: cv,
+			})
+			bpfMap.Update(ck, cv)
 		}
-		if err := bpfMap.RemoveMissingKeys(val.Args); err != nil {
-			return fmt.Errorf("failed to remove missing entries of map %s with err %w", val.Name, err)
-		}
+		// if err := bpfMap.RemoveMissingKeys(vs); err != nil {
+		// 	return fmt.Errorf("failed to remove missing entries of map %s with err %w", val.Name, err)
+		// }
 	}
 	stats.Add(1, stats.BPFUpdateCount, b.Program.Name, direction, ifaceName)
 	return nil
@@ -725,7 +740,7 @@ func (b *BPF) GetBPFMap(mapName string) (*BPFMap, error) {
 }
 
 // Add eBPF map into BPFMaps list
-func (b *BPF) AddMetricsBPFMap(mapName, aggregator string, key, samplesLength int) error {
+func (b *BPF) AddMetricsBPFMap(mapName, aggregator string, key decode.FieldSchema, samplesLength int) error {
 	var tmpMetricsBPFMap MetricsBPFMap
 	bpfMap, err := b.GetBPFMap(mapName)
 	if err != nil {
@@ -738,9 +753,8 @@ func (b *BPF) AddMetricsBPFMap(mapName, aggregator string, key, samplesLength in
 	tmpMetricsBPFMap.Values = ring.New(samplesLength)
 
 	log.Info().Msgf("added Metrics map ID %d Name %s Type %s Key %d Aggregator %s", tmpMetricsBPFMap.MapID, tmpMetricsBPFMap.Name, tmpMetricsBPFMap.Type, tmpMetricsBPFMap.Key, tmpMetricsBPFMap.Aggregator)
-	map_key := mapName + strconv.Itoa(key) + aggregator
+	map_key := mapName + fmt.Sprintf("%v", key) + aggregator
 	b.MetricsBpfMaps[map_key] = &tmpMetricsBPFMap
-
 	return nil
 }
 
@@ -748,16 +762,26 @@ func (b *BPF) AddMetricsBPFMap(mapName, aggregator string, key, samplesLength in
 func (b *BPF) MonitorMaps(ifaceName string, intervals int) error {
 	for _, element := range b.Program.MonitorMaps {
 		log.Debug().Msgf("monitor maps element %s key %d aggregator %s", element.Name, element.Key, element.Aggregator)
-		mapKey := element.Name + strconv.Itoa(element.Key) + element.Aggregator
+		parsedKey, err := decode.ParseSchema(element.Key)
+		if err != nil {
+			fmt.Println(err)
+			return fmt.Errorf("failed to parse map key %s with err %w", element.Key, err)
+		}
+		mapKey := element.Name + fmt.Sprintf("%v", element.Key) + element.Aggregator
 		_, ok := b.MetricsBpfMaps[mapKey]
 		if !ok {
 			if err := b.AddMetricsBPFMap(element.Name, element.Aggregator, element.Key, intervals); err != nil {
-				return fmt.Errorf("unable to fetch map %s key %d aggregator %s : %w", element.Name, element.Key, element.Aggregator, err)
+				fmt.Println(err)
+				return fmt.Errorf("unable to fetch map %s key %d aggregator %s : %w", element.Name, parsedKey, element.Aggregator, err)
 			}
 		}
 		bpfMap := b.MetricsBpfMaps[mapKey]
-		MetricName := element.Name + "_" + strconv.Itoa(element.Key) + "_" + element.Aggregator
-		stats.SetValue(bpfMap.GetValue(), stats.BPFMonitorMap, b.Program.Name, MetricName, ifaceName)
+		mp, err := decode.ExtractLabelValuesWithConfig(parsedKey, element.Labels)
+		if err != nil {
+			fmt.Println(err)
+			return fmt.Errorf("not able to extract the label from a map key")
+		}
+		stats.SetValueWithLabels(bpfMap.GetValue(), stats.BPFMonitorMap, b.Program.Name, element.Name, ifaceName, mp)
 	}
 	return nil
 }
