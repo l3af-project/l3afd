@@ -675,7 +675,7 @@ func (c *NFConfigs) BPFDetails(iface string) []*BPF {
 	return arrBPFDetails
 }
 
-func (c *NFConfigs) Deploy(ifaceName, HostName string, bpfProgs *models.BPFPrograms) error {
+func (c *NFConfigs) Deploy(ifaceName, HostName, ipv4_address string, bpfProgs *models.BPFPrograms) error {
 
 	if HostName != c.HostName {
 		errOut := fmt.Errorf("provided bpf programs do not belong to this host")
@@ -699,7 +699,25 @@ func (c *NFConfigs) Deploy(ifaceName, HostName string, bpfProgs *models.BPFProgr
 		log.Error().Err(errOut)
 		return errOut
 	}
-
+	addrs, err := ListIPV4ForInterface(ifaceName)
+	if err != nil {
+		stats.Add(1, stats.BPFDeployFailedCount, "", "", ifaceName)
+		log.Error().Err(err)
+		return err
+	}
+	isIPMatched := false
+	for _, addr := range addrs {
+		if ipv4_address == addr.(*net.IPNet).IP.To4().String() && (!isIPMatched) {
+			isIPMatched = true
+			break
+		}
+	}
+	if !isIPMatched {
+		errOut := fmt.Errorf("ipv4_address %s provided not matched with network interface %s", ipv4_address, ifaceName)
+		log.Error().Err(errOut)
+		stats.Add(1, stats.BPFDeployFailedCount, "", "", ifaceName)
+		return errOut
+	}
 	c.Mu.Lock()
 	defer c.Mu.Unlock()
 
@@ -778,7 +796,7 @@ func (c *NFConfigs) DeployeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error 
 	var combinedError error
 
 	for _, bpfProg := range bpfProgs {
-		if err := c.Deploy(bpfProg.Iface, bpfProg.HostName, bpfProg.BpfPrograms); err != nil {
+		if err := c.Deploy(bpfProg.Iface, bpfProg.IPv4Address, bpfProg.HostName, bpfProg.BpfPrograms); err != nil {
 			combinedError = errors.Join(combinedError, fmt.Errorf("failed to deploy BPF program on iface %s with error: %w", bpfProg.Iface, err))
 		}
 
@@ -796,6 +814,19 @@ func (c *NFConfigs) DeployeBPFPrograms(bpfProgs []models.L3afBPFPrograms) error 
 		combinedError = errors.Join(combinedError, fmt.Errorf("deploy eBPF Programs failed to save configs %w", err))
 	}
 	return combinedError
+}
+
+// ListIPV4ForInterface - return List of ipv4 address for a given network interface
+func ListIPV4ForInterface(ifaceName string) ([]net.Addr, error) {
+	ief, err := net.InterfaceByName(ifaceName)
+	if err != nil { // get interface
+		return nil, fmt.Errorf("not able to fetch network interface by name %s", ifaceName)
+	}
+	addrs, err := ief.Addrs()
+	if err != nil { // get addresses
+		return nil, fmt.Errorf("not able to fetch list of ips associated with network interface %s", ifaceName)
+	}
+	return addrs, nil
 }
 
 // SaveConfigsToConfigStore - Writes configs to persistent store
@@ -832,9 +863,14 @@ func (c *NFConfigs) SaveConfigsToConfigStore() error {
 
 // EBPFPrograms - Method provides list of eBPF Programs running on iface
 func (c *NFConfigs) EBPFPrograms(iface string) models.L3afBPFPrograms {
+	addrs, err := ListIPV4ForInterface(iface)
+	if err != nil {
+		return models.L3afBPFPrograms{}
+	}
 	BPFProgram := models.L3afBPFPrograms{
 		HostName:    c.HostName,
 		Iface:       iface,
+		IPv4Address: addrs[0].(*net.IPNet).IP.To4().String(),
 		BpfPrograms: &models.BPFPrograms{},
 	}
 
@@ -1286,7 +1322,7 @@ func (c *NFConfigs) CleanupProgramsOnInterface(ifaceName string) {
 }
 
 // DeleteProgramsOnInterface : It will delete ebpf Programs on the given interface
-func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfProgs *models.BPFProgramNames) error {
+func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName, ipv4_address string, bpfProgs *models.BPFProgramNames) error {
 	var err error
 	if c.HostInterfaces, err = getHostInterfaces(); err != nil {
 		errOut := fmt.Errorf("failed get interfaces in DeleteProgramsOnInterface Function: %v", err)
@@ -1312,7 +1348,25 @@ func (c *NFConfigs) DeleteProgramsOnInterface(ifaceName, HostName string, bpfPro
 		log.Error().Err(errOut)
 		return errOut
 	}
-
+	addrs, err := ListIPV4ForInterface(ifaceName)
+	if err != nil {
+		stats.Add(1, stats.BPFDeployFailedCount, "", "", ifaceName)
+		log.Error().Err(err)
+		return err
+	}
+	isIPMatched := false
+	for _, addr := range addrs {
+		if ipv4_address == addr.(*net.IPNet).IP.To4().String() && (!isIPMatched) {
+			isIPMatched = true
+			break
+		}
+	}
+	if !isIPMatched {
+		errOut := fmt.Errorf("ipv4_address %s provided not matched with network interface %s", ipv4_address, ifaceName)
+		log.Error().Err(errOut)
+		stats.Add(1, stats.BPFDeployFailedCount, "", "", ifaceName)
+		return errOut
+	}
 	c.Mu.Lock()
 	defer c.Mu.Unlock()
 
@@ -1427,7 +1481,7 @@ func (c *NFConfigs) DeleteProgramsOnInterfaceHelper(e *list.Element, ifaceName s
 // DeleteEbpfPrograms - Delete eBPF programs on the node if they are running
 func (c *NFConfigs) DeleteEbpfPrograms(bpfProgs []models.L3afBPFProgramNames) error {
 	for _, bpfProg := range bpfProgs {
-		if err := c.DeleteProgramsOnInterface(bpfProg.Iface, bpfProg.HostName, bpfProg.BpfProgramNames); err != nil {
+		if err := c.DeleteProgramsOnInterface(bpfProg.Iface, bpfProg.HostName, bpfProg.IPv4Address, bpfProg.BpfProgramNames); err != nil {
 			if err := c.SaveConfigsToConfigStore(); err != nil {
 				return fmt.Errorf("SaveConfigsToConfigStore failed to save configs %w", err)
 			}

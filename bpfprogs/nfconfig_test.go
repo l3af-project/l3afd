@@ -6,6 +6,7 @@ package bpfprogs
 import (
 	"container/list"
 	"context"
+	"net"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -189,9 +190,10 @@ func TestNFConfigs_Deploy(t *testing.T) {
 		metricsMon     *BpfMetrics
 	}
 	type args struct {
-		iface    string
-		hostName string
-		bpfProgs *models.BPFPrograms
+		iface        string
+		hostName     string
+		ipv4_address string
+		bpfProgs     *models.BPFPrograms
 	}
 
 	setupDBTest()
@@ -209,6 +211,11 @@ func TestNFConfigs_Deploy(t *testing.T) {
 	for HostInterfacesKey, HostInterfacesValue = range HostInterfaces {
 		log.Debug().Msgf("HostInterfacesKey: %v, HostInterfacesValue: %v", HostInterfacesKey, HostInterfacesValue)
 		break
+	}
+	iPList, err := ListIPV4ForInterface(HostInterfacesKey)
+	if err != nil {
+		log.Debug().Msgf("not able to get addrs for a given %s with error %v", HostInterfacesKey, err)
+		return
 	}
 	tests := []struct {
 		name    string
@@ -228,9 +235,10 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    "",
-				hostName: machineHostname,
-				bpfProgs: nil,
+				iface:        "",
+				hostName:     machineHostname,
+				bpfProgs:     nil,
+				ipv4_address: "",
 			},
 			wantErr: true,
 		},
@@ -246,9 +254,10 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    "dummy",
-				hostName: "dummy",
-				bpfProgs: bpfProgs,
+				iface:        "dummy",
+				hostName:     "dummy",
+				ipv4_address: "1.1.1.1",
+				bpfProgs:     bpfProgs,
 			},
 			wantErr: true,
 		},
@@ -264,9 +273,10 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    "dummy",
-				hostName: machineHostname,
-				bpfProgs: &models.BPFPrograms{},
+				iface:        "dummy",
+				hostName:     machineHostname,
+				ipv4_address: "1.1.1.1",
+				bpfProgs:     &models.BPFPrograms{},
 			},
 			wantErr: true,
 		},
@@ -283,9 +293,10 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    HostInterfacesKey,
-				hostName: machineHostname,
-				bpfProgs: &models.BPFPrograms{},
+				iface:        HostInterfacesKey,
+				hostName:     machineHostname,
+				ipv4_address: iPList[0].(*net.IPNet).IP.To4().String(),
+				bpfProgs:     &models.BPFPrograms{},
 			},
 			wantErr: false,
 		},
@@ -302,9 +313,10 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    HostInterfacesKey,
-				hostName: machineHostname,
-				bpfProgs: bpfProgs,
+				iface:        HostInterfacesKey,
+				hostName:     machineHostname,
+				ipv4_address: iPList[0].(*net.IPNet).IP.To4().String(),
+				bpfProgs:     bpfProgs,
 			},
 			wantErr: false,
 		},
@@ -321,9 +333,10 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    HostInterfacesKey,
-				hostName: machineHostname,
-				bpfProgs: valVerChange,
+				iface:        HostInterfacesKey,
+				hostName:     machineHostname,
+				bpfProgs:     valVerChange,
+				ipv4_address: iPList[0].(*net.IPNet).IP.To4().String(),
 			},
 			wantErr: false,
 		},
@@ -340,9 +353,10 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				metricsMon:     mMon,
 			},
 			args: args{
-				iface:    HostInterfacesKey,
-				hostName: machineHostname,
-				bpfProgs: valStatusChange,
+				iface:        HostInterfacesKey,
+				hostName:     machineHostname,
+				ipv4_address: iPList[0].(*net.IPNet).IP.To4().String(),
+				bpfProgs:     valStatusChange,
 			},
 			wantErr: false,
 		},
@@ -360,7 +374,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				ProcessMon:     tt.fields.ProcessMon,
 				Mu:             new(sync.Mutex),
 			}
-			if err := cfg.Deploy(tt.args.iface, tt.args.hostName, tt.args.bpfProgs); (err != nil) != tt.wantErr {
+			if err := cfg.Deploy(tt.args.iface, tt.args.hostName, tt.args.ipv4_address, tt.args.bpfProgs); (err != nil) != tt.wantErr {
 				t.Errorf("NFConfigs.Deploy() error = %#v, wantErr %#v", err, tt.wantErr)
 			}
 		})
@@ -474,6 +488,11 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 		log.Debug().Msgf("HostInterfacesKey: %v, HostInterfacesValue: %v", HostInterfacesKey, HostInterfacesValue)
 		break
 	}
+	iPList, err := ListIPV4ForInterface(HostInterfacesKey)
+	if err != nil {
+		log.Debug().Msgf("not able to get addrs for a given %s with error %v", HostInterfacesKey, err)
+		return
+	}
 	type fields struct {
 		hostName       string
 		HostInterfaces map[string]bool
@@ -485,9 +504,10 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 		mu             *sync.Mutex
 	}
 	type args struct {
-		iface    string
-		hostName string
-		bpfProgs *models.BPFPrograms
+		iface        string
+		hostName     string
+		ipv4_address string
+		bpfProgs     *models.BPFPrograms
 	}
 	tests := []struct {
 		name    string
@@ -507,7 +527,8 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 				hostName: "l3af-local-test",
 			},
 			arg: args{
-				hostName: "fakeif0",
+				hostName:     "fakeif0",
+				ipv4_address: iPList[0].(*net.IPNet).IP.To4().String(),
 			},
 			wanterr: true,
 		},
@@ -552,8 +573,9 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 				},
 			},
 			arg: args{
-				hostName: "l3af-local-test",
-				iface:    HostInterfacesKey,
+				hostName:     "l3af-local-test",
+				iface:        HostInterfacesKey,
+				ipv4_address: iPList[0].(*net.IPNet).IP.To4().String(),
 				bpfProgs: &models.BPFPrograms{
 					XDPIngress: []*models.BPFProgram{},
 					TCEgress:   []*models.BPFProgram{},
@@ -593,6 +615,11 @@ func TestAddeBPFPrograms(t *testing.T) {
 	for HostInterfacesKey, HostInterfacesValue = range HostInterfaces {
 		log.Debug().Msgf("HostInterfacesKey: %v, HostInterfacesValue: %v", HostInterfacesKey, HostInterfacesValue)
 		break
+	}
+	iPList, err := ListIPV4ForInterface(HostInterfacesKey)
+	if err != nil {
+		log.Debug().Msgf("not able to get addrs for a given %s with error %v", HostInterfacesKey, err)
+		return
 	}
 	type fields struct {
 		hostName       string
@@ -704,8 +731,9 @@ func TestAddeBPFPrograms(t *testing.T) {
 			},
 			arg: []models.L3afBPFPrograms{
 				{
-					HostName: "l3af-local-test",
-					Iface:    HostInterfacesKey,
+					HostName:    "l3af-local-test",
+					Iface:       HostInterfacesKey,
+					IPv4Address: iPList[0].(*net.IPNet).IP.To4().String(),
 					BpfPrograms: &models.BPFPrograms{
 						XDPIngress: []*models.BPFProgram{},
 						TCIngress:  []*models.BPFProgram{},
@@ -748,9 +776,10 @@ func TestDeleteProgramsOnInterface(t *testing.T) {
 		mu             *sync.Mutex
 	}
 	type args struct {
-		iface    string
-		hostName string
-		bpfProgs *models.BPFProgramNames
+		iface        string
+		hostName     string
+		ipv4_address string
+		bpfProgs     *models.BPFProgramNames
 	}
 	tests := []struct {
 		name    string
@@ -824,7 +853,7 @@ func TestDeleteProgramsOnInterface(t *testing.T) {
 				HostInterfaces: tt.field.HostInterfaces,
 				Mu:             tt.field.mu,
 			}
-			err := cfg.DeleteProgramsOnInterface(tt.arg.iface, tt.arg.hostName, tt.arg.bpfProgs)
+			err := cfg.DeleteProgramsOnInterface(tt.arg.iface, tt.arg.hostName, tt.arg.ipv4_address, tt.arg.bpfProgs)
 			if (err != nil) != tt.wanterr {
 				t.Errorf("DeleteProgramsOnInterface failed: %v", err)
 			}
