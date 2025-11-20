@@ -807,7 +807,7 @@ func (c *NFConfigs) SaveConfigsToConfigStore() error {
 	var bpfProgs []models.L3afBPFPrograms
 
 	c.HostInterfaces, _ = getHostInterfaces()
-	for iface, _ := range c.Ifaces {
+	for iface := range c.Ifaces {
 		if _, interfaceFound := c.HostInterfaces[iface]; interfaceFound {
 			log.Info().Msgf("SaveConfigsToConfigStore - %s", iface)
 			bpfPrograms := c.EBPFPrograms(iface)
@@ -880,7 +880,7 @@ func (c *NFConfigs) EBPFPrograms(iface string) models.L3afBPFPrograms {
 func (c *NFConfigs) EBPFProgramsAll() []models.L3afBPFPrograms {
 
 	BPFPrograms := make([]models.L3afBPFPrograms, 0)
-	for iface, _ := range c.Ifaces {
+	for iface := range c.Ifaces {
 		BPFProgram := c.EBPFPrograms(iface)
 		BPFPrograms = append(BPFPrograms, BPFProgram)
 	}
@@ -929,7 +929,7 @@ func (c *NFConfigs) RemoveMissingNetIfacesNBPFProgsInConfig(bpfProgCfgs []models
 	}
 	wg.Wait()
 
-	for ifaceName, _ := range c.Ifaces {
+	for ifaceName := range c.Ifaces {
 		if _, ok := tempIfaces[ifaceName]; !ok {
 			log.Info().Msgf("Missing Network Interface %s in the configs, stopping", ifaceName)
 			if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.XDPIngressType); err != nil {
