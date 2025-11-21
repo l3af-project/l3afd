@@ -279,17 +279,17 @@ func SetMetrics(t models.L3AFALLHOSTDATA) {
 	for _, f := range t.AllStats {
 		if f.Type == 0 {
 			stats.Add(f.Value, getCountVecByMetricName(f.MetricName), getValueofLabel("ebpf_program", f.Labels),
-				getValueofLabel("direction", f.Labels), getValueofLabel("interface_name", f.Labels))
+				getValueofLabel("direction", f.Labels), getValueofLabel("interface_name", f.Labels), getValueofLabel("ipv4_address", f.Labels))
 		} else {
 			if len(getValueofLabel("version", f.Labels)) > 0 {
 				stats.SetWithVersion(f.Value, getGaugeVecByMetricName(f.MetricName), getValueofLabel("ebpf_program", f.Labels),
-					getValueofLabel("version", f.Labels), getValueofLabel("direction", f.Labels), getValueofLabel("interface_name", f.Labels))
+					getValueofLabel("version", f.Labels), getValueofLabel("direction", f.Labels), getValueofLabel("interface_name", f.Labels), getValueofLabel("ipv4_address", f.Labels))
 			} else if len(getValueofLabel("map_name", f.Labels)) > 0 {
 				stats.SetValue(f.Value, getGaugeVecByMetricName(f.MetricName), getValueofLabel("ebpf_program", f.Labels),
-					getValueofLabel("map_name", f.Labels), getValueofLabel("interface_name", f.Labels))
+					getValueofLabel("map_name", f.Labels), getValueofLabel("interface_name", f.Labels), getValueofLabel("ipv4_address", f.Labels))
 			} else {
 				stats.Set(f.Value, getGaugeVecByMetricName(f.MetricName), getValueofLabel("ebpf_program", f.Labels),
-					getValueofLabel("direction", f.Labels), getValueofLabel("interface_name", f.Labels))
+					getValueofLabel("direction", f.Labels), getValueofLabel("interface_name", f.Labels), getValueofLabel("ipv4_address", f.Labels))
 			}
 		}
 	}

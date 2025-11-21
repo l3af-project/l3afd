@@ -53,6 +53,7 @@ func Test_BPFMetrics_Start(t *testing.T) {
 		IngressTCbpfProgs  map[string]*list.List
 		EgressTCbpfProgs   map[string]*list.List
 		Probes             *list.List
+		Ifaces             map[string]string
 	}
 	tests := []struct {
 		name    string
@@ -66,6 +67,7 @@ func Test_BPFMetrics_Start(t *testing.T) {
 			args: args{IngressXDPbpfProgs: make(map[string]*list.List),
 				IngressTCbpfProgs: make(map[string]*list.List),
 				EgressTCbpfProgs:  make(map[string]*list.List),
+				Ifaces:            map[string]string{},
 			},
 			wantErr: true,
 		},
@@ -76,7 +78,7 @@ func Test_BPFMetrics_Start(t *testing.T) {
 				Chain:     tt.fields.Chain,
 				Intervals: tt.fields.Interval,
 			}
-			c.BpfMetricsStart(tt.args.IngressXDPbpfProgs, tt.args.IngressTCbpfProgs, tt.args.EgressTCbpfProgs, tt.args.Probes)
+			c.BpfMetricsStart(tt.args.IngressXDPbpfProgs, tt.args.IngressTCbpfProgs, tt.args.EgressTCbpfProgs, tt.args.Probes, &tt.args.Ifaces)
 		})
 	}
 }

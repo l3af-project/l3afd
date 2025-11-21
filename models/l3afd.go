@@ -91,6 +91,7 @@ type L3afDMapArg struct {
 type L3afBPFPrograms struct {
 	HostName    string       `json:"host_name"`    // Host name or pod name
 	Iface       string       `json:"iface"`        // Interface name
+	IPv4Address string       `json:"ipv4_address"` // Ipv4 address of network interface
 	BpfPrograms *BPFPrograms `json:"bpf_programs"` // List of bpf programs
 }
 
@@ -106,6 +107,7 @@ type BPFPrograms struct {
 type L3afBPFProgramNames struct {
 	HostName        string           `json:"host_name"`    // Host name or pod name
 	Iface           string           `json:"iface"`        // Interface name
+	IPv4Address     string           `json:"ipv4_address"` // Ipv4 address of network interface
 	BpfProgramNames *BPFProgramNames `json:"bpf_programs"` // List of eBPF program names to remove
 }
 

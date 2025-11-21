@@ -26,14 +26,14 @@ func NewpBpfMetrics(chain bool, interval int) *BpfMetrics {
 	return m
 }
 
-func (c *BpfMetrics) BpfMetricsStart(xdpProgs, ingressTCProgs, egressTCProgs map[string]*list.List, probes *list.List) {
-	go c.BpfMetricsWorker(xdpProgs)
-	go c.BpfMetricsWorker(ingressTCProgs)
-	go c.BpfMetricsWorker(egressTCProgs)
+func (c *BpfMetrics) BpfMetricsStart(xdpProgs, ingressTCProgs, egressTCProgs map[string]*list.List, probes *list.List, ifaces *map[string]string) {
+	go c.BpfMetricsWorker(xdpProgs, ifaces)
+	go c.BpfMetricsWorker(ingressTCProgs, ifaces)
+	go c.BpfMetricsWorker(egressTCProgs, ifaces)
 	go c.BpfMetricsProbeWorker(probes)
 }
 
-func (c *BpfMetrics) BpfMetricsWorker(bpfProgs map[string]*list.List) {
+func (c *BpfMetrics) BpfMetricsWorker(bpfProgs map[string]*list.List, ifaces *map[string]string) {
 	for range time.NewTicker(1 * time.Second).C {
 		for ifaceName, bpfList := range bpfProgs {
 			if bpfList == nil { // no bpf programs are running
@@ -47,7 +47,7 @@ func (c *BpfMetrics) BpfMetricsWorker(bpfProgs map[string]*list.List) {
 				if bpf.Program.AdminStatus == models.Disabled {
 					continue
 				}
-				if err := bpf.MonitorMaps(ifaceName, c.Intervals); err != nil {
+				if err := bpf.MonitorMaps(ifaceName, (*ifaces)[ifaceName], c.Intervals); err != nil {
 					log.Debug().Err(err).Msgf("pMonitor monitor maps failed - %s", bpf.Program.Name)
 				}
 			}
@@ -66,7 +66,7 @@ func (c *BpfMetrics) BpfMetricsProbeWorker(bpfProgs *list.List) {
 			if bpf.Program.AdminStatus == models.Disabled {
 				continue
 			}
-			if err := bpf.MonitorMaps("", c.Intervals); err != nil {
+			if err := bpf.MonitorMaps("", "", c.Intervals); err != nil {
 				log.Debug().Err(err).Msgf("pMonitor probe monitor maps failed - %s", bpf.Program.Name)
 			}
 		}

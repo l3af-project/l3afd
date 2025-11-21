@@ -252,7 +252,7 @@ func StopExternalRunningProcess(processName string) error {
 // Stops the user programs if any, and unloads the BPF program.
 // Clean up all map handles.
 // Verify next program pinned map file is removed
-func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
+func (b *BPF) Stop(ifaceName, ipv4_address, direction string, chain bool) error {
 	if b.Program.UserProgramDaemon && b.Cmd == nil {
 		return fmt.Errorf("BPFProgram is not running %s", b.Program.Name)
 	}
@@ -280,12 +280,11 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 	// Reset ProgID
 	b.ProgID = 0
 
-	stats.Add(1, stats.BPFStopCount, b.Program.Name, direction, ifaceName)
+	stats.Add(1, stats.BPFStopCount, b.Program.Name, direction, ifaceName, ipv4_address)
 
 	// Deleting stale metrics indicates that the ebpf program is not running.
-	stats.BPFRunning.Delete(prometheus.Labels{"ebpf_program": b.Program.Name, "version": b.Program.Version, "direction": direction, "interface_name": ifaceName})
-	stats.BPFStartTime.Delete(prometheus.Labels{"ebpf_program": b.Program.Name, "direction": direction, "interface_name": ifaceName})
-
+	stats.BPFRunning.Delete(prometheus.Labels{"ebpf_program": b.Program.Name, "version": b.Program.Version, "direction": direction, "interface_name": ifaceName, "ipv4_address": ipv4_address})
+	stats.BPFStartTime.Delete(prometheus.Labels{"ebpf_program": b.Program.Name, "direction": direction, "interface_name": ifaceName, "ipv4_address": ipv4_address})
 	// Stop User Programs if any
 	if len(b.Program.CmdStop) < 1 && b.Program.UserProgramDaemon {
 		// Loaded using user program
@@ -364,7 +363,7 @@ func (b *BPF) Stop(ifaceName, direction string, chain bool) error {
 // After starting the user program, will update the kernel progam fd into prevprogram map.
 // This method waits till prog fd entry is updated, else returns error assuming kernel program is not loaded.
 // It also verifies the next program pinned map is created or not.
-func (b *BPF) Start(ifaceName, direction string, chain bool) error {
+func (b *BPF) Start(ifaceName, ipv4_address, direction string, chain bool) error {
 	if b.FilePath == "" {
 		return errors.New("no program binary path found")
 	}
@@ -413,7 +412,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 
 	// BPF map config values
 	if len(b.Program.MapArgs) > 0 {
-		if err := b.UpdateBPFMaps(ifaceName, direction); err != nil {
+		if err := b.UpdateBPFMaps(ifaceName, ipv4_address, direction); err != nil {
 			log.Error().Err(err).Msg("failed to update ebpf program BPF maps")
 			return fmt.Errorf("failed to update ebpf program BPF maps %w", err)
 		}
@@ -421,7 +420,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 
 	// Update args config values
 	if len(b.Program.UpdateArgs) > 0 {
-		if err := b.UpdateArgs(ifaceName, direction); err != nil {
+		if err := b.UpdateArgs(ifaceName, ipv4_address, direction); err != nil {
 			log.Error().Err(err).Msg("failed to update ebpf program config update")
 			return fmt.Errorf("failed to update ebpf program config update %w", err)
 		}
@@ -454,8 +453,8 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 		go b.RunBPFConfigs()
 	}
 
-	stats.Add(1, stats.BPFStartCount, b.Program.Name, direction, ifaceName)
-	stats.Set(float64(time.Now().Unix()), stats.BPFStartTime, b.Program.Name, direction, ifaceName)
+	stats.Add(1, stats.BPFStartCount, b.Program.Name, direction, ifaceName, ipv4_address)
+	stats.Set(float64(time.Now().Unix()), stats.BPFStartTime, b.Program.Name, direction, ifaceName, ipv4_address)
 
 	userProgram, bpfProgram, err := b.isRunning()
 	if !userProgram && !bpfProgram {
@@ -468,7 +467,7 @@ func (b *BPF) Start(ifaceName, direction string, chain bool) error {
 }
 
 // UpdateBPFMaps - Update the config ebpf maps via map arguments
-func (b *BPF) UpdateBPFMaps(ifaceName, direction string) error {
+func (b *BPF) UpdateBPFMaps(ifaceName, ipv4_address, direction string) error {
 	for _, val := range b.Program.MapArgs {
 		bpfMap, ok := b.BpfMaps[val.Name]
 		if !ok {
@@ -485,12 +484,12 @@ func (b *BPF) UpdateBPFMaps(ifaceName, direction string) error {
 			return fmt.Errorf("failed to remove missing entries of map %s with err %w", val.Name, err)
 		}
 	}
-	stats.Add(1, stats.BPFUpdateCount, b.Program.Name, direction, ifaceName)
+	stats.Add(1, stats.BPFUpdateCount, b.Program.Name, direction, ifaceName, ipv4_address)
 	return nil
 }
 
 // Update config arguments using user program
-func (b *BPF) UpdateArgs(ifaceName, direction string) error {
+func (b *BPF) UpdateArgs(ifaceName, ipv4_address, direction string) error {
 	if b.FilePath == "" {
 		return errors.New("update - no program binary path found")
 	}
@@ -525,19 +524,18 @@ func (b *BPF) UpdateArgs(ifaceName, direction string) error {
 	log.Info().Msgf("BPF Program update command : %s %v", cmd, args)
 	UpdateCmd := execCommand(cmd, args...)
 	if err := UpdateCmd.Start(); err != nil {
-		stats.Add(1, stats.BPFUpdateFailedCount, b.Program.Name, direction, ifaceName)
+		stats.Add(1, stats.BPFUpdateFailedCount, b.Program.Name, direction, ifaceName, ipv4_address)
 		customerr := fmt.Errorf("failed to start : %s %v %w", cmd, args, err)
 		log.Warn().Err(customerr).Msgf("user mode BPF program failed - %s", b.Program.Name)
 		return customerr
 	}
 
 	if err := UpdateCmd.Wait(); err != nil {
-		stats.Add(1, stats.BPFUpdateFailedCount, b.Program.Name, direction, ifaceName)
+		stats.Add(1, stats.BPFUpdateFailedCount, b.Program.Name, direction, ifaceName, ipv4_address)
 		return fmt.Errorf("cmd wait at starting of bpf program returned with error %w", err)
 	}
 
-	stats.Add(1, stats.BPFUpdateCount, b.Program.Name, direction, ifaceName)
-
+	stats.Add(1, stats.BPFUpdateCount, b.Program.Name, direction, ifaceName, ipv4_address)
 	log.Info().Msgf("BPF program - %s config updated", b.Program.Name)
 	return nil
 }
@@ -746,7 +744,7 @@ func (b *BPF) AddMetricsBPFMap(mapName, aggregator string, key, samplesLength in
 }
 
 // This method to fetch values from bpf maps and publish to metrics
-func (b *BPF) MonitorMaps(ifaceName string, intervals int) error {
+func (b *BPF) MonitorMaps(ifaceName, ipv4_address string, intervals int) error {
 	for _, element := range b.Program.MonitorMaps {
 		log.Debug().Msgf("monitor maps element %s key %d aggregator %s", element.Name, element.Key, element.Aggregator)
 		mapKey := element.Name + strconv.Itoa(element.Key) + element.Aggregator
@@ -758,7 +756,7 @@ func (b *BPF) MonitorMaps(ifaceName string, intervals int) error {
 		}
 		bpfMap := b.MetricsBpfMaps[mapKey]
 		MetricName := element.Name + "_" + strconv.Itoa(element.Key) + "_" + element.Aggregator
-		stats.SetValue(bpfMap.GetValue(), stats.BPFMonitorMap, b.Program.Name, MetricName, ifaceName)
+		stats.SetValue(bpfMap.GetValue(), stats.BPFMonitorMap, b.Program.Name, MetricName, ifaceName, ipv4_address)
 	}
 	return nil
 }

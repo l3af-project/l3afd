@@ -159,6 +159,7 @@ func TestNewNFConfigs(t *testing.T) {
 				ProcessMon:     pMon,
 				BpfMetricsMon:  mMon,
 				Mu:             new(sync.Mutex),
+				Ifaces:         make(map[string]string),
 			},
 			wantErr: false,
 		},
@@ -594,6 +595,7 @@ func TestAddeBPFPrograms(t *testing.T) {
 		log.Debug().Msgf("HostInterfacesKey: %v, HostInterfacesValue: %v", HostInterfacesKey, HostInterfacesValue)
 		break
 	}
+
 	type fields struct {
 		hostName       string
 		HostInterfaces map[string]bool
