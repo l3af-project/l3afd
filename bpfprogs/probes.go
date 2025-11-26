@@ -40,7 +40,7 @@ func (b *BPF) LoadBPFProgramProbeType(prog *ebpf.Program, sectionName string) er
 		return fmt.Errorf("un-supported probe type %s ", prog.Type())
 	}
 	ebpfProgName := b.Program.Name + "_" + progType + "_" + hookName
-	stats.Add(1, stats.BPFStartCount, ebpfProgName, "", "")
+	stats.Add(1, stats.BPFStartCount, ebpfProgName, "", "", "")
 	return nil
 }
 

@@ -244,7 +244,7 @@ func TestBPF_Stop(t *testing.T) {
 				log.Warn().Err(err).Msg("Failed to register BPFStartTime metrics")
 			}
 
-			if err := b.Stop(ifaceName, models.IngressType, false); (err != nil) != tt.wantErr {
+			if err := b.Stop(ifaceName, "", models.IngressType, false); (err != nil) != tt.wantErr {
 				t.Errorf("BPF.Stop() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -346,7 +346,7 @@ func TestBPF_Start(t *testing.T) {
 				RestartCount: tt.fields.RestartCount,
 				HostConfig:   tt.fields.hostConfig,
 			}
-			if err := b.Start(tt.fields.ifaceName, models.IngressType, true); (err != nil) != tt.wantErr {
+			if err := b.Start(tt.fields.ifaceName, "", models.IngressType, true); (err != nil) != tt.wantErr {
 				t.Errorf("BPF.Start() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
