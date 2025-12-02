@@ -38,7 +38,7 @@ jobs:
       - name: Prep
         run: |
           sudo cp -r /home/runner/work/l3afd/l3afd /root
-          sudo git clone -b ip_add https://github.com/Atul-source/l3af-arch.git /root/l3af-arch
+          sudo git clone https://github.com/l3af-project/l3af-arch.git /root/l3af-arch
           sudo bash /root/l3af-arch/dev_environment/e2e_test/prep_env.sh
           sudo bash /root/l3af-arch/dev_environment/setup_linux_dev_env.sh --ci-build
           hm=$(hostname)
