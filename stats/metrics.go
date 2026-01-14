@@ -251,7 +251,7 @@ func SetValueWithLabels(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgra
 	bpfGauge.Set(value)
 }
 
-func SetWithVersion(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, version, direction, ifaceName string) {
+func SetWithVersion(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, version, direction, ifaceName, ipv4Address string) {
 
 	if gaugeVec == nil {
 		log.Warn().Msg("Metrics: gauge vector is nil and needs to be initialized before Set")
