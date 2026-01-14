@@ -1,12 +1,14 @@
 // Copyright Contributors to the L3AF Project.
 // SPDX-License-Identifier: Apache-2.0
+//
+//go:build !WINDOWS
+// +build !WINDOWS
 
 package bpfprogs
 
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/l3af-project/l3afd/v2/stats"
@@ -38,8 +40,7 @@ func (b *BPF) LoadBPFProgramProbeType(prog *ebpf.Program, sectionName string) er
 		return fmt.Errorf("un-supported probe type %s ", prog.Type())
 	}
 	ebpfProgName := b.Program.Name + "_" + progType + "_" + hookName
-	stats.Add(1, stats.BPFStartCount, ebpfProgName, "", "")
-	stats.Set(float64(time.Now().Unix()), stats.BPFStartTime, ebpfProgName, "", "")
+	stats.Add(1, stats.BPFStartCount, ebpfProgName, "", "", "")
 	return nil
 }
 

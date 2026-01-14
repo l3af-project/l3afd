@@ -18,10 +18,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/l3af-project/l3afd/v2/config"
 	"github.com/l3af-project/l3afd/v2/mocks"
 	"github.com/l3af-project/l3afd/v2/models"
+	"github.com/l3af-project/l3afd/v2/stats"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rs/zerolog/log"
+	"go.uber.org/mock/gomock"
 )
 
 var mockedExitStatus = 1
@@ -205,7 +209,42 @@ func TestBPF_Stop(t *testing.T) {
 				FilePath:     tt.fields.FilePath,
 				RestartCount: tt.fields.RestartCount,
 			}
-			if err := b.Stop(ifaceName, models.IngressType, false); (err != nil) != tt.wantErr {
+
+			// Create the metric with expected labels
+			stats.BPFRunning = prometheus.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Name: "l3afd_BPFRunning",
+					Help: "Indicates whether eBPF program is running",
+				},
+				[]string{"program", "version", "direction", "iface"},
+			)
+
+			if err := prometheus.Register(stats.BPFRunning); err != nil {
+				log.Warn().Err(err).Msg("Failed to register BPFRunning metrics")
+			}
+
+			// Simulate program load
+			stats.BPFRunning.With(prometheus.Labels{
+				"program":   b.Program.Name,
+				"version":   b.Program.Version,
+				"direction": "ingress",
+				"iface":     "eth0",
+			}).Set(1)
+
+			stats.BPFStartTime = prometheus.NewGaugeVec(
+				prometheus.GaugeOpts{
+					Namespace: "l3afd",
+					Name:      "BPFStartTime",
+					Help:      "This value indicates start time of the BPF program since unix epoch in seconds",
+				},
+				[]string{"host", "ebpf_program", "direction", "interface_name"},
+			)
+
+			if err := prometheus.Register(stats.BPFStartTime); err != nil {
+				log.Warn().Err(err).Msg("Failed to register BPFStartTime metrics")
+			}
+
+			if err := b.Stop(ifaceName, "", models.IngressType, false); (err != nil) != tt.wantErr {
 				t.Errorf("BPF.Stop() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -307,7 +346,7 @@ func TestBPF_Start(t *testing.T) {
 				RestartCount: tt.fields.RestartCount,
 				HostConfig:   tt.fields.hostConfig,
 			}
-			if err := b.Start(tt.fields.ifaceName, models.IngressType, true); (err != nil) != tt.wantErr {
+			if err := b.Start(tt.fields.ifaceName, "", models.IngressType, true); (err != nil) != tt.wantErr {
 				t.Errorf("BPF.Start() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

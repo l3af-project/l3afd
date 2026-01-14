@@ -36,7 +36,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 			Name:      "BPFStartCount",
 			Help:      "The count of BPF program started",
 		},
-		[]string{"host", "ebpf_program", "direction", "interface_name"},
+		[]string{"host", "ebpf_program", "direction", "interface_name", "ipv4_address"},
 	)
 
 	BPFStartCount = bpfStartCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
@@ -47,7 +47,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 			Name:      "BPFStopCount",
 			Help:      "The count of BPF program stopped",
 		},
-		[]string{"host", "ebpf_program", "direction", "interface_name"},
+		[]string{"host", "ebpf_program", "direction", "interface_name", "ipv4_address"},
 	)
 
 	BPFStopCount = bpfStopCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
@@ -58,7 +58,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 			Name:      "BPFUpdateCount",
 			Help:      "The count of BPF programs updated",
 		},
-		[]string{"host", "ebpf_program", "direction", "interface_name"},
+		[]string{"host", "ebpf_program", "direction", "interface_name", "ipv4_address"},
 	)
 
 	BPFUpdateCount = bpfUpdateCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
@@ -69,7 +69,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 			Name:      "BPFUpdateFailedCount",
 			Help:      "The count of Failed BPF program update args",
 		},
-		[]string{"host", "bpf_program", "direction", "interface_name"},
+		[]string{"host", "bpf_program", "direction", "interface_name", "ipv4_address"},
 	)
 
 	BPFUpdateFailedCount = bpfUpdateFailedCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
@@ -80,7 +80,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 			Name:      "BPFRunning",
 			Help:      "This value indicates BPF program is running or not",
 		},
-		[]string{"host", "ebpf_program", "version", "direction", "interface_name"},
+		[]string{"host", "ebpf_program", "version", "direction", "interface_name", "ipv4_address"},
 	)
 
 	if err := prometheus.Register(bpfRunningVec); err != nil {
@@ -95,7 +95,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 			Name:      "BPFStartTime",
 			Help:      "This value indicates start time of the BPF program since unix epoch in seconds",
 		},
-		[]string{"host", "ebpf_program", "direction", "interface_name"},
+		[]string{"host", "ebpf_program", "direction", "interface_name", "ipv4_address"},
 	)
 
 	if err := prometheus.Register(bpfStartTimeVec); err != nil {
@@ -125,7 +125,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 			Name:      "BPFDeployFailedCount",
 			Help:      "The count of BPF program failed to start or update",
 		},
-		[]string{"host", "ebpf_program", "direction", "interface_name"},
+		[]string{"host", "ebpf_program", "direction", "interface_name", "ipv4_address"},
 	)
 	BPFDeployFailedCount = BPFDeployFailedCountVec.MustCurryWith(prometheus.Labels{"host": hostname})
 
@@ -156,7 +156,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 	}()
 }
 
-func Add(value float64, counterVec *prometheus.CounterVec, ebpfProgram, direction, ifaceName string) {
+func Add(value float64, counterVec *prometheus.CounterVec, ebpfProgram, direction, ifaceName string, ipv4Address string) {
 
 	if counterVec == nil {
 		log.Warn().Msg("Metrics: counter vector is nil and needs to be initialized before Incr")
@@ -167,6 +167,7 @@ func Add(value float64, counterVec *prometheus.CounterVec, ebpfProgram, directio
 			"ebpf_program":   ebpfProgram,
 			"direction":      direction,
 			"interface_name": ifaceName,
+			"ipv4_address":   ipv4Address,
 		}),
 	)
 	if err != nil {
@@ -177,7 +178,7 @@ func Add(value float64, counterVec *prometheus.CounterVec, ebpfProgram, directio
 	bpfCounter.Add(value)
 }
 
-func Set(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, direction, ifaceName string) {
+func Set(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, direction, ifaceName string, ipv4Address string) {
 
 	if gaugeVec == nil {
 		log.Warn().Msg("Metrics: gauge vector is nil and needs to be initialized before Set")
@@ -188,6 +189,7 @@ func Set(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, direction, i
 			"ebpf_program":   ebpfProgram,
 			"direction":      direction,
 			"interface_name": ifaceName,
+			"ipv4_address":   ipv4Address,
 		}),
 	)
 	if err != nil {
@@ -199,7 +201,7 @@ func Set(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, direction, i
 }
 
 // Set gaugevec metrics value with given mapName and other fields
-func SetValue(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, mapName, ifaceName string) {
+func SetValue(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, mapName, ifaceName string, ipv4Address string) {
 
 	if gaugeVec == nil {
 		log.Warn().Msg("Metrics: gauge vector is nil and needs to be initialized before SetValue")
@@ -210,6 +212,7 @@ func SetValue(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, mapName
 			"ebpf_program":   ebpfProgram,
 			"map_name":       mapName,
 			"interface_name": ifaceName,
+			"ipv4_address":   ipv4Address,
 		}),
 	)
 	if err != nil {
@@ -260,6 +263,7 @@ func SetWithVersion(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, v
 			"version":        version,
 			"direction":      direction,
 			"interface_name": ifaceName,
+			"ipv4_address":   ipv4Address,
 		}),
 	)
 	if err != nil {
