@@ -1427,7 +1427,6 @@ func (c *NFConfigs) DeleteProgramsOnInterfaceHelper(e *list.Element, ifaceName s
 func (c *NFConfigs) DeleteEbpfPrograms(bpfProgs []models.L3afBPFProgramNames) error {
 	var combinedError error
 	for _, bpfProg := range bpfProgs {
-		c.Ifaces = map[string]string{bpfProg.Iface: bpfProg.IPv4Address}
 		if err := c.DeleteProgramsOnInterface(bpfProg.Iface, bpfProg.HostName, bpfProg.BpfProgramNames); err != nil {
 			if err := c.SaveConfigsToConfigStore(); err != nil {
 				combinedError = errors.Join(combinedError, fmt.Errorf("SaveConfigsToConfigStore failed to save configs %w", err))
