@@ -5,8 +5,10 @@ package stats
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
+	"strings"
 
 	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/prometheus/client_golang/prometheus"
@@ -108,7 +110,7 @@ func SetupMetrics(hostname, daemonName, metricsAddr string) {
 			Name:      "BPFMonitorMap",
 			Help:      "This value indicates BPF program monitor counters",
 		},
-		[]string{"host", "ebpf_program", "map_name", "interface_name", "ipv4_address"},
+		[]string{"host", "ebpf_program", "map_name", "interface_name", "custom_labels"},
 	)
 
 	if err := prometheus.Register(bpfMonitorMapVec); err != nil {
@@ -221,7 +223,35 @@ func SetValue(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, mapName
 	bpfGauge.Set(value)
 }
 
-func SetWithVersion(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, version, direction, ifaceName string, ipv4Address string) {
+// Set gaugevec metrics value with given mapName and other fields
+func SetValueWithLabels(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, mapName, ifaceName string, labels map[string]string) {
+
+	if gaugeVec == nil {
+		log.Warn().Msg("Metrics: gauge vector is nil and needs to be initialized before SetValue")
+		return
+	}
+
+	var customLabels []string
+	for k, v := range labels {
+		customLabels = append(customLabels, fmt.Sprintf("%s:%s", k, v))
+	}
+	bpfGauge, err := gaugeVec.GetMetricWith(
+		prometheus.Labels(map[string]string{
+			"ebpf_program":   ebpfProgram,
+			"map_name":       mapName,
+			"interface_name": ifaceName,
+			"custom_labels":  strings.Join(customLabels, ","),
+		}),
+	)
+	if err != nil {
+		log.Warn().Msgf("Metrics: unable to fetch gauge with fields: ebpf_program: %s, map_name: %s, interface_name: %s, custom_labels: %s",
+			ebpfProgram, mapName, ifaceName, labels["custom_labels"])
+		return
+	}
+	bpfGauge.Set(value)
+}
+
+func SetWithVersion(value float64, gaugeVec *prometheus.GaugeVec, ebpfProgram, version, direction, ifaceName, ipv4Address string) {
 
 	if gaugeVec == nil {
 		log.Warn().Msg("Metrics: gauge vector is nil and needs to be initialized before Set")
