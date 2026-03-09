@@ -453,7 +453,6 @@ func (b *BPF) Start(ifaceName, ipv4_address, direction string, chain bool) error
 		go b.RunBPFConfigs()
 	}
 
-	stats.Add(1, stats.BPFStartCount, b.Program.Name, direction, ifaceName, ipv4_address)
 	stats.Set(float64(time.Now().Unix()), stats.BPFStartTime, b.Program.Name, direction, ifaceName, ipv4_address)
 
 	userProgram, bpfProgram, err := b.isRunning()
@@ -461,6 +460,8 @@ func (b *BPF) Start(ifaceName, ipv4_address, direction string, chain bool) error
 		log.Error().Err(err).Msg("eBPF program failed to start")
 		return fmt.Errorf("bpf program %s failed to start %w", b.Program.Name, err)
 	}
+
+	stats.Add(1, stats.BPFStartCount, b.Program.Name, direction, ifaceName, ipv4_address)
 
 	log.Info().Msgf("BPF program - %s started Program ID %d", b.Program.Name, uint32(b.ProgID))
 	return nil
@@ -543,7 +544,6 @@ func (b *BPF) UpdateArgs(ifaceName, ipv4_address, direction string) error {
 // Status of user program is running
 func (b *BPF) isRunning() (bool, bool, error) {
 	userProgram := true
-	bpfProgram := false
 	var err error
 
 	// CmdStatus should check for user and BPF program
@@ -573,13 +573,12 @@ func (b *BPF) isRunning() (bool, bool, error) {
 			outStr, errStr := out.String(), out.String()
 			if strings.EqualFold(outStr, bpfStatus) {
 				userProgram = true
-				bpfProgram = true
 			} else {
 				userProgram = false
 				log.Warn().Msgf("bpf program not running error - %s", errStr)
 			}
 		}
-		return userProgram, bpfProgram, err
+		return userProgram, b.IsLoaded(), err
 	}
 	if len(b.Program.CmdStart) > 1 && b.Program.UserProgramDaemon {
 		if err := b.VerifyProcessObject(); err != nil {
@@ -1237,7 +1236,7 @@ func (b *BPF) InitialiseMetricMaps() error {
 // Here it checks whether prog ID is valid and active
 func (b *BPF) IsLoaded() bool {
 	if b.ProgID == 0 {
-		return true
+		return false
 	}
 	ebpfProg, err := ebpf.NewProgramFromID(b.ProgID)
 	if err != nil && errors.Is(err, os.ErrNotExist) {
