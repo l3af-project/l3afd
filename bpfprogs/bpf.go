@@ -1239,7 +1239,7 @@ func (b *BPF) IsLoaded() bool {
 		return false
 	}
 	ebpfProg, err := ebpf.NewProgramFromID(b.ProgID)
-	if err != nil && errors.Is(err, os.ErrNotExist) {
+	if err != nil {
 		log.Debug().Msgf("IsLoaded - %s is not loaded or invalid program id %d", b.Program.Name, uint32(b.ProgID))
 		return false
 	}
