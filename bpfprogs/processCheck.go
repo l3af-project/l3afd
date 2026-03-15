@@ -83,9 +83,8 @@ func (c *PCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string
 							log.Error().Err(err).Msgf("pMonitorWorker: BPF Program start failed for program %s", bpf.Program.Name)
 						}
 					}
-				} else {
-					stats.SetWithVersion(0.0, stats.BPFRunning, bpf.Program.Name, bpf.Program.Version, direction, ifaceName, (*ifaces)[ifaceName])
 				}
+				stats.SetWithVersion(0.0, stats.BPFRunning, bpf.Program.Name, bpf.Program.Version, direction, ifaceName, (*ifaces)[ifaceName])
 			}
 		}
 	}

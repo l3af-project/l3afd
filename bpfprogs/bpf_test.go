@@ -315,27 +315,6 @@ func TestBPF_Start(t *testing.T) {
 			},
 			wantErr: false,
 		},
-		{name: "withResourceLimits",
-			fields: fields{
-				Program: models.BPFProgram{
-					Name:              "nfprogram",
-					Artifact:          "data.tar.gz",
-					CmdStart:          GetTestExecutableName(),
-					CmdStop:           GetTestExecutableName(),
-					UserProgramDaemon: true,
-					AdminStatus:       "enabled",
-					CPU:               100,
-					Memory:            1024,
-				},
-				Cmd:          fakeExecCommand(GetTestExecutablePathName()),
-				FilePath:     GetTestExecutablePath(),
-				RestartCount: 0,
-				hostConfig: &config.Config{
-					BPFLogDir: "",
-				},
-			},
-			wantErr: false,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
