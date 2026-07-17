@@ -53,6 +53,10 @@ func (c *PCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string
 				if bpf.Program.AdminStatus == models.Disabled {
 					continue
 				}
+				if bpf.Deploying.Load() {
+					log.Debug().Msgf("pMonitor: skipping %s on %s, initial deployment in flight", bpf.Program.Name, ifaceName)
+					continue
+				}
 				userProgram, bpfProgram, _ := bpf.isRunning()
 				if userProgram && bpfProgram {
 					stats.SetWithVersion(1.0, stats.BPFRunning, bpf.Program.Name, bpf.Program.Version, direction, ifaceName, (*ifaces)[ifaceName])
@@ -99,6 +103,10 @@ func (c *PCheck) pMonitorProbeWorker(bpfProgs *list.List) {
 		for e := bpfProgs.Front(); e != nil; e = e.Next() {
 			bpf := e.Value.(*BPF)
 			if bpf.Program.AdminStatus == models.Disabled {
+				continue
+			}
+			if bpf.Deploying.Load() {
+				log.Debug().Msgf("pMonitorProbeWorker: skipping %s, initial deployment in flight", bpf.Program.Name)
 				continue
 			}
 			userProgram, bpfProgram, _ := bpf.isRunning()
