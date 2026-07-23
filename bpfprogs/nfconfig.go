@@ -243,6 +243,10 @@ func (c *NFConfigs) DownloadAndStartBPFProgram(element *list.Element, ifaceName,
 	}
 
 	bpf := element.Value.(*BPF)
+	// Mark this program as deploying so pMonitor does not attempt a concurrent
+	// restart while the artifact is still downloading or Start is in flight.
+	bpf.Deploying.Store(true)
+	defer bpf.Deploying.Store(false)
 
 	if element.Prev() != nil {
 		prevBPF := element.Prev().Value.(*BPF)

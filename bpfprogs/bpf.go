@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -67,6 +68,7 @@ type BPF struct {
 	HostConfig        *config.Config
 	Link              link.Link `json:"-"` // handle link object
 	ProbeLinks        []*link.Link
+	Deploying         atomic.Bool `json:"-"` // true while artifact fetch or Start is in flight; pMonitor skips the program during this window
 }
 
 func NewBpfProgram(ctx context.Context, program models.BPFProgram, conf *config.Config, ifaceName string) *BPF {
