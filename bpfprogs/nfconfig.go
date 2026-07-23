@@ -230,7 +230,13 @@ func (c *NFConfigs) PushBackAndStartBPF(bpfProg *models.BPFProgram, ifaceName, d
 		return fmt.Errorf("unknown direction type")
 	}
 
-	if err := c.DownloadAndStartBPFProgram(bpfList.PushBack(bpf), ifaceName, direction); err != nil {
+	// Push to the list before starting so DownloadAndStartBPFProgram can
+	// walk Prev() for chaining. Remove on failure so the list only ever
+	// contains programs that are actually attached in the kernel — which
+	// keeps SaveConfigsToConfigStore from persisting phantom entries.
+	elem := bpfList.PushBack(bpf)
+	if err := c.DownloadAndStartBPFProgram(elem, ifaceName, direction); err != nil {
+		bpfList.Remove(elem)
 		return fmt.Errorf("failed to download and start the BPF %s iface %s direction %s with err: %w", bpfProg.Name, ifaceName, direction, err)
 	}
 
@@ -579,6 +585,7 @@ func (c *NFConfigs) InsertAndStartBPFProgram(bpfProg *models.BPFProgram, ifaceNa
 		if data.Program.SeqID >= bpfProg.SeqID {
 			tmpBPF := bpfList.InsertBefore(bpf, e)
 			if err := c.DownloadAndStartBPFProgram(tmpBPF, ifaceName, direction); err != nil {
+				bpfList.Remove(tmpBPF)
 				return fmt.Errorf("failed to download and start network function %s version %s iface %s direction %s with err %w", bpfProg.Name, bpfProg.Version, ifaceName, direction, err)
 			}
 
@@ -1076,6 +1083,7 @@ func (c *NFConfigs) AddAndStartBPF(bpfProg *models.BPFProgram, ifaceName string,
 			bpf := NewBpfProgram(c.Ctx, *bpfProg, c.HostConfig, ifaceName)
 			tmpBPF := bpfList.InsertBefore(bpf, e)
 			if err := c.DownloadAndStartBPFProgram(tmpBPF, ifaceName, direction); err != nil {
+				bpfList.Remove(tmpBPF)
 				return fmt.Errorf("failed to download and start eBPF program %s version %s iface %s direction %s with err %w", bpfProg.Name, bpfProg.Version, ifaceName, direction, err)
 			}
 
@@ -1491,7 +1499,9 @@ func (c *NFConfigs) PushBackAndStartProbe(bpfProg *models.BPFProgram) error {
 	log.Info().Msgf("PushBackAndStartProbe: %s", bpfProg.Name)
 	bpf := NewBpfProgram(c.Ctx, *bpfProg, c.HostConfig, "")
 
-	if err := c.DownloadAndStartProbes(c.ProbesBpfs.PushBack(bpf)); err != nil {
+	elem := c.ProbesBpfs.PushBack(bpf)
+	if err := c.DownloadAndStartProbes(elem); err != nil {
+		c.ProbesBpfs.Remove(elem)
 		return fmt.Errorf("failed to download and start the BPF %s  with err: %w", bpfProg.Name, err)
 	}
 
