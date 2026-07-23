@@ -259,6 +259,10 @@ func (c *NFConfigs) DownloadAndStartBPFProgram(element *list.Element, ifaceName,
 		return fmt.Errorf("failed to get artifacts %s with error: %w", bpf.Program.Artifact, err)
 	}
 
+	// Remove any program and link pin files left by a previous crash so that
+	// the Pin() calls inside Start do not fail with "file exists".
+	bpf.CleanStalePins(ifaceName, direction)
+
 	if err := bpf.Start(ifaceName, c.Ifaces[ifaceName], direction, c.HostConfig.BpfChainingEnabled); err != nil {
 		return fmt.Errorf("failed to start bpf program %s with error: %w", bpf.Program.Name, err)
 	}

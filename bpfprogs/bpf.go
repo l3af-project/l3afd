@@ -183,6 +183,11 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 		}
 	}
 
+	// Clean any stale program or link pin files left by a previous crash.
+	// Must run before the load calls below, whose Pin() steps fail with
+	// "file exists" when a prior run did not clean up on exit.
+	rootProgBPF.CleanStalePins(ifaceName, direction)
+
 	version := utils.ReplaceDotsWithUnderscores(rootProgBPF.Program.Version)
 	if progType == models.XDPType {
 		rlimit.RemoveMemlock()
@@ -681,6 +686,108 @@ func fileExists(filename string) bool {
 	return err == nil && !info.IsDir()
 }
 
+// CleanStalePins removes program and link pin files left by a previous
+// l3afd instance that crashed or was killed before it could clean up.
+// Called before loading a new BPF program so that Pin() calls do not
+// fail with "file exists".
+//
+// Map pins are intentionally preserved: they hold live kernel objects
+// whose state (counters, connection tables, etc.) should survive a crash
+// restart. Incompatible map pins are handled by a clean-and-retry inside
+// LoadBPFProgram if NewCollectionWithOptions fails.
+func (b *BPF) CleanStalePins(ifaceName, direction string) {
+	if b.HostConfig == nil {
+		return
+	}
+	version := utils.ReplaceDotsWithUnderscores(b.Program.Version)
+
+	base := b.HostConfig.BpfMapDefaultPath
+
+	// Program pin — requires EntryFunctionName to construct the path.
+	if len(b.Program.EntryFunctionName) > 0 {
+		progPinPath := utils.ProgPinPath(base, ifaceName,
+			b.Program.Name, version, b.Program.EntryFunctionName, b.Program.ProgType)
+		removeStalePinFile(progPinPath, base, "program", b.Program.Name)
+	}
+
+	// Link pin — path format differs by prog type; TCX encodes direction.
+	switch b.Program.ProgType {
+	case models.TCType:
+		linkPinPath := utils.TCLinkPinPath(base, ifaceName,
+			b.Program.Name, version, b.Program.ProgType, direction)
+		removeStalePinFile(linkPinPath, base, "TC link", b.Program.Name)
+	case models.XDPType:
+		linkPinPath := utils.LinkPinPath(base, ifaceName,
+			b.Program.Name, version, b.Program.ProgType)
+		removeStalePinFile(linkPinPath, base, "XDP link", b.Program.Name)
+	}
+}
+
+// removeStalePinFile removes a single BPF pin file if it exists.
+// No-op when the file is absent.
+//
+// baseDir is the directory that path must remain inside; the check uses
+// filepath.Clean + strings.HasPrefix so that a path component that
+// resolves to ".." after Join cannot escape the base (the same pattern
+// used by ValidatePath in this file).
+func removeStalePinFile(path, baseDir, pinType, progName string) {
+	cleanPath := filepath.Clean(path)
+	cleanBase := filepath.Clean(baseDir)
+	if !strings.HasPrefix(cleanPath, cleanBase+string(os.PathSeparator)) {
+		log.Warn().Msgf("skipping stale %s pin removal for %s: path %s escapes base %s", pinType, progName, path, baseDir)
+		return
+	}
+	if !fileExists(cleanPath) {
+		return
+	}
+	log.Warn().Msgf("removing stale %s pin for %s left by previous crash: %s", pinType, progName, cleanPath)
+	if err := os.Remove(cleanPath); err != nil && !os.IsNotExist(err) {
+		log.Warn().Err(err).Msgf("failed to remove stale %s pin for %s: %s", pinType, progName, cleanPath)
+	}
+}
+
+// cleanStaleMapPinDir removes all regular files from a map pin directory.
+// Called as a fallback when NewCollectionWithOptions fails, indicating the
+// pinned maps are stale or have an incompatible spec.
+//
+// bpfBase is BpfMapDefaultPath — the trusted root that dir must reside inside.
+// Anchoring against a known-good base is the correct path-injection guard;
+// string-searching for ".." on a filepath.Clean'd path is a no-op because
+// Clean resolves all ".." components before the check would run.
+func cleanStaleMapPinDir(dir, bpfBase string) {
+	cleanBase := filepath.Clean(bpfBase)
+	cleanDir := filepath.Clean(dir)
+	// Reject any dir that resolves outside the trusted BPF filesystem root.
+	if !strings.HasPrefix(cleanDir, cleanBase+string(os.PathSeparator)) {
+		log.Warn().Msgf("cleanStaleMapPinDir: dir %s escapes BPF base %s, skipping", dir, bpfBase)
+		return
+	}
+	entries, err := os.ReadDir(cleanDir)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			log.Warn().Err(err).Msgf("cleanStaleMapPinDir: failed to read dir %s", cleanDir)
+		}
+		return
+	}
+	prefix := cleanDir + string(os.PathSeparator)
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		// filepath.Clean resolves any ".." in entry.Name(); HasPrefix
+		// confirms the result is still within cleanDir.
+		path := filepath.Clean(filepath.Join(cleanDir, entry.Name()))
+		if !strings.HasPrefix(path, prefix) {
+			log.Warn().Msgf("cleanStaleMapPinDir: skipping unsafe entry %q in %s", entry.Name(), cleanDir)
+			continue
+		}
+		log.Warn().Msgf("cleanStaleMapPinDir: removing stale map pin %s", path)
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			log.Warn().Err(err).Msgf("cleanStaleMapPinDir: failed to remove %s", path)
+		}
+	}
+}
+
 // Add eBPF map into BPFMaps list
 func (b *BPF) AddBPFMap(mapName string) error {
 	bpfMap, err := b.GetBPFMap(mapName)
@@ -1096,8 +1203,17 @@ func (b *BPF) LoadBPFProgram(ifaceName string) error {
 		},
 	}
 
-	// Load the BPF program with the updated map options
+	// Load the BPF program with the updated map options.
+	// If the load fails and a map pin directory exists, stale or incompatible map
+	// pins from a previous crash may be the cause. Clean them out and retry once.
+	// This intentionally discards preserved map state (counters, tables) — a
+	// degraded restart is safer than a failed one.
 	prg, err := ebpf.NewCollectionWithOptions(objSpec, collOptions)
+	if err != nil && len(mapPinPath) > 0 {
+		log.Warn().Err(err).Msgf("%s: collection load failed; cleaning stale map pins at %s and retrying", b.Program.Name, mapPinPath)
+		cleanStaleMapPinDir(mapPinPath, b.HostConfig.BpfMapDefaultPath)
+		prg, err = ebpf.NewCollectionWithOptions(objSpec, collOptions)
+	}
 	if err != nil {
 		return fmt.Errorf("%s: loading of bpf program failed - %w", b.Program.Name, err)
 	}
