@@ -11,6 +11,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/ebpf"
+	"github.com/l3af-project/l3afd/v2/decode"
 	"github.com/l3af-project/l3afd/v2/models"
 	"github.com/rs/zerolog/log"
 )
@@ -27,24 +28,25 @@ type BPFMap struct {
 // This stores Metrics map details.
 type MetricsBPFMap struct {
 	BPFMap
-	Key        int
+	Key        decode.FieldSchema
 	Values     *ring.Ring
 	Aggregator string
 	LastValue  float64
 }
 
+// TODO TO COMPLEE REMOVEMISSINGKEYS IMPLEMENTATION
 // The RemoveMissingKeys function is used to delete missing entries of eBPF maps, which are used by eBPF Programs.
-func (b *BPFMap) RemoveMissingKeys(args []models.KeyValue) error {
+func (b *BPFMap) RemoveMissingKeys(args []models.KeyValueInternal) error {
 	ebpfMap, err := ebpf.NewMapFromID(b.MapID)
 	if err != nil {
 		return fmt.Errorf("access new map from ID failed %w", err)
 	}
 	defer ebpfMap.Close()
-	KeyValueMap := make(map[int]bool, len(args))
+	KeyValueMap := make(map[decode.Field]bool, len(args))
 	for _, k := range args {
 		KeyValueMap[k.Key] = true
 	}
-	var key, nextKey int
+	var key, nextKey decode.Field
 	for {
 		err := ebpfMap.NextKey(unsafe.Pointer(&key), unsafe.Pointer(&nextKey))
 		if err != nil {
@@ -67,16 +69,23 @@ func (b *BPFMap) RemoveMissingKeys(args []models.KeyValue) error {
 }
 
 // The update function is used to update eBPF maps, which are used by eBPF programs.
-func (b *BPFMap) Update(key, value int) error {
-
+func (b *BPFMap) Update(key, value decode.Field) error {
 	log.Debug().Msgf("update map name %s ID %d", b.Name, b.MapID)
 	ebpfMap, err := ebpf.NewMapFromID(b.MapID)
 	if err != nil {
 		return fmt.Errorf("access new map from ID failed %w", err)
 	}
 	defer ebpfMap.Close()
+	kb, err := key.Serialize()
+	if err != nil {
+		return fmt.Errorf("serialize key: %w", err)
+	}
+	vb, err := value.Serialize()
+	if err != nil {
+		return fmt.Errorf("serialize value: %w", err)
+	}
 	log.Info().Msgf("updating map %s key %d mapid %d", b.Name, key, b.MapID)
-	if err := ebpfMap.Update(unsafe.Pointer(&key), unsafe.Pointer(&value), 0); err != nil {
+	if err := ebpfMap.Put(kb, vb); err != nil {
 		return fmt.Errorf("update hash map element failed for key %d error %w", key, err)
 	}
 	return nil
@@ -95,6 +104,7 @@ func (b *MetricsBPFMap) GetValue() float64 {
 		log.Warn().Err(err).Msgf("GetValue : NewMapFromID failed ID %d, re-looking up of map id", b.MapID)
 		tmpBPF, err := b.BPFProg.GetBPFMap(b.Name)
 		if err != nil {
+			fmt.Println(err)
 			log.Warn().Err(err).Msgf("GetValue: Update new map ID %d", tmpBPF.MapID)
 			return 0
 		}
@@ -102,18 +112,47 @@ func (b *MetricsBPFMap) GetValue() float64 {
 		b.MapID = tmpBPF.MapID
 		ebpfMap, err = ebpf.NewMapFromID(b.MapID)
 		if err != nil {
+			fmt.Println(err)
 			log.Warn().Err(err).Msgf("GetValue : retry of NewMapFromID failed ID %d", b.MapID)
 			return 0
 		}
 	}
 	defer ebpfMap.Close()
-
-	var value int64
-	if err = ebpfMap.Lookup(unsafe.Pointer(&b.Key), unsafe.Pointer(&value)); err != nil {
-		log.Warn().Err(err).Msgf("GetValue Lookup failed : Name %s ID %d", b.Name, b.MapID)
+	parsedKey, err := decode.ParseSchema(b.Key)
+	if err != nil {
+		fmt.Println(err)
+		log.Warn().Err(err).Msgf("GetValue ParseSchema failed : Name %s ID %d", b.Name, b.MapID)
 		return 0
 	}
-
+	// fmt.Printf(" ATUL. %v", parsedKey)
+	kb, err := parsedKey.Serialize()
+	if err != nil {
+		fmt.Println("ATUL1")
+		fmt.Println(err)
+		return 0
+	}
+	// info, err := ebpfMap.Info()
+	// if err != nil {
+	// 	// handle error
+	// 	fmt.Println(err)
+	// 	return 0
+	// }
+	// fmt.Printf(" keysize %d value size %d\n", info.KeySize, info.ValueSize)
+	var fvalue decode.Uint64Field
+	vb := make([]byte, fvalue.Size())
+	// fmt.Printf(" keysize %d value size %d\n", parsedKey.Size(), fvalue.Size())
+	if err := ebpfMap.Lookup(kb, &vb); err != nil {
+		fmt.Println("ATUL2")
+		fmt.Println(err)
+		return 0
+	}
+	_, err = fvalue.Deserialize(vb, 0)
+	if err != nil {
+		fmt.Println("ATUL3")
+		fmt.Println(err)
+		return 0
+	}
+	value := fvalue.Value
 	var retVal float64
 	switch b.Aggregator {
 	case "scalar":
