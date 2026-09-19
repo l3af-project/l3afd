@@ -5,6 +5,8 @@ package models
 
 import (
 	"sync"
+
+	"github.com/l3af-project/l3afd/v2/decode"
 )
 
 // l3afd constants
@@ -24,11 +26,20 @@ const (
 	XDPIngressType = "xdpingress"
 	TCMapPinPath   = "tc/globals"
 
-	KProbe     = "kprobe"
-	TracePoint = "tracepoint"
-	KRetProbe  = "kretprobe"
-	UProbe     = "uprobe"
-	URetProbe  = "uretprobe"
+	KProbe        = "kprobe"
+	TracePoint    = "tracepoint"
+	KRetProbe     = "kretprobe"
+	UProbe        = "uprobe"
+	URetProbe     = "uretprobe"
+	Int32Type     = "int32"
+	Int64Type     = "int64"
+	CharType      = "char"
+	CharListType  = "char_list"
+	Int32ListType = "int32_list"
+	Int64ListType = "int64_list"
+	IpType        = "ip"
+	IpListType    = "ip_list"
+	MacType       = "mac"
 )
 
 type L3afDNFArgs map[string]interface{}
@@ -70,16 +81,30 @@ type BPFProgram struct {
 
 // L3afDNFMetricsMap defines BPF map
 type L3afDNFMetricsMap struct {
-	Name       string `json:"name"`       // BPF map name
-	Key        int    `json:"key"`        // Index of the bpf map
-	Aggregator string `json:"aggregator"` // Aggregation function names
+	Name       string               `json:"name"`       // BPF map name
+	Key        decode.FieldSchema   `json:"key"`        // Index of the bpf map
+	Aggregator string               `json:"aggregator"` // Aggregation function names
+	Labels     []decode.LabelConfig `json:"labels"`     // Labels to extract from key/value
 }
+
+// for a given MapName , LabelConfig will be there which will get the paths of labels and aggregator
 
 // KeyValue defines struct for key and value
 type KeyValue struct {
-	Key   int `json:"key"`   // Key
-	Value int `json:"value"` // Value
+	Key   decode.FieldSchema `json:"key"`   // Key
+	Value decode.FieldSchema `json:"value"` // Value
 }
+
+// KeyValue defines struct for key and value
+type KeyValueInternal struct {
+	Key   decode.Field `json:"key"`   // Key
+	Value decode.Field `json:"value"` // Value
+}
+
+// We need to fill that keyvalue it should map_name then it should basically fetch index of the bpf map
+// need to get the label value which is path and if it is a metrics monitor then we need to get we expect always
+
+// Basically key and value should be of same type
 
 // L3afDMapArg defines map arg
 type L3afDMapArg struct {
@@ -126,7 +151,7 @@ type MetaColl struct {
 
 type MetaMetricsBPFMap struct {
 	MapName    string
-	Key        int
+	Key        decode.FieldSchema
 	Values     []float64
 	Aggregator string
 	LastValue  float64
