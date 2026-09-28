@@ -6,6 +6,7 @@ package bpfprogs
 
 import (
 	"container/list"
+	"sync"
 	"time"
 
 	"github.com/l3af-project/l3afd/v2/models"
@@ -28,19 +29,20 @@ func NewPCheck(rc int, chain bool, interval time.Duration) *PCheck {
 	return c
 }
 
-func (c *PCheck) PCheckStart(xdpProgs, ingressTCProgs, egressTCProgs map[string]*list.List, probes *list.List, ifaces *map[string]string) {
-	go c.pMonitorWorker(xdpProgs, models.XDPIngressType, ifaces)
-	go c.pMonitorWorker(ingressTCProgs, models.IngressType, ifaces)
-	go c.pMonitorWorker(egressTCProgs, models.EgressType, ifaces)
+func (c *PCheck) PCheckStart(xdpProgs, ingressTCProgs, egressTCProgs map[string]*list.List, probes *list.List, ifaces *map[string]string, mu *sync.RWMutex) {
+	go c.pMonitorWorker(xdpProgs, models.XDPIngressType, ifaces, mu)
+	go c.pMonitorWorker(ingressTCProgs, models.IngressType, ifaces, mu)
+	go c.pMonitorWorker(egressTCProgs, models.EgressType, ifaces, mu)
 	go c.pMonitorProbeWorker(probes)
 }
 
-func (c *PCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string, ifaces *map[string]string) {
+func (c *PCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string, ifaces *map[string]string, mu *sync.RWMutex) {
 	for range time.NewTicker(c.RetryMonitorDelay).C {
 		if models.IsReadOnly {
 			log.Info().Msgf("Not monitoring because we are in readonly state")
 			return
 		}
+		mu.RLock()
 		for ifaceName, bpfList := range bpfProgs {
 			if bpfList == nil { // no bpf programs are running
 				continue
@@ -91,6 +93,7 @@ func (c *PCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string
 				stats.SetWithVersion(0.0, stats.BPFRunning, bpf.Program.Name, bpf.Program.Version, direction, ifaceName, (*ifaces)[ifaceName])
 			}
 		}
+		mu.RUnlock()
 	}
 }
 

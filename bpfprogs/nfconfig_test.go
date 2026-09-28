@@ -158,7 +158,7 @@ func TestNewNFConfigs(t *testing.T) {
 				HostConfig:     nil,
 				ProcessMon:     pMon,
 				BpfMetricsMon:  mMon,
-				Mu:             new(sync.Mutex),
+				Mu:             new(sync.RWMutex),
 				Ifaces:         make(map[string]string),
 			},
 			wantErr: false,
@@ -359,7 +359,7 @@ func TestNFConfigs_Deploy(t *testing.T) {
 				EgressTCBpfs:   tt.fields.egressTCBpfs,
 				HostConfig:     tt.fields.hostConfig,
 				ProcessMon:     tt.fields.ProcessMon,
-				Mu:             new(sync.Mutex),
+				Mu:             new(sync.RWMutex),
 			}
 			if err := cfg.Deploy(tt.args.iface, tt.args.hostName, tt.args.bpfProgs); (err != nil) != tt.wantErr {
 				t.Errorf("NFConfigs.Deploy() error = %#v, wantErr %#v", err, tt.wantErr)
@@ -483,7 +483,7 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 		egressTCBpfs   map[string]*list.List
 		hostConfig     *config.Config
 		ProcessMon     *PCheck
-		mu             *sync.Mutex
+		mu             *sync.RWMutex
 	}
 	type args struct {
 		iface    string
@@ -544,7 +544,7 @@ func Test_AddProgramsOnInterface(t *testing.T) {
 			field: fields{
 				hostName:       "l3af-local-test",
 				HostInterfaces: HostInterfaces,
-				mu:             new(sync.Mutex),
+				mu:             new(sync.RWMutex),
 				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
 				ingressTCBpfs:  map[string]*list.List{"fakeif0": nil},
 				egressTCBpfs:   map[string]*list.List{"fakeif0": nil},
@@ -604,7 +604,7 @@ func TestAddeBPFPrograms(t *testing.T) {
 		egressTCBpfs   map[string]*list.List
 		hostConfig     *config.Config
 		ProcessMon     *PCheck
-		mu             *sync.Mutex
+		mu             *sync.RWMutex
 		ifaces         map[string]string
 	}
 	tests := []struct {
@@ -695,7 +695,7 @@ func TestAddeBPFPrograms(t *testing.T) {
 				hostName:       "l3af-local-test",
 				HostInterfaces: HostInterfaces,
 				// fakeif0 is a fake interface
-				mu:             new(sync.Mutex),
+				mu:             new(sync.RWMutex),
 				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
 				ingressTCBpfs:  map[string]*list.List{"fakeif0": nil},
 				egressTCBpfs:   map[string]*list.List{"fakeif0": nil},
@@ -747,7 +747,7 @@ func TestDeleteProgramsOnInterface(t *testing.T) {
 		egressTCBpfs   map[string]*list.List
 		hostConfig     *config.Config
 		ProcessMon     *PCheck
-		mu             *sync.Mutex
+		mu             *sync.RWMutex
 	}
 	type args struct {
 		iface    string
@@ -797,7 +797,7 @@ func TestDeleteProgramsOnInterface(t *testing.T) {
 			field: fields{
 				hostName:       "l3af-local-test",
 				HostInterfaces: map[string]bool{"fakeif0": true},
-				mu:             new(sync.Mutex),
+				mu:             new(sync.RWMutex),
 				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
 				ingressTCBpfs:  map[string]*list.List{"fakeif0": nil},
 				egressTCBpfs:   map[string]*list.List{"fakeif0": nil},
@@ -843,7 +843,7 @@ func TestDeleteEbpfPrograms(t *testing.T) {
 		egressTCBpfs   map[string]*list.List
 		hostConfig     *config.Config
 		ProcessMon     *PCheck
-		mu             *sync.Mutex
+		mu             *sync.RWMutex
 		ifaces         map[string]string
 	}
 	tests := []struct {
@@ -923,7 +923,7 @@ func TestDeleteEbpfPrograms(t *testing.T) {
 			field: fields{
 				hostName:       "l3af-local-test",
 				HostInterfaces: map[string]bool{"fakeif0": true},
-				mu:             new(sync.Mutex),
+				mu:             new(sync.RWMutex),
 				ingressXDPBpfs: map[string]*list.List{"fakeif0": nil},
 				ingressTCBpfs:  map[string]*list.List{"fakeif0": nil},
 				egressTCBpfs:   map[string]*list.List{"fakeif0": nil},

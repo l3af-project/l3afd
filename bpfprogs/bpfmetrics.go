@@ -6,6 +6,7 @@ package bpfprogs
 
 import (
 	"container/list"
+	"sync"
 	"time"
 
 	"github.com/l3af-project/l3afd/v2/models"
@@ -26,15 +27,16 @@ func NewpBpfMetrics(chain bool, interval int) *BpfMetrics {
 	return m
 }
 
-func (c *BpfMetrics) BpfMetricsStart(xdpProgs, ingressTCProgs, egressTCProgs map[string]*list.List, probes *list.List, ifaces *map[string]string) {
-	go c.BpfMetricsWorker(xdpProgs, ifaces)
-	go c.BpfMetricsWorker(ingressTCProgs, ifaces)
-	go c.BpfMetricsWorker(egressTCProgs, ifaces)
+func (c *BpfMetrics) BpfMetricsStart(xdpProgs, ingressTCProgs, egressTCProgs map[string]*list.List, probes *list.List, ifaces *map[string]string, mu *sync.RWMutex) {
+	go c.BpfMetricsWorker(xdpProgs, ifaces, mu)
+	go c.BpfMetricsWorker(ingressTCProgs, ifaces, mu)
+	go c.BpfMetricsWorker(egressTCProgs, ifaces, mu)
 	go c.BpfMetricsProbeWorker(probes)
 }
 
-func (c *BpfMetrics) BpfMetricsWorker(bpfProgs map[string]*list.List, ifaces *map[string]string) {
+func (c *BpfMetrics) BpfMetricsWorker(bpfProgs map[string]*list.List, ifaces *map[string]string, mu *sync.RWMutex) {
 	for range time.NewTicker(1 * time.Second).C {
+		mu.RLock()
 		for ifaceName, bpfList := range bpfProgs {
 			if bpfList == nil { // no bpf programs are running
 				continue
@@ -52,6 +54,7 @@ func (c *BpfMetrics) BpfMetricsWorker(bpfProgs map[string]*list.List, ifaces *ma
 				}
 			}
 		}
+		mu.RUnlock()
 	}
 }
 

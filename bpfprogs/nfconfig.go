@@ -50,7 +50,7 @@ type NFConfigs struct {
 	// keep track of interfaces
 	Ifaces map[string]string
 
-	Mu *sync.Mutex
+	Mu *sync.RWMutex
 }
 
 func NewNFConfigs(ctx context.Context, host string, hostConf *config.Config, pMon *PCheck, metricsMon *BpfMetrics) (*NFConfigs, error) {
@@ -61,7 +61,7 @@ func NewNFConfigs(ctx context.Context, host string, hostConf *config.Config, pMo
 		IngressXDPBpfs: make(map[string]*list.List),
 		IngressTCBpfs:  make(map[string]*list.List),
 		EgressTCBpfs:   make(map[string]*list.List),
-		Mu:             new(sync.Mutex),
+		Mu:             new(sync.RWMutex),
 		Ifaces:         make(map[string]string),
 	}
 
@@ -73,9 +73,9 @@ func NewNFConfigs(ctx context.Context, host string, hostConf *config.Config, pMo
 	}
 
 	nfConfigs.ProcessMon = pMon
-	nfConfigs.ProcessMon.PCheckStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs, &nfConfigs.ProbesBpfs, &nfConfigs.Ifaces)
+	nfConfigs.ProcessMon.PCheckStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs, &nfConfigs.ProbesBpfs, &nfConfigs.Ifaces, nfConfigs.Mu)
 	nfConfigs.BpfMetricsMon = metricsMon
-	nfConfigs.BpfMetricsMon.BpfMetricsStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs, &nfConfigs.ProbesBpfs, &nfConfigs.Ifaces)
+	nfConfigs.BpfMetricsMon.BpfMetricsStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs, &nfConfigs.ProbesBpfs, &nfConfigs.Ifaces, nfConfigs.Mu)
 	return nfConfigs, nil
 }
 
@@ -86,13 +86,9 @@ func (c *NFConfigs) Close(ctx context.Context) error {
 	doneCh := make(chan struct{})
 	var wg sync.WaitGroup
 
-	// wait for waitGroup to shut down
-	go func() {
-		wg.Wait()
-		close(doneCh)
-	}()
+	// All Add calls must happen before Wait is observed by any goroutine.
+	wg.Add(4)
 
-	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		for ifaceName := range c.IngressXDPBpfs {
@@ -103,7 +99,6 @@ func (c *NFConfigs) Close(ctx context.Context) error {
 		}
 	}()
 
-	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		for ifaceName := range c.IngressTCBpfs {
@@ -114,7 +109,6 @@ func (c *NFConfigs) Close(ctx context.Context) error {
 		}
 	}()
 
-	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		for ifaceName := range c.EgressTCBpfs {
@@ -125,13 +119,17 @@ func (c *NFConfigs) Close(ctx context.Context) error {
 		}
 	}()
 
-	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		if err := c.StopNRemoveAllBPFProbePrograms(); err != nil {
 			log.Warn().Err(err).Msg("failed to Close Probe BPF Programs")
 		}
+	}()
 
+	// wait for waitGroup to shut down
+	go func() {
+		wg.Wait()
+		close(doneCh)
 	}()
 
 	select {
@@ -424,7 +422,7 @@ func (c *NFConfigs) VerifyNUpdateBPFProgram(bpfProg *models.BPFProgram, ifaceNam
 
 			// update if not a last program
 			if e.Next() != nil {
-				data.PutNextProgFDFromID(int(e.Next().Value.(*BPF).ProgID))
+				data.PutNextProgFDFromID(int(e.Next().Value.(*BPF).ProgID.Load()))
 			}
 
 			return nil
@@ -654,7 +652,7 @@ func (c *NFConfigs) LinkBPFPrograms(leftBPF, rightBPF *BPF) error {
 	log.Info().Msgf("LinkBPFPrograms : left BPF Prog %s right BPF Prog %s", leftBPF.Program.Name, rightBPF.Program.Name)
 	rightBPF.PrevMapNamePath = leftBPF.MapNamePath
 	rightBPF.PrevProgMapID = leftBPF.PrevProgMapID
-	if err := leftBPF.PutNextProgFDFromID(int(rightBPF.ProgID)); err != nil {
+	if err := leftBPF.PutNextProgFDFromID(int(rightBPF.ProgID.Load())); err != nil {
 		log.Error().Err(err).Msgf("LinkBPFPrograms - failed to update program fd in prev prog map before move")
 		return fmt.Errorf("LinkBPFPrograms - failed to update program fd in prev prog prog map before move %w", err)
 	}
@@ -1540,7 +1538,7 @@ func SerialzeProgram(e *list.Element) *models.L3AFMetaData {
 	tmp.MapNamePath = bpf.MapNamePath
 	tmp.PrevMapNamePath = bpf.PrevMapNamePath
 	tmp.PrevProgMapID = uint32(bpf.PrevProgMapID)
-	tmp.ProgID = uint32(bpf.ProgID)
+	tmp.ProgID = bpf.ProgID.Load()
 	tmp.Program = bpf.Program
 	tmp.ProgMapID = uint32(bpf.ProgMapID)
 	tmp.RestartCount = bpf.RestartCount

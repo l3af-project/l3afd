@@ -57,7 +57,7 @@ type BPF struct {
 	RestartCount      int                       // To track restart count
 	PrevMapNamePath   string                    // Previous Map name with path to link
 	MapNamePath       string                    // Map name with path
-	ProgID            ebpf.ProgramID            // eBPF Program ID
+	ProgID            atomic.Uint32             // eBPF Program ID
 	BpfMaps           map[string]BPFMap         // Config maps passed as map-args, Map name is Key
 	MetricsBpfMaps    map[string]*MetricsBPFMap // Metrics map name+key+aggregator is key
 	Ctx               context.Context           `json:"-"`
@@ -285,7 +285,7 @@ func (b *BPF) Stop(ifaceName, ipv4_address, direction string, chain bool) error 
 	}
 
 	// Reset ProgID
-	b.ProgID = 0
+	b.ProgID.Store(0)
 
 	stats.Add(1, stats.BPFStopCount, b.Program.Name, direction, ifaceName, ipv4_address)
 
@@ -438,8 +438,10 @@ func (b *BPF) Start(ifaceName, ipv4_address, direction string, chain bool) error
 		var err error
 		// retry 10 times to verify entry is created
 		for i := 0; i < 10; i++ {
-			b.ProgID, err = b.GetProgID()
+			var progID ebpf.ProgramID
+			progID, err = b.GetProgID()
 			if err == nil {
+				b.ProgID.Store(uint32(progID))
 				break
 			}
 
@@ -470,7 +472,7 @@ func (b *BPF) Start(ifaceName, ipv4_address, direction string, chain bool) error
 
 	stats.Add(1, stats.BPFStartCount, b.Program.Name, direction, ifaceName, ipv4_address)
 
-	log.Info().Msgf("BPF program - %s started Program ID %d", b.Program.Name, uint32(b.ProgID))
+	log.Info().Msgf("BPF program - %s started Program ID %d", b.Program.Name, b.ProgID.Load())
 	return nil
 }
 
@@ -1237,10 +1239,11 @@ func (b *BPF) LoadBPFProgram(ifaceName string) error {
 			return fmt.Errorf("%s: information of bpf program failed : %w", b.Program.Name, err)
 		}
 
-		ok := false
-		b.ProgID, ok = progInfo.ID()
+		progID, ok := progInfo.ID()
 		if !ok {
 			log.Warn().Msgf("Program ID fetch failed: %s", b.Program.Name)
+		} else {
+			b.ProgID.Store(uint32(progID))
 		}
 
 		// Initialise metric maps
@@ -1353,12 +1356,13 @@ func (b *BPF) InitialiseMetricMaps() error {
 // IsLoaded - Method verifies whether bpf program is loaded or not
 // Here it checks whether prog ID is valid and active
 func (b *BPF) IsLoaded() bool {
-	if b.ProgID == 0 {
+	progID := ebpf.ProgramID(b.ProgID.Load())
+	if progID == 0 {
 		return false
 	}
-	ebpfProg, err := ebpf.NewProgramFromID(b.ProgID)
+	ebpfProg, err := ebpf.NewProgramFromID(progID)
 	if err != nil {
-		log.Debug().Msgf("IsLoaded - %s is not loaded or invalid program id %d", b.Program.Name, uint32(b.ProgID))
+		log.Debug().Msgf("IsLoaded - %s is not loaded or invalid program id %d", b.Program.Name, uint32(progID))
 		return false
 	}
 	defer ebpfProg.Close()

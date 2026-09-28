@@ -6,6 +6,7 @@ package bpfprogs
 import (
 	"container/list"
 	"reflect"
+	"sync"
 	"testing"
 )
 
@@ -78,7 +79,7 @@ func Test_BPFMetrics_Start(t *testing.T) {
 				Chain:     tt.fields.Chain,
 				Intervals: tt.fields.Interval,
 			}
-			c.BpfMetricsStart(tt.args.IngressXDPbpfProgs, tt.args.IngressTCbpfProgs, tt.args.EgressTCbpfProgs, tt.args.Probes, &tt.args.Ifaces)
+			c.BpfMetricsStart(tt.args.IngressXDPbpfProgs, tt.args.IngressTCbpfProgs, tt.args.EgressTCbpfProgs, tt.args.Probes, &tt.args.Ifaces, new(sync.RWMutex))
 		})
 	}
 }
