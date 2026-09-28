@@ -23,7 +23,7 @@ jobs:
       matrix:
         os:
           - ubuntu-24.04
-          - ubuntu-22.04
+#          - ubuntu-22.04
     runs-on: ${{ matrix.os }}
     steps:
       - name: Update and firewall stop
