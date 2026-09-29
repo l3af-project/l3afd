@@ -11,6 +11,7 @@ import (
 	"compress/gzip"
 	"container/ring"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -69,6 +70,24 @@ type BPF struct {
 	Link              link.Link `json:"-"` // handle link object
 	ProbeLinks        []*link.Link
 	Deploying         atomic.Bool `json:"-"` // true while artifact fetch or Start is in flight; pMonitor skips the program during this window
+}
+
+// MarshalJSON implements json.Marshaler for BPF. ProgID is stored as
+// atomic.Uint32 to avoid data races between the deploy goroutine and
+// pMonitor; encoding/json marshals a bare atomic.Uint32 as "{}" since all
+// of its fields are unexported. This override reports the loaded value
+// as a plain number instead, which debug/API consumers (e.g. the
+// /bpfs/<iface> endpoint) expect. BPF is never json.Unmarshal'd, so no
+// corresponding UnmarshalJSON is required.
+func (b *BPF) MarshalJSON() ([]byte, error) {
+	type Alias BPF
+	return json.Marshal(&struct {
+		ProgID uint32 `json:"ProgID"`
+		*Alias
+	}{
+		ProgID: b.ProgID.Load(),
+		Alias:  (*Alias)(b),
+	})
 }
 
 func NewBpfProgram(ctx context.Context, program models.BPFProgram, conf *config.Config, ifaceName string) *BPF {
