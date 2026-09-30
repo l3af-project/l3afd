@@ -139,7 +139,7 @@ func deserializeProgram(ctx context.Context, r *models.L3AFMetaData, hostconfig 
 	g.PrevMapNamePath = r.PrevMapNamePath
 	g.PrevProgMapID = ebpf.MapID(r.PrevProgMapID)
 	g.ProgMapID = ebpf.MapID(r.ProgMapID)
-	g.ProgID = ebpf.ProgramID(r.ProgID)
+	g.ProgID.Store(r.ProgID)
 	g.Ctx = ctx
 	g.HostConfig = hostconfig
 	g.Done = nil
@@ -228,7 +228,7 @@ func Convert(ctx context.Context, t models.L3AFALLHOSTDATA, hostconfig *config.C
 	D.EgressTCBpfs = make(map[string]*list.List)
 	D.ProbesBpfs = *list.New()
 	D.HostConfig = hostconfig
-	D.Mu = new(sync.Mutex)
+	D.Mu = new(sync.RWMutex)
 	if t.IngressXDPBpfs != nil {
 		for k, v := range t.IngressXDPBpfs {
 			l := list.New()

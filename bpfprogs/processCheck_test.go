@@ -85,7 +85,7 @@ func Test_pCheck_pCheckStart(t *testing.T) {
 				Chain:             tt.fields.chain,
 				RetryMonitorDelay: tt.fields.retryMonitorDelay,
 			}
-			c.PCheckStart(tt.args.IngressXDPbpfProgs, tt.args.IngressTCbpfProgs, tt.args.EgressTCbpfProgs, &tt.args.Probebpfs, &tt.args.Ifaces)
+			c.PCheckStart(tt.args.IngressXDPbpfProgs, tt.args.IngressTCbpfProgs, tt.args.EgressTCbpfProgs, &tt.args.Probebpfs, &tt.args.Ifaces, new(sync.RWMutex))
 		})
 	}
 }
@@ -217,7 +217,7 @@ func TestDeployingFlagRace(t *testing.T) {
 		defer wg.Done()
 		bpf.Deploying.Store(true)
 		time.Sleep(5 * time.Millisecond) // simulate artifact download latency
-		bpf.ProgID = 99                  // simulate kernel program assignment
+		bpf.ProgID.Store(99)             // simulate kernel program assignment
 		bpf.Deploying.Store(false)
 	}()
 
