@@ -27,11 +27,11 @@ func NewpBpfMetrics(chain bool, interval int) *BpfMetrics {
 	return m
 }
 
-func (c *BpfMetrics) BpfMetricsStart(xdpProgs, ingressTCProgs, egressTCProgs map[string]*list.List, probes *list.List, ifaces *map[string]string, mu *sync.RWMutex) {
-	go c.BpfMetricsWorker(xdpProgs, ifaces, mu)
-	go c.BpfMetricsWorker(ingressTCProgs, ifaces, mu)
-	go c.BpfMetricsWorker(egressTCProgs, ifaces, mu)
-	go c.BpfMetricsProbeWorker(probes)
+func (c *BpfMetrics) BpfMetricsStart(progs *BpfProgSet) {
+	go c.BpfMetricsWorker(progs.IngressXDP, progs.Ifaces, progs.Mu)
+	go c.BpfMetricsWorker(progs.IngressTC, progs.Ifaces, progs.Mu)
+	go c.BpfMetricsWorker(progs.EgressTC, progs.Ifaces, progs.Mu)
+	go c.BpfMetricsProbeWorker(progs.Probes)
 }
 
 func (c *BpfMetrics) BpfMetricsWorker(bpfProgs map[string]*list.List, ifaces *map[string]string, mu *sync.RWMutex) {
