@@ -85,7 +85,14 @@ func Test_pCheck_pCheckStart(t *testing.T) {
 				Chain:             tt.fields.chain,
 				RetryMonitorDelay: tt.fields.retryMonitorDelay,
 			}
-			c.PCheckStart(tt.args.IngressXDPbpfProgs, tt.args.IngressTCbpfProgs, tt.args.EgressTCbpfProgs, &tt.args.Probebpfs, &tt.args.Ifaces, new(sync.RWMutex))
+			c.PCheckStart(&BpfProgSet{
+				IngressXDP: tt.args.IngressXDPbpfProgs,
+				IngressTC:  tt.args.IngressTCbpfProgs,
+				EgressTC:   tt.args.EgressTCbpfProgs,
+				Probes:     &tt.args.Probebpfs,
+				Ifaces:     &tt.args.Ifaces,
+				Mu:         new(sync.RWMutex),
+			})
 		})
 	}
 }

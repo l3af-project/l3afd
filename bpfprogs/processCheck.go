@@ -29,11 +29,11 @@ func NewPCheck(rc int, chain bool, interval time.Duration) *PCheck {
 	return c
 }
 
-func (c *PCheck) PCheckStart(xdpProgs, ingressTCProgs, egressTCProgs map[string]*list.List, probes *list.List, ifaces *map[string]string, mu *sync.RWMutex) {
-	go c.pMonitorWorker(xdpProgs, models.XDPIngressType, ifaces, mu)
-	go c.pMonitorWorker(ingressTCProgs, models.IngressType, ifaces, mu)
-	go c.pMonitorWorker(egressTCProgs, models.EgressType, ifaces, mu)
-	go c.pMonitorProbeWorker(probes)
+func (c *PCheck) PCheckStart(progs *BpfProgSet) {
+	go c.pMonitorWorker(progs.IngressXDP, models.XDPIngressType, progs.Ifaces, progs.Mu)
+	go c.pMonitorWorker(progs.IngressTC, models.IngressType, progs.Ifaces, progs.Mu)
+	go c.pMonitorWorker(progs.EgressTC, models.EgressType, progs.Ifaces, progs.Mu)
+	go c.pMonitorProbeWorker(progs.Probes)
 }
 
 func (c *PCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string, ifaces *map[string]string, mu *sync.RWMutex) {

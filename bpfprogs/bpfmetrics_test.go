@@ -79,7 +79,14 @@ func Test_BPFMetrics_Start(t *testing.T) {
 				Chain:     tt.fields.Chain,
 				Intervals: tt.fields.Interval,
 			}
-			c.BpfMetricsStart(tt.args.IngressXDPbpfProgs, tt.args.IngressTCbpfProgs, tt.args.EgressTCbpfProgs, tt.args.Probes, &tt.args.Ifaces, new(sync.RWMutex))
+			c.BpfMetricsStart(&BpfProgSet{
+				IngressXDP: tt.args.IngressXDPbpfProgs,
+				IngressTC:  tt.args.IngressTCbpfProgs,
+				EgressTC:   tt.args.EgressTCbpfProgs,
+				Probes:     tt.args.Probes,
+				Ifaces:     &tt.args.Ifaces,
+				Mu:         new(sync.RWMutex),
+			})
 		})
 	}
 }
