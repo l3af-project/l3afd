@@ -17,6 +17,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/l3af-project/l3afd/v2/config"
 	"github.com/l3af-project/l3afd/v2/mocks"
@@ -40,9 +41,26 @@ func fakeExecCommand(command string, args ...string) *exec.Cmd {
 	return cmd
 }
 
+// fakeExecCommandDaemon is like fakeExecCommand but keeps the spawned helper
+// process alive for a bit instead of exiting immediately. It's used for
+// daemon-mode (UserProgramDaemon=true) scenarios where the code under test
+// checks isRunning() right after Start(): a real short-lived binary (e.g.
+// /bin/date) or an instantly-exiting helper process can already be a zombie
+// by the time that check runs, making the test racy/flaky.
+func fakeExecCommandDaemon(command string, args ...string) *exec.Cmd {
+	cs := []string{"-test.run=TestHelperProcess", "--", command}
+	cs = append(cs, args...)
+	cmd := exec.Command(os.Args[0], cs...)
+	cmd.Env = []string{"GO_WANT_HELPER_PROCESS=1", "GO_HELPER_SLEEP=1"}
+	return cmd
+}
+
 func TestHelperProcess(t *testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
+	}
+	if os.Getenv("GO_HELPER_SLEEP") == "1" {
+		time.Sleep(2 * time.Second)
 	}
 	os.Exit(mockedExitStatus)
 }
@@ -261,9 +279,16 @@ func TestBPF_Start(t *testing.T) {
 		hostConfig   *config.Config
 	}
 	tests := []struct {
-		name    string
-		fields  fields
-		wantErr bool
+		name string
+		// mockDaemon makes Start() use a fake, deliberately long-lived
+		// execCommand instead of really running fields.Program.CmdStart.
+		// Needed for UserProgramDaemon=true cases: Start() checks
+		// isRunning() immediately after launch, and a real short-lived
+		// binary (e.g. /bin/date) can already be a zombie by then,
+		// making the test racy/flaky.
+		mockDaemon bool
+		fields     fields
+		wantErr    bool
 	}{
 		{name: "NoFilePath",
 			fields: fields{
@@ -278,6 +303,7 @@ func TestBPF_Start(t *testing.T) {
 			wantErr: true,
 		},
 		{name: "AnyBinary",
+			mockDaemon: true,
 			fields: fields{
 				Program: models.BPFProgram{
 					Name:              "nfprogram",
@@ -318,6 +344,10 @@ func TestBPF_Start(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.mockDaemon {
+				execCommand = fakeExecCommandDaemon
+				defer func() { execCommand = exec.Command }()
+			}
 			b := &BPF{
 				Program:      tt.fields.Program,
 				Cmd:          tt.fields.Cmd,
