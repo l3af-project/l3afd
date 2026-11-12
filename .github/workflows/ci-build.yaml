@@ -32,7 +32,7 @@ jobs:
           go-version: '1.26.0'
 
       - name: Harden Runner
-        uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1
         with:
           egress-policy: audit # TODO: change to 'egress-policy: block' after couple of runs
 
@@ -92,7 +92,7 @@ jobs:
 
       - name: login to docker registry
         if: github.ref == 'refs/heads/main'
-        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6
         with:
           username: ${{secrets.DOCKER_USERNAME}}
           password: ${{secrets.DOCKER_TOKEN}}
@@ -107,7 +107,7 @@ jobs:
 
       - name: upload l3afd binary  
         if: github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: l3afd-latest-linux-x86_64-${{ matrix.os }}
           path: l3afd

@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/cilium/ebpf v0.22.0
-	github.com/go-chi/chi/v5 v5.3.2
+	github.com/go-chi/chi/v5 v5.5.0
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/prometheus/client_golang v1.24.1
 	github.com/robfig/config v0.0.0-20141207224736-0f78529c8c7e
@@ -12,7 +12,7 @@ require (
 	github.com/safchain/ethtool v0.7.0
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/swaggo/swag v1.16.4
-	golang.org/x/sys v0.47.0 // exclude
+	golang.org/x/sys v0.49.0 // exclude
 )
 
 require (
