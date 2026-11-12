@@ -6,7 +6,10 @@ package bpfprogs
 import (
 	"container/list"
 	"context"
+	"fmt"
+	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"sync"
@@ -1104,6 +1107,179 @@ func TestAddProgramWithoutChaining(t *testing.T) {
 			e := cfg.AddProgramWithoutChaining(tt.arg.iface, tt.arg.bpfProgs)
 			if (e != nil) != tt.wanterr {
 				t.Errorf(" AddProgramWithoutChaining failed : %v", e)
+			}
+		})
+	}
+}
+
+// Test_isStaleAttachStopErr covers the substring matcher used by
+// StopNRemoveAllBPFPrograms to decide which Stop() errors are expected
+// fallout of a stale/removed attach target (and therefore safe to log and
+// continue past) versus a real failure that must abort cleanup.
+func Test_isStaleAttachStopErr(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			name: "couldNotGetFilters",
+			err:  fmt.Errorf("could not get filters for eth0: no such device"),
+			want: true,
+		},
+		{
+			name: "isNotRunning",
+			err:  fmt.Errorf("BPFProgram is not running testprog"),
+			want: true,
+		},
+		{
+			name: "unrelatedError",
+			err:  fmt.Errorf("permission denied"),
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isStaleAttachStopErr(tt.err); got != tt.want {
+				t.Errorf("isStaleAttachStopErr() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestNFConfigs_StopNRemoveAllBPFPrograms_ToleratesStaleAttachErr covers the
+// behavior change to StopNRemoveAllBPFPrograms: a Stop() error that matches
+// isStaleAttachStopErr (e.g. the old attach target/interface is already
+// gone) must be logged and tolerated so cleanup finishes and the direction's
+// program list ends up nil (letting the "== nil" rebuild branch in Deploy
+// recreate it), while any other Stop() error must still abort and propagate.
+func TestNFConfigs_StopNRemoveAllBPFPrograms_ToleratesStaleAttachErr(t *testing.T) {
+	tests := []struct {
+		name    string
+		bpf     *BPF
+		wantErr bool
+	}{
+		{
+			name: "staleAttachErrIsTolerated",
+			bpf: &BPF{
+				Program: models.BPFProgram{
+					Name:              "staleProgram",
+					UserProgramDaemon: true,
+				},
+				// Cmd == nil + UserProgramDaemon makes Stop() return
+				// "BPFProgram is not running", which isStaleAttachStopErr
+				// treats as expected fallout of a stale attach target.
+			},
+			wantErr: false,
+		},
+		{
+			name: "nonStaleErrIsPropagated",
+			bpf: &BPF{
+				Program: models.BPFProgram{
+					Name:              "badProgram",
+					UserProgramDaemon: true,
+					CmdStop:           "does-not-exist",
+				},
+				// Non-nil Cmd skips the "is not running" early return so
+				// Stop() reaches the CmdStop path and fails instead with a
+				// "no executable permissions" error, which does not match
+				// isStaleAttachStopErr and so must still abort cleanup.
+				Cmd: &exec.Cmd{Process: &os.Process{Pid: 1}},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			progList := list.New()
+			progList.PushBack(tt.bpf)
+			cfg := &NFConfigs{
+				IngressTCBpfs: map[string]*list.List{"fakeif0": progList},
+				HostConfig:    &config.Config{BpfChainingEnabled: false},
+			}
+			err := cfg.StopNRemoveAllBPFPrograms("fakeif0", models.IngressType)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("StopNRemoveAllBPFPrograms() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if cfg.IngressTCBpfs["fakeif0"] != nil {
+				t.Errorf("IngressTCBpfs[fakeif0] = %v, want nil after cleanup", cfg.IngressTCBpfs["fakeif0"])
+			}
+		})
+	}
+}
+
+// Test_needsReattach covers the drift-detection helper used by Deploy to
+// decide whether a direction's tracked program list is still attached to the
+// live device behind ifaceName, or was left behind on a deleted-and-recreated
+// interface with a different ifindex (see BPF.AttachedIfindex).
+func Test_needsReattach(t *testing.T) {
+	hostIfaces, err := getHostInterfaces()
+	if err != nil {
+		t.Skipf("skipping: getHostInterfaces failed: %v", err)
+	}
+	var iface string
+	for k := range hostIfaces {
+		iface = k
+		break
+	}
+	if iface == "" {
+		t.Skip("skipping: no host interfaces found")
+	}
+	ifaceObj, err := net.InterfaceByName(iface)
+	if err != nil {
+		t.Skipf("skipping: could not resolve %s: %v", iface, err)
+	}
+
+	newRootList := func(ifindex int32) *list.List {
+		l := list.New()
+		b := &BPF{Program: models.BPFProgram{Name: "root"}}
+		b.AttachedIfindex.Store(ifindex)
+		l.PushBack(b)
+		return l
+	}
+
+	tests := []struct {
+		name          string
+		ingressTCBpfs map[string]*list.List
+		direction     string
+		want          bool
+	}{
+		{
+			name:          "noListForIface",
+			ingressTCBpfs: map[string]*list.List{},
+			direction:     models.IngressType,
+			want:          false,
+		},
+		{
+			name:          "emptyList",
+			ingressTCBpfs: map[string]*list.List{iface: list.New()},
+			direction:     models.IngressType,
+			want:          false,
+		},
+		{
+			name:          "noDrift",
+			ingressTCBpfs: map[string]*list.List{iface: newRootList(int32(ifaceObj.Index))},
+			direction:     models.IngressType,
+			want:          false,
+		},
+		{
+			name:          "drifted",
+			ingressTCBpfs: map[string]*list.List{iface: newRootList(int32(ifaceObj.Index) + 1000)},
+			direction:     models.IngressType,
+			want:          true,
+		},
+		{
+			name:          "unknownDirectionNeverDrifts",
+			ingressTCBpfs: map[string]*list.List{iface: newRootList(int32(ifaceObj.Index) + 1000)},
+			direction:     "bogus",
+			want:          false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &NFConfigs{IngressTCBpfs: tt.ingressTCBpfs}
+			if got := cfg.needsReattach(iface, tt.direction); got != tt.want {
+				t.Errorf("needsReattach() = %v, want %v", got, tt.want)
 			}
 		})
 	}

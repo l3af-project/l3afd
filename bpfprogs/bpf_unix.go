@@ -355,6 +355,7 @@ func (b *BPF) LoadTCAttachProgram(ifaceName, direction string) error {
 	if err := filterHandle.Add(&filter); err != nil {
 		return fmt.Errorf("could not attach filter to interface %s for eBPF program %s : %w", ifaceName, b.Program.Name, err)
 	}
+	b.AttachedIfindex.Store(int32(iface.Index))
 
 	if b.HostConfig.BpfChainingEnabled {
 		if err = b.UpdateProgramMap(ifaceName); err != nil {
@@ -550,6 +551,7 @@ func (b *BPF) LoadTCXAttachProgram(ifaceName, direction string) error {
 	if err != nil {
 		return fmt.Errorf("could not attach tc program %s to interface %s direction %s : %w", b.Program.Name, ifaceName, direction, err)
 	}
+	b.AttachedIfindex.Store(int32(iface.Index))
 
 	version := utils.ReplaceDotsWithUnderscores(b.Program.Version)
 	// Pin the Link
@@ -586,6 +588,7 @@ func (b *BPF) LoadXDPAttachProgram(ifaceName string) error {
 	if err != nil {
 		return fmt.Errorf("could not attach xdp program %s to interface %s : %w", b.Program.Name, ifaceName, err)
 	}
+	b.AttachedIfindex.Store(int32(iface.Index))
 
 	version := utils.ReplaceDotsWithUnderscores(b.Program.Version)
 	// Pin the Link
