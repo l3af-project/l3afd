@@ -328,8 +328,9 @@ func setupForRestart(ctx context.Context, conf *config.Config) error {
 	if conf.EBPFChainDebugEnabled {
 		bpfprogs.SetupBPFDebug(conf.EBPFChainDebugAddr, ebpfConfigs)
 	}
-	ebpfConfigs.ProcessMon.PCheckStart(ebpfConfigs.IngressXDPBpfs, ebpfConfigs.IngressTCBpfs, ebpfConfigs.EgressTCBpfs, &ebpfConfigs.ProbesBpfs, &ebpfConfigs.Ifaces, ebpfConfigs.Mu)
-	ebpfConfigs.BpfMetricsMon.BpfMetricsStart(ebpfConfigs.IngressXDPBpfs, ebpfConfigs.IngressTCBpfs, ebpfConfigs.EgressTCBpfs, &ebpfConfigs.ProbesBpfs, &ebpfConfigs.Ifaces, ebpfConfigs.Mu)
+	progs := ebpfConfigs.AsBpfProgSet()
+	ebpfConfigs.ProcessMon.PCheckStart(progs)
+	ebpfConfigs.BpfMetricsMon.BpfMetricsStart(progs)
 	err = pidfile.CreatePID(conf.PIDFilename)
 	if err != nil {
 		return fmt.Errorf("the PID file: %s, could not be created", conf.PIDFilename)

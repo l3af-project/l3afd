@@ -53,6 +53,35 @@ type NFConfigs struct {
 	Mu *sync.RWMutex
 }
 
+// BpfProgSet bundles the chained BPF program lists together with the shared
+// interface map and the mutex guarding them, so monitor subsystems (PCheck,
+// BpfMetrics) take a single argument instead of one per field. Ifaces keeps
+// the double indirection (*map[string]string) because NFConfigs.Ifaces is
+// reassigned wholesale elsewhere (e.g. AddProgramWithoutChaining); the
+// program-list maps are only ever mutated by key, never swapped, so they're
+// passed by value like before.
+type BpfProgSet struct {
+	IngressXDP map[string]*list.List
+	IngressTC  map[string]*list.List
+	EgressTC   map[string]*list.List
+	Probes     *list.List
+	Ifaces     *map[string]string
+	Mu         *sync.RWMutex
+}
+
+// AsBpfProgSet returns a snapshot view of c's chained BPF program data for
+// use by monitor subsystems (PCheck.PCheckStart, BpfMetrics.BpfMetricsStart).
+func (c *NFConfigs) AsBpfProgSet() *BpfProgSet {
+	return &BpfProgSet{
+		IngressXDP: c.IngressXDPBpfs,
+		IngressTC:  c.IngressTCBpfs,
+		EgressTC:   c.EgressTCBpfs,
+		Probes:     &c.ProbesBpfs,
+		Ifaces:     &c.Ifaces,
+		Mu:         c.Mu,
+	}
+}
+
 func NewNFConfigs(ctx context.Context, host string, hostConf *config.Config, pMon *PCheck, metricsMon *BpfMetrics) (*NFConfigs, error) {
 	nfConfigs := &NFConfigs{
 		Ctx:            ctx,
@@ -73,9 +102,11 @@ func NewNFConfigs(ctx context.Context, host string, hostConf *config.Config, pMo
 	}
 
 	nfConfigs.ProcessMon = pMon
-	nfConfigs.ProcessMon.PCheckStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs, &nfConfigs.ProbesBpfs, &nfConfigs.Ifaces, nfConfigs.Mu)
 	nfConfigs.BpfMetricsMon = metricsMon
-	nfConfigs.BpfMetricsMon.BpfMetricsStart(nfConfigs.IngressXDPBpfs, nfConfigs.IngressTCBpfs, nfConfigs.EgressTCBpfs, &nfConfigs.ProbesBpfs, &nfConfigs.Ifaces, nfConfigs.Mu)
+
+	progs := nfConfigs.AsBpfProgSet()
+	nfConfigs.ProcessMon.PCheckStart(progs)
+	nfConfigs.BpfMetricsMon.BpfMetricsStart(progs)
 	return nfConfigs, nil
 }
 
