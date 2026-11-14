@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -70,6 +71,7 @@ type BPF struct {
 	Link              link.Link `json:"-"` // handle link object
 	ProbeLinks        []*link.Link
 	Deploying         atomic.Bool `json:"-"` // true while artifact fetch or Start is in flight; pMonitor skips the program during this window
+	IfaceName         string      // interface the program is (expected to be) attached to; used by IsLoaded to detect stale attachments
 }
 
 // MarshalJSON implements json.Marshaler for BPF. ProgID is stored as
@@ -117,6 +119,7 @@ func NewBpfProgram(ctx context.Context, program models.BPFProgram, conf *config.
 		Done:           nil,
 		HostConfig:     conf,
 		MapNamePath:    progMapFilePath,
+		IfaceName:      ifaceName,
 	}
 
 	return bpf
@@ -153,6 +156,7 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 			HostConfig:      conf,
 			MapNamePath:     filepath.Join(conf.BpfMapDefaultPath, ifaceName, conf.XDPRootPackageName, version, conf.XDPRootMapName),
 			Link:            nil,
+			IfaceName:       ifaceName,
 		}
 	case models.TCType:
 		rootProgBPF = &BPF{
@@ -172,6 +176,7 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 			FilePath:        "",
 			PrevMapNamePath: "",
 			HostConfig:      conf,
+			IfaceName:       ifaceName,
 		}
 		if direction == models.IngressType {
 			rootProgBPF.Program.MapName = conf.TCRootIngressMapName
@@ -393,6 +398,7 @@ func (b *BPF) Start(ifaceName, ipv4_address, direction string, chain bool) error
 	if b.FilePath == "" {
 		return errors.New("no program binary path found")
 	}
+	b.IfaceName = ifaceName
 
 	if len(b.Program.CmdStart) > 0 {
 		// Verify other instance is running
@@ -1373,7 +1379,9 @@ func (b *BPF) InitialiseMetricMaps() error {
 }
 
 // IsLoaded - Method verifies whether bpf program is loaded or not
-// Here it checks whether prog ID is valid and active
+// Here it checks whether prog ID is valid and active, and - for
+// link-based attachments (XDP/TCX) - that the program is still
+// attached to its target network interface.
 func (b *BPF) IsLoaded() bool {
 	progID := ebpf.ProgramID(b.ProgID.Load())
 	if progID == 0 {
@@ -1385,7 +1393,81 @@ func (b *BPF) IsLoaded() bool {
 		return false
 	}
 	defer ebpfProg.Close()
+
+	if !b.isAttachedToInterface() {
+		log.Debug().Msgf("IsLoaded - %s program id %d is no longer attached to interface %s", b.Program.Name, uint32(progID), b.IfaceName)
+		return false
+	}
+
 	return true
+}
+
+// isAttachedToInterface reports whether the program's link is still
+// attached to its target network interface.
+//
+// Programs without a link-based attachment (classic TC filters loaded via
+// LoadTCAttachProgram, or user-space daemon programs) have a nil b.Link -
+// there is nothing to verify for those, so they are treated as attached.
+//
+// For XDP/TCX programs (b.Link set via link.AttachXDP/link.AttachTCX), the
+// link's file descriptor is queried for its current interface index and
+// compared against the live interface named b.IfaceName. This catches the
+// case where the interface was deleted and recreated (new ifindex, same
+// name) or the link was otherwise detached out from under l3afd, without
+// IsLoaded falsely reporting the program as healthy.
+func (b *BPF) isAttachedToInterface() bool {
+	if b.Link == nil || b.IfaceName == "" {
+		return true
+	}
+
+	info, err := b.Link.Info()
+	if err != nil {
+		// The link's file descriptor is no longer valid, e.g. the kernel
+		// tore it down when the interface was removed.
+		log.Debug().Err(err).Msgf("isAttachedToInterface - %s failed to fetch link info", b.Program.Name)
+		return false
+	}
+
+	var linkIfindex uint32
+	switch {
+	case info.XDP() != nil:
+		linkIfindex = info.XDP().Ifindex
+	case info.TCX() != nil:
+		linkIfindex = info.TCX().Ifindex
+	default:
+		// Not an interface-bound link type - nothing further to verify.
+		return true
+	}
+
+	if !ifindexMatches(linkIfindex, b.IfaceName) {
+		log.Debug().Msgf("isAttachedToInterface - %s link ifindex %d does not match interface %s", b.Program.Name, linkIfindex, b.IfaceName)
+		return false
+	}
+
+	return true
+}
+
+// ifindexMatches reports whether linkIfindex still identifies the
+// interface named ifaceName. It is deliberately conservative: a result of
+// true (meaning "treat the program as attached") is returned whenever the
+// comparison cannot be made confidently, so that an unsupported or
+// unexpectedly zero link ifindex never causes pMonitor to restart a
+// healthy program. It only returns false on a positive, resolvable
+// mismatch - e.g. ifaceName was deleted and recreated with a new ifindex.
+func ifindexMatches(linkIfindex uint32, ifaceName string) bool {
+	if linkIfindex == 0 {
+		// Some link types/kernels may not populate ifindex; treat as unknown
+		// rather than a mismatch to avoid false-negative restarts.
+		return true
+	}
+
+	iface, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		// Interface no longer exists under this name.
+		return false
+	}
+
+	return uint32(iface.Index) == linkIfindex
 }
 
 func (b *BPF) StartUserProgram(ifaceName, direction string, chain bool) error {
