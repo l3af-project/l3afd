@@ -521,12 +521,12 @@ func (b *BPF) UnloadTCProgram(ifaceName, direction string) error {
 	return nil
 }
 
-// LoadTCXAttachProgram - Load and attach xdp root program or any xdp program when chaining is disabled
+// LoadTCXAttachProgram - Load and attach tc root program or any tc program when chaining is disabled
 func (b *BPF) LoadTCXAttachProgram(ifaceName, direction string) error {
 
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
-		log.Error().Err(err).Msgf("LoadXDPAttachProgram -look up network iface %q", ifaceName)
+		log.Error().Err(err).Msgf("LoadTCXAttachProgram -look up network iface %q", ifaceName)
 		return err
 	}
 
@@ -564,6 +564,78 @@ func (b *BPF) LoadTCXAttachProgram(ifaceName, direction string) error {
 		}
 	}
 	return nil
+}
+
+// isAttachedToInterface reports whether the program's link is still
+// attached to its target network interface.
+//
+// Programs without a link-based attachment (classic TC filters loaded via
+// LoadTCAttachProgram, or user-space daemon programs) have a nil b.Link -
+// there is nothing to verify for those, so they are treated as attached.
+//
+// For XDP/TCX programs (b.Link set via link.AttachXDP/link.AttachTCX), the
+// link's file descriptor is queried for its current interface index and
+// compared against the live interface named b.IfaceName. This catches the
+// case where the interface was deleted and recreated (new ifindex, same
+// name) or the link was otherwise detached out from under l3afd, without
+// IsLoaded falsely reporting the program as healthy.
+func (b *BPF) isAttachedToInterface() bool {
+	if b.Link == nil || b.IfaceName == "" {
+		log.Info().Msgf("isAttachedToInterface - %s link and Interface is empty", b.Program.Name)
+		return true
+	}
+	log.Info().Msgf("isAttachedToInterface - %s link and Interface %s is not empty", b.Program.Name, b.IfaceName)
+	info, err := b.Link.Info()
+	if err != nil {
+		// The link's file descriptor is no longer valid, e.g. the kernel
+		// tore it down when the interface was removed.
+		log.Info().Err(err).Msgf("isAttachedToInterface - %s failed to fetch link info", b.Program.Name)
+		return false
+	}
+
+	var linkIfindex uint32
+	switch {
+	case info.XDP() != nil:
+		linkIfindex = info.XDP().Ifindex
+		log.Info().Msgf("isAttachedToInterface - %s XDP link ifindex %d interface %s", b.Program.Name, linkIfindex, b.IfaceName)
+	case info.TCX() != nil:
+		linkIfindex = info.TCX().Ifindex
+		log.Info().Msgf("isAttachedToInterface - %s TC link ifindex %d interface %s", b.Program.Name, linkIfindex, b.IfaceName)
+	default:
+		// Not an interface-bound link type - nothing further to verify.
+		return true
+	}
+
+	if !ifindexMatches(linkIfindex, b.IfaceName) {
+		log.Info().Msgf("isAttachedToInterface - %s link ifindex %d does not match interface %s", b.Program.Name, linkIfindex, b.IfaceName)
+		return false
+	}
+
+	return true
+}
+
+// ifindexMatches reports whether linkIfindex still identifies the
+// interface named ifaceName. It is deliberately conservative: a result of
+// true (meaning "treat the program as attached") is returned whenever the
+// comparison cannot be made confidently, so that an unsupported or
+// unexpectedly zero link ifindex never causes pMonitor to restart a
+// healthy program. It only returns false on a positive, resolvable
+// mismatch - e.g. ifaceName was deleted and recreated with a new ifindex.
+func ifindexMatches(linkIfindex uint32, ifaceName string) bool {
+	if linkIfindex == 0 {
+		// Some link types/kernels may not populate ifindex; treat as unknown
+		// rather than a mismatch to avoid false-negative restarts.
+		log.Info().Msgf("ifindexMatches - link ifindex %d does not match interface %s", linkIfindex, ifaceName)
+		return true
+	}
+
+	iface, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		// Interface no longer exists under this name.
+		return false
+	}
+
+	return uint32(iface.Index) == linkIfindex
 }
 
 // LoadXDPAttachProgram - Load and attach xdp root program or any xdp program when chaining is disabled
