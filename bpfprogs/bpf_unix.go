@@ -581,7 +581,6 @@ func (b *BPF) LoadTCXAttachProgram(ifaceName, direction string) error {
 // IsLoaded falsely reporting the program as healthy.
 func (b *BPF) isAttachedToInterface() bool {
 	if b.Link == nil || b.IfaceName == "" {
-		log.Info().Msgf("isAttachedToInterface - %s link and Interface is empty", b.Program.Name)
 		return true
 	}
 	log.Info().Msgf("isAttachedToInterface - %s link and Interface %s is not empty", b.Program.Name, b.IfaceName)
@@ -589,7 +588,7 @@ func (b *BPF) isAttachedToInterface() bool {
 	if err != nil {
 		// The link's file descriptor is no longer valid, e.g. the kernel
 		// tore it down when the interface was removed.
-		log.Info().Err(err).Msgf("isAttachedToInterface - %s failed to fetch link info", b.Program.Name)
+		log.Warn().Err(err).Msgf("isAttachedToInterface - %s failed to fetch link info", b.Program.Name)
 		return false
 	}
 
@@ -597,17 +596,15 @@ func (b *BPF) isAttachedToInterface() bool {
 	switch {
 	case info.XDP() != nil:
 		linkIfindex = info.XDP().Ifindex
-		log.Info().Msgf("isAttachedToInterface - %s XDP link ifindex %d interface %s", b.Program.Name, linkIfindex, b.IfaceName)
 	case info.TCX() != nil:
 		linkIfindex = info.TCX().Ifindex
-		log.Info().Msgf("isAttachedToInterface - %s TC link ifindex %d interface %s", b.Program.Name, linkIfindex, b.IfaceName)
 	default:
 		// Not an interface-bound link type - nothing further to verify.
 		return true
 	}
 
 	if !ifindexMatches(linkIfindex, b.IfaceName) {
-		log.Info().Msgf("isAttachedToInterface - %s link ifindex %d does not match interface %s", b.Program.Name, linkIfindex, b.IfaceName)
+		log.Warn().Msgf("isAttachedToInterface - %s link ifindex %d does not match interface %s", b.Program.Name, linkIfindex, b.IfaceName)
 		return false
 	}
 
@@ -625,7 +622,6 @@ func ifindexMatches(linkIfindex uint32, ifaceName string) bool {
 	if linkIfindex == 0 {
 		// Some link types/kernels may not populate ifindex; treat as unknown
 		// rather than a mismatch to avoid false-negative restarts.
-		log.Info().Msgf("ifindexMatches - link ifindex %d does not match interface %s", linkIfindex, ifaceName)
 		return true
 	}
 
