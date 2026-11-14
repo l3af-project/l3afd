@@ -70,6 +70,7 @@ type BPF struct {
 	Link              link.Link `json:"-"` // handle link object
 	ProbeLinks        []*link.Link
 	Deploying         atomic.Bool `json:"-"` // true while artifact fetch or Start is in flight; pMonitor skips the program during this window
+	IfaceName         string      // interface the program is (expected to be) attached to; used by IsLoaded to detect stale attachments
 }
 
 // MarshalJSON implements json.Marshaler for BPF. ProgID is stored as
@@ -117,6 +118,7 @@ func NewBpfProgram(ctx context.Context, program models.BPFProgram, conf *config.
 		Done:           nil,
 		HostConfig:     conf,
 		MapNamePath:    progMapFilePath,
+		IfaceName:      ifaceName,
 	}
 
 	return bpf
@@ -153,6 +155,7 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 			HostConfig:      conf,
 			MapNamePath:     filepath.Join(conf.BpfMapDefaultPath, ifaceName, conf.XDPRootPackageName, version, conf.XDPRootMapName),
 			Link:            nil,
+			IfaceName:       ifaceName,
 		}
 	case models.TCType:
 		rootProgBPF = &BPF{
@@ -172,6 +175,7 @@ func LoadRootProgram(ifaceName string, direction string, progType string, conf *
 			FilePath:        "",
 			PrevMapNamePath: "",
 			HostConfig:      conf,
+			IfaceName:       ifaceName,
 		}
 		if direction == models.IngressType {
 			rootProgBPF.Program.MapName = conf.TCRootIngressMapName
@@ -393,6 +397,7 @@ func (b *BPF) Start(ifaceName, ipv4_address, direction string, chain bool) error
 	if b.FilePath == "" {
 		return errors.New("no program binary path found")
 	}
+	b.IfaceName = ifaceName
 
 	if len(b.Program.CmdStart) > 0 {
 		// Verify other instance is running
@@ -1373,7 +1378,9 @@ func (b *BPF) InitialiseMetricMaps() error {
 }
 
 // IsLoaded - Method verifies whether bpf program is loaded or not
-// Here it checks whether prog ID is valid and active
+// Here it checks whether prog ID is valid and active, and - for
+// link-based attachments (XDP/TCX) - that the program is still
+// attached to its target network interface.
 func (b *BPF) IsLoaded() bool {
 	progID := ebpf.ProgramID(b.ProgID.Load())
 	if progID == 0 {
@@ -1385,6 +1392,12 @@ func (b *BPF) IsLoaded() bool {
 		return false
 	}
 	defer ebpfProg.Close()
+
+	if !b.isAttachedToInterface() {
+		log.Warn().Msgf("IsLoaded - %s program id %d is no longer attached to interface %s", b.Program.Name, uint32(progID), b.IfaceName)
+		return false
+	}
+
 	return true
 }
 

@@ -129,6 +129,7 @@ func TestNewBpfProgram(t *testing.T) {
 					BPFLogDir:  "",
 					DataCenter: "localdc",
 				},
+				IfaceName: ifaceName,
 			},
 		},
 		{name: "EmptyBPFProgram",
@@ -143,6 +144,7 @@ func TestNewBpfProgram(t *testing.T) {
 				BpfMaps:        make(map[string]BPFMap, 0),
 				MetricsBpfMaps: make(map[string]*MetricsBPFMap, 0),
 				HostConfig:     &config.Config{},
+				IfaceName:      ifaceName,
 			},
 		},
 	}
@@ -1002,5 +1004,60 @@ func Test_VerifyPinnedProgMapVanish(t *testing.T) {
 				t.Errorf("VerifyPinnedMapVanish() error : %v", err)
 			}
 		})
+	}
+}
+
+func TestBPF_IsLoaded(t *testing.T) {
+	tests := []struct {
+		name   string
+		progID uint32
+		want   bool
+	}{
+		{
+			name:   "ZeroProgID",
+			progID: 0,
+			want:   false,
+		},
+		{
+			// A non-zero ID that doesn't correspond to any program loaded in
+			// the kernel: ebpf.NewProgramFromID fails and IsLoaded reports
+			// false without ever reaching the interface-attachment check.
+			name:   "InvalidNonZeroProgID",
+			progID: 0x7fffffff,
+			want:   false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := &BPF{Program: models.BPFProgram{Name: "testprog"}}
+			b.ProgID.Store(tt.progID)
+			if got := b.IsLoaded(); got != tt.want {
+				t.Errorf("BPF.IsLoaded() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestBPF_Start_SetsIfaceName verifies that Start records the interface it
+// was asked to attach to, since IsLoaded's interface-attachment check
+// depends on b.IfaceName being populated.
+func TestBPF_Start_SetsIfaceName(t *testing.T) {
+	b := &BPF{
+		Program: models.BPFProgram{
+			Name:        "nfprogram",
+			AdminStatus: "enabled",
+		},
+		FilePath:   GetTestExecutablePath(),
+		HostConfig: &config.Config{},
+	}
+	// No ObjectFile/CmdStart is set, so Start skips the real attach/exec
+	// paths; isRunning -> IsLoaded sees ProgID 0 and b.Link == nil, both of
+	// which short-circuit to "not attached" without touching the kernel, so
+	// this can't false-negative on the feature under test.
+	if err := b.Start("eth7", "", models.IngressType, true); err != nil {
+		t.Fatalf("BPF.Start() unexpected error = %v", err)
+	}
+	if b.IfaceName != "eth7" {
+		t.Errorf("BPF.Start() IfaceName = %q, want %q", b.IfaceName, "eth7")
 	}
 }
