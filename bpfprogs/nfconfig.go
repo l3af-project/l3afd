@@ -332,7 +332,16 @@ func (c *NFConfigs) StopNRemoveAllBPFPrograms(ifaceName, direction string) error
 	for e := bpfList.Front(); e != nil; {
 		data := e.Value.(*BPF)
 		if err := data.Stop(ifaceName, c.Ifaces[ifaceName], direction, c.HostConfig.BpfChainingEnabled); err != nil {
-			return fmt.Errorf("failed to stop program %s direction %s with err :%w", data.Program.Name, direction, err)
+			if !isStaleAttachStopErr(err) {
+				return fmt.Errorf("failed to stop program %s direction %s with err :%w", data.Program.Name, direction, err)
+			}
+			// The old attach target (e.g. a replaced interface) is already
+			// gone, so there's nothing left in the kernel to clean up for
+			// this program. Log and keep going instead of aborting: the
+			// map entry above is already nil'd, so bailing here would just
+			// leak the remaining elements of bpfList without removing the
+			// kernel state they still reference.
+			log.Warn().Err(err).Msgf("stop program %s direction %s failed, continuing cleanup since its attach target is gone", data.Program.Name, direction)
 		}
 		nextBPF := e.Next()
 		bpfList.Remove(e)
@@ -340,6 +349,51 @@ func (c *NFConfigs) StopNRemoveAllBPFPrograms(ifaceName, direction string) error
 	}
 
 	return nil
+}
+
+// isStaleAttachStopErr reports whether err from BPF.Stop is one of the
+// expected failures when the program's attach target (interface) no longer
+// exists in the form it was attached to - e.g. it was deleted and recreated
+// with a new ifindex. These are safe to ignore during a reattach cleanup:
+// there's no live kernel attachment left to remove.
+func isStaleAttachStopErr(err error) bool {
+	msg := err.Error()
+	return strings.Contains(msg, "could not get filters") ||
+		strings.Contains(msg, "is not running")
+}
+
+// needsReattach reports whether direction's currently tracked program list
+// for ifaceName is attached to a stale device: the interface name now
+// resolves to a different ifindex than the one the attachment was made
+// against (see BPF.AttachedIfindex). This happens when something recreates
+// an interface with the same name (e.g. a bridge replug) - the old TC/XDP
+// attachment is left on the deleted device while l3afd keeps tracking the
+// live name, so Deploy would otherwise think the program is still running
+// fine and never re-attach it.
+func (c *NFConfigs) needsReattach(ifaceName, direction string) bool {
+	var bpfList *list.List
+	switch direction {
+	case models.XDPIngressType:
+		bpfList = c.IngressXDPBpfs[ifaceName]
+	case models.IngressType:
+		bpfList = c.IngressTCBpfs[ifaceName]
+	case models.EgressType:
+		bpfList = c.EgressTCBpfs[ifaceName]
+	default:
+		return false
+	}
+
+	if bpfList == nil || bpfList.Len() == 0 {
+		return false
+	}
+
+	// With chaining enabled the front element is the TC/XDP root program,
+	// the only one actually attached to the device - the rest are chained
+	// into it via prog-array maps, not attached directly. With chaining
+	// disabled each entry attaches directly, so the front element is still
+	// representative of this direction's live attachment.
+	root := bpfList.Front().Value.(*BPF)
+	return root.AttachTargetDrifted(ifaceName)
 }
 
 // StopNRemoveAllBPFProbePrograms Stopping all probe programs in order
@@ -745,6 +799,37 @@ func (c *NFConfigs) Deploy(ifaceName, HostName string, bpfProgs *models.BPFProgr
 	}
 	c.Mu.Lock()
 	defer c.Mu.Unlock()
+
+	// A same-named interface can be deleted and recreated (e.g. a bridge
+	// replug) between deploys, leaving the existing attachment on a now-gone
+	// device even though c.Ifaces*Bpfs[ifaceName] is still non-nil. Detect
+	// that here and force a clean reattach: StopNRemoveAllBPFPrograms sets
+	// the list back to nil, so the existing "== nil" branch below rebuilds
+	// the root program and re-pushes every configured program.
+	//
+	// Gated on this request actually carrying programs for the direction:
+	// the "== nil" branch that rebuilds only runs per bpfProg in that
+	// direction's slice, so nil'ing the list here when e.g. bpfProgs.XDPIngress
+	// is empty would tear down a live attachment and never rebuild it until
+	// some later Deploy call happens to include an XDP program again.
+	if len(bpfProgs.XDPIngress) > 0 && c.needsReattach(ifaceName, models.XDPIngressType) {
+		log.Warn().Msgf("iface %s xdp ingress attachment is stale (ifindex changed), reattaching", ifaceName)
+		if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.XDPIngressType); err != nil {
+			log.Warn().Err(err).Msgf("cleanup of stale xdp ingress attachment on %s reported errors, continuing", ifaceName)
+		}
+	}
+	if len(bpfProgs.TCIngress) > 0 && c.needsReattach(ifaceName, models.IngressType) {
+		log.Warn().Msgf("iface %s tc ingress attachment is stale (ifindex changed), reattaching", ifaceName)
+		if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.IngressType); err != nil {
+			log.Warn().Err(err).Msgf("cleanup of stale tc ingress attachment on %s reported errors, continuing", ifaceName)
+		}
+	}
+	if len(bpfProgs.TCEgress) > 0 && c.needsReattach(ifaceName, models.EgressType) {
+		log.Warn().Msgf("iface %s tc egress attachment is stale (ifindex changed), reattaching", ifaceName)
+		if err := c.StopNRemoveAllBPFPrograms(ifaceName, models.EgressType); err != nil {
+			log.Warn().Err(err).Msgf("cleanup of stale tc egress attachment on %s reported errors, continuing", ifaceName)
+		}
+	}
 
 	for _, bpfProg := range bpfProgs.XDPIngress {
 		if c.IngressXDPBpfs[ifaceName] == nil {

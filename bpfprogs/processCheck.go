@@ -59,6 +59,31 @@ func (c *PCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string
 					log.Debug().Msgf("pMonitor: skipping %s on %s, initial deployment in flight", bpf.Program.Name, ifaceName)
 					continue
 				}
+				// isRunning only checks the user program/process and the
+				// loaded BPF program - both can report healthy even though
+				// the kernel attachment itself is orphaned on a deleted
+				// device, e.g. ifaceName was recreated (bridge replug) with
+				// a new ifindex after the attachment was made. Catch that
+				// drift here and force a reattach regardless of isRunning.
+				// Gated on MaxRetryCount like the restart path below: if
+				// Start keeps failing, AttachedIfindex never advances past
+				// the stale value, so without this cap it would retry every
+				// tick forever.
+				if bpf.AttachTargetDrifted(ifaceName) {
+					if bpf.RestartCount >= c.MaxRetryCount {
+						log.Warn().Msgf("pMonitor: %s on iface %s attach target drifted but max retry count %d reached, not reattaching", bpf.Program.Name, ifaceName, c.MaxRetryCount)
+						continue
+					}
+					bpf.RestartCount++
+					log.Warn().Msgf("pMonitor: %s on iface %s attach target drifted (ifindex changed), reattaching. Attempt: %d", bpf.Program.Name, ifaceName, bpf.RestartCount)
+					if err := bpf.Stop(ifaceName, (*ifaces)[ifaceName], direction, c.Chain); err != nil {
+						log.Warn().Err(err).Msgf("pMonitorWorker: stop before reattach failed for program %s, continuing", bpf.Program.Name)
+					}
+					if err := bpf.Start(ifaceName, (*ifaces)[ifaceName], direction, c.Chain); err != nil {
+						log.Error().Err(err).Msgf("pMonitorWorker: reattach start failed for program %s", bpf.Program.Name)
+					}
+					continue
+				}
 				userProgram, bpfProgram, _ := bpf.isRunning()
 				if userProgram && bpfProgram {
 					stats.SetWithVersion(1.0, stats.BPFRunning, bpf.Program.Name, bpf.Program.Version, direction, ifaceName, (*ifaces)[ifaceName])

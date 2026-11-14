@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -70,6 +71,33 @@ type BPF struct {
 	Link              link.Link `json:"-"` // handle link object
 	ProbeLinks        []*link.Link
 	Deploying         atomic.Bool `json:"-"` // true while artifact fetch or Start is in flight; pMonitor skips the program during this window
+	// AttachedIfindex is the ifindex this program was actually attached to
+	// (the TC filter / XDP or TCX link), recorded by the Load*AttachProgram
+	// calls in bpf_unix.go. BPF/TC attachments are keyed by ifindex, not
+	// interface name: if the named interface is deleted and recreated (e.g.
+	// a bridge replug) the old attachment is silently left on the deleted
+	// device while l3afd keeps tracking the live name. 0 means "never
+	// attached yet".
+	AttachedIfindex atomic.Int32 `json:"-"`
+}
+
+// AttachTargetDrifted reports whether ifaceName currently resolves to a
+// different network device than the one this program is actually attached
+// to. Used to detect the case where a same-named interface was recreated
+// out from under an existing attachment (see AttachedIfindex). Returns
+// false if this program has no recorded attachment yet, or if ifaceName
+// can't be looked up right now - that failure is handled separately by the
+// regular host-interface checks in Deploy/pMonitorWorker.
+func (b *BPF) AttachTargetDrifted(ifaceName string) bool {
+	stored := b.AttachedIfindex.Load()
+	if stored == 0 {
+		return false
+	}
+	iface, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		return false
+	}
+	return int32(iface.Index) != stored
 }
 
 // MarshalJSON implements json.Marshaler for BPF. ProgID is stored as

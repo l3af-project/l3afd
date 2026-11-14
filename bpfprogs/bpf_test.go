@@ -10,6 +10,7 @@ import (
 	"compress/gzip"
 	"context"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -1000,6 +1001,59 @@ func Test_VerifyPinnedProgMapVanish(t *testing.T) {
 			err := b.VerifyPinnedProgMap(true, false)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("VerifyPinnedMapVanish() error : %v", err)
+			}
+		})
+	}
+}
+
+// Test_AttachTargetDrifted covers BPF.AttachTargetDrifted: the helper used by
+// Deploy (via needsReattach) and pMonitorWorker to detect that a same-named
+// interface was deleted and recreated with a new ifindex out from under an
+// existing TC/XDP attachment.
+func Test_AttachTargetDrifted(t *testing.T) {
+	// "lo" is present and stable on every platform this test runs on.
+	loIface, err := net.InterfaceByName("lo")
+	if err != nil {
+		t.Skipf("skipping: could not resolve loopback interface: %v", err)
+	}
+
+	tests := []struct {
+		name            string
+		attachedIfindex int32
+		ifaceName       string
+		want            bool
+	}{
+		{
+			name:            "neverAttached",
+			attachedIfindex: 0,
+			ifaceName:       "lo",
+			want:            false,
+		},
+		{
+			name:            "sameIfindexNoDrift",
+			attachedIfindex: int32(loIface.Index),
+			ifaceName:       "lo",
+			want:            false,
+		},
+		{
+			name:            "driftedIfindex",
+			attachedIfindex: int32(loIface.Index) + 1000,
+			ifaceName:       "lo",
+			want:            true,
+		},
+		{
+			name:            "unresolvableIfaceName",
+			attachedIfindex: int32(loIface.Index) + 1000,
+			ifaceName:       "does-not-exist-l3afd-test",
+			want:            false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := &BPF{}
+			b.AttachedIfindex.Store(tt.attachedIfindex)
+			if got := b.AttachTargetDrifted(tt.ifaceName); got != tt.want {
+				t.Errorf("AttachTargetDrifted() = %v, want %v", got, tt.want)
 			}
 		})
 	}

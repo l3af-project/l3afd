@@ -5,6 +5,7 @@ package bpfprogs
 
 import (
 	"container/list"
+	"net"
 	"reflect"
 	"sync"
 	"testing"
@@ -246,4 +247,87 @@ func TestDeployingFlagRace(t *testing.T) {
 	wg.Wait()
 	// No explicit assertion — the race detector is the check.
 	// A data race on ProgID here means the Deploying guard is broken.
+}
+
+// TestPMonitorWorker_AttachTargetDriftedReattach verifies the drift-check
+// block added to pMonitorWorker (processCheck.go): when a tracked program's
+// recorded attach target (BPF.AttachedIfindex) no longer matches the
+// interface's current ifindex - e.g. a same-named bridge was deleted and
+// recreated, orphaning the old TC/XDP attachment - pMonitorWorker must force
+// a Stop+Start reattach instead of relying on isRunning(), and must stop
+// retrying once RestartCount reaches MaxRetryCount so a persistently failing
+// Start doesn't retry forever.
+//
+// Like TestDeployingFlagSkipsMonitorRestart, this inlines the exact guard
+// added to pMonitorWorker rather than driving the real ticker-based
+// goroutine (which only returns on models.IsReadOnly and has no test hook to
+// single-step it), but it exercises the real BPF.AttachTargetDrifted method
+// against a real host interface rather than a stub.
+func TestPMonitorWorker_AttachTargetDriftedReattach(t *testing.T) {
+	hostIfaces, err := getHostInterfaces()
+	if err != nil {
+		t.Skipf("skipping: getHostInterfaces failed: %v", err)
+	}
+	var iface string
+	for k := range hostIfaces {
+		iface = k
+		break
+	}
+	if iface == "" {
+		t.Skip("skipping: no host interfaces found")
+	}
+	ifaceObj, err := net.InterfaceByName(iface)
+	if err != nil {
+		t.Skipf("skipping: could not resolve %s: %v", iface, err)
+	}
+
+	bpf := &BPF{
+		Program: models.BPFProgram{
+			Name:        "testprog",
+			AdminStatus: models.Enabled,
+		},
+	}
+	// Stale: recorded against an ifindex that no longer matches iface's
+	// current one, simulating a same-named interface recreated with a new
+	// ifindex (e.g. bridge replug).
+	bpf.AttachedIfindex.Store(int32(ifaceObj.Index) + 1000)
+
+	c := &PCheck{MaxRetryCount: 2}
+	var stopCalls, startCalls int
+
+	// reattachOnDrift inlines the exact guard added to pMonitorWorker, with
+	// bpf.Stop/bpf.Start replaced by counters since driving the real kernel
+	// calls needs a fully running program. The drift condition itself
+	// (bpf.AttachTargetDrifted) is the real production method, not a stub.
+	reattachOnDrift := func() (reattached bool) {
+		if !bpf.AttachTargetDrifted(iface) {
+			return false
+		}
+		if bpf.RestartCount >= c.MaxRetryCount {
+			return false
+		}
+		bpf.RestartCount++
+		stopCalls++
+		startCalls++
+		return true
+	}
+
+	if !reattachOnDrift() {
+		t.Fatalf("tick 1: expected reattach, got none")
+	}
+	if !reattachOnDrift() {
+		t.Fatalf("tick 2: expected reattach, got none")
+	}
+	if bpf.RestartCount != 2 || stopCalls != 2 || startCalls != 2 {
+		t.Errorf("after 2 ticks: RestartCount=%d stopCalls=%d startCalls=%d, want 2,2,2", bpf.RestartCount, stopCalls, startCalls)
+	}
+
+	// MaxRetryCount reached: must not reattach again even though drift
+	// persists.
+	if reattachOnDrift() {
+		t.Fatalf("tick 3: expected no reattach once MaxRetryCount is reached")
+	}
+	if stopCalls != 2 || startCalls != 2 {
+		t.Errorf("stopCalls=%d startCalls=%d after cap, want unchanged 2,2", stopCalls, startCalls)
+	}
 }
