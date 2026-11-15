@@ -82,19 +82,27 @@ func Test_ifindexMatches(t *testing.T) {
 			want:        false,
 		},
 		{
-			name:        "ZeroIfindexTreatedAsUnknown",
+			name:        "ZeroIfindexIsMismatch",
 			linkIfindex: 0,
 			ifaceName:   "nosuchif0",
-			want:        true,
+			want:        false,
 		},
 		{
-			// Same zero-ifindex guard, but paired with a real interface name
+			// Same zero-ifindex check, but paired with a real interface name
 			// that would otherwise resolve and compare fine. This fails loudly
 			// if the zero-check is ever reordered to run after the
 			// net.InterfaceByName lookup instead of before it.
-			name:        "ZeroIfindexTreatedAsUnknownEvenWithValidIface",
+			name:        "ZeroIfindexIsMismatchEvenWithValidIface",
 			linkIfindex: 0,
 			ifaceName:   "lo",
+			want:        false,
+		},
+		{
+			// No ifaceName to resolve a mismatch against - treated as
+			// unknown/attached rather than a false-positive mismatch.
+			name:        "ZeroIfindexEmptyIfaceNameTreatedAsUnknown",
+			linkIfindex: 0,
+			ifaceName:   "",
 			want:        true,
 		},
 	}

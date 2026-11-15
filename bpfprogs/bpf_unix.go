@@ -612,17 +612,18 @@ func (b *BPF) isAttachedToInterface() bool {
 }
 
 // ifindexMatches reports whether linkIfindex still identifies the
-// interface named ifaceName. It is deliberately conservative: a result of
-// true (meaning "treat the program as attached") is returned whenever the
-// comparison cannot be made confidently, so that an unsupported or
-// unexpectedly zero link ifindex never causes pMonitor to restart a
-// healthy program. It only returns false on a positive, resolvable
-// mismatch - e.g. ifaceName was deleted and recreated with a new ifindex.
+// interface named ifaceName. Callers only reach this with a linkIfindex
+// read back from a live, successfully-queried XDP/TCX link.Link - a real
+// interface ifindex is never 0, so a zero value paired with a known
+// ifaceName means the link itself has been torn down/detached (e.g.
+// interface removed), not an unsupported or not-yet-populated field. That
+// is a positive, resolvable mismatch, so it returns false rather than
+// assuming the program is still attached. Without an ifaceName there is
+// nothing to resolve a mismatch against, so that combination is treated as
+// unknown/attached instead of a false-positive mismatch.
 func ifindexMatches(linkIfindex uint32, ifaceName string) bool {
 	if linkIfindex == 0 {
-		// Some link types/kernels may not populate ifindex; treat as unknown
-		// rather than a mismatch to avoid false-negative restarts.
-		return true
+		return ifaceName == ""
 	}
 
 	iface, err := net.InterfaceByName(ifaceName)

@@ -566,6 +566,15 @@ func (b *BPF) UpdateArgs(ifaceName, ipv4_address, direction string) error {
 
 	if err := UpdateCmd.Wait(); err != nil {
 		stats.Add(1, stats.BPFUpdateFailedCount, b.Program.Name, direction, ifaceName, ipv4_address)
+		// Non-daemon update commands are run-to-completion processes; like
+		// StartUserProgram's handling of a non-daemon CmdStart, a non-zero
+		// exit here is only logged, not treated as a hard failure, since
+		// there's no persistent process whose exit code reflects ongoing
+		// health - only the daemon case indicates a real update failure.
+		if !b.Program.UserProgramDaemon {
+			log.Warn().Err(err).Msgf("cmd wait at starting of bpf program returned with error - %s", b.Program.Name)
+			return nil
+		}
 		return fmt.Errorf("cmd wait at starting of bpf program returned with error %w", err)
 	}
 
