@@ -76,14 +76,24 @@ func (c *PCheck) pMonitorWorker(bpfProgs map[string]*list.List, direction string
 						}
 					}
 					// BPF program is not loaded.
-					// if user program is daemon then stop it and restart both the programs
 					if !bpfProgram {
 						log.Warn().Msgf("%s BPF program is not loaded, %s program reloading ...", bpf.Program.EntryFunctionName, bpf.Program.Name)
-						// User program is a daemon and running, stop before reloading the BPF program
-						if bpf.Program.UserProgramDaemon && userProgram {
-							if err := bpf.Stop(ifaceName, (*ifaces)[ifaceName], direction, c.Chain); err != nil {
-								log.Error().Err(err).Msgf("pMonitorWorker: BPF Program stop failed for program %s", bpf.Program.Name)
-							}
+						// Stop first to clean up any stale pins left behind by the
+						// previous (now unloaded/detached) instance - Start's
+						// re-pin of the program/link/maps at the same
+						// deterministic path (see ProgPinPath/LinkPinPath)
+						// otherwise fails because that path is still occupied.
+						// This must run regardless of UserProgramDaemon: Stop's
+						// own daemon-process kill is separately gated on
+						// UserProgramDaemon/userProgram internally, but its BPF
+						// unload/unpin step is not, and is exactly what a plain
+						// (non-daemon) XDP/TC program needs here too. Drift is
+						// precisely the scenario where Stop can itself error
+						// (link/pins already gone) - log and continue to Start
+						// rather than abort, so a failing cleanup doesn't block
+						// the reload it is meant to enable.
+						if err := bpf.Stop(ifaceName, (*ifaces)[ifaceName], direction, c.Chain); err != nil {
+							log.Warn().Err(err).Msgf("pMonitorWorker: BPF Program stop before restart failed for program %s, continuing to reload anyway", bpf.Program.Name)
 						}
 						if err := bpf.Start(ifaceName, (*ifaces)[ifaceName], direction, c.Chain); err != nil {
 							log.Error().Err(err).Msgf("pMonitorWorker: BPF Program start failed for program %s", bpf.Program.Name)

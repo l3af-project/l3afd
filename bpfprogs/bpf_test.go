@@ -55,6 +55,23 @@ func fakeExecCommandDaemon(command string, args ...string) *exec.Cmd {
 	return cmd
 }
 
+// fakeExecCommandSync is like fakeExecCommand but does not stub cmd.Process.
+// fakeExecCommand hardcodes Process so daemon-mode callers can read a PID
+// without actually starting anything; but that makes a real Start() fail
+// with "exec: already started" (exec.Cmd rejects Start() when Process is
+// already set), which would short-circuit callers - like UpdateArgs - that
+// need Start() to actually run the helper and Wait() to observe its exit
+// code. Use this instead whenever the code under test calls Start()+Wait()
+// synchronously and the exit status (mockedExitStatus) is what's being
+// tested.
+func fakeExecCommandSync(command string, args ...string) *exec.Cmd {
+	cs := []string{"-test.run=TestHelperProcess", "--", command}
+	cs = append(cs, args...)
+	cmd := exec.Command(os.Args[0], cs...)
+	cmd.Env = []string{"GO_WANT_HELPER_PROCESS=1"}
+	return cmd
+}
+
 func TestHelperProcess(t *testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
@@ -129,6 +146,7 @@ func TestNewBpfProgram(t *testing.T) {
 					BPFLogDir:  "",
 					DataCenter: "localdc",
 				},
+				IfaceName: ifaceName,
 			},
 		},
 		{name: "EmptyBPFProgram",
@@ -143,6 +161,7 @@ func TestNewBpfProgram(t *testing.T) {
 				BpfMaps:        make(map[string]BPFMap, 0),
 				MetricsBpfMaps: make(map[string]*MetricsBPFMap, 0),
 				HostConfig:     &config.Config{},
+				IfaceName:      ifaceName,
 			},
 		},
 	}
@@ -357,6 +376,72 @@ func TestBPF_Start(t *testing.T) {
 			}
 			if err := b.Start(tt.fields.ifaceName, "", models.IngressType, true); (err != nil) != tt.wantErr {
 				t.Errorf("BPF.Start() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// Test_UpdateArgs covers UpdateArgs's handling of a non-zero exit from the
+// update command, which previously always failed Start() for every program -
+// including ones whose CmdUpdate is a run-to-completion (non-daemon)
+// process, where a non-zero exit isn't necessarily a real failure. The two
+// cases below are identical except for UserProgramDaemon, isolating exactly
+// that branch (see bpf.go UpdateArgs).
+func Test_UpdateArgs(t *testing.T) {
+	execCommand = fakeExecCommandSync
+	defer func() { execCommand = exec.Command }()
+
+	type fields struct {
+		Program  models.BPFProgram
+		FilePath string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		wantErr bool
+	}{
+		{
+			name: "NoFilePath",
+			fields: fields{
+				Program:  models.BPFProgram{},
+				FilePath: "",
+			},
+			wantErr: true,
+		},
+		{
+			name: "UserProgramDaemonTrue_NonZeroExitPropagates",
+			fields: fields{
+				Program: models.BPFProgram{
+					Name:              "nfprogram",
+					CmdUpdate:         GetTestExecutableName(),
+					UserProgramDaemon: true,
+				},
+				FilePath: GetTestExecutablePath(),
+			},
+			wantErr: true,
+		},
+		{
+			name: "UserProgramDaemonFalse_NonZeroExitSuppressed",
+			fields: fields{
+				Program: models.BPFProgram{
+					Name:              "nfprogram",
+					CmdUpdate:         GetTestExecutableName(),
+					UserProgramDaemon: false,
+				},
+				FilePath: GetTestExecutablePath(),
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := &BPF{
+				Program:    tt.fields.Program,
+				FilePath:   tt.fields.FilePath,
+				HostConfig: &config.Config{},
+			}
+			if err := b.UpdateArgs("eth0", "", models.IngressType); (err != nil) != tt.wantErr {
+				t.Errorf("BPF.UpdateArgs() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -1002,5 +1087,60 @@ func Test_VerifyPinnedProgMapVanish(t *testing.T) {
 				t.Errorf("VerifyPinnedMapVanish() error : %v", err)
 			}
 		})
+	}
+}
+
+func TestBPF_IsLoaded(t *testing.T) {
+	tests := []struct {
+		name   string
+		progID uint32
+		want   bool
+	}{
+		{
+			name:   "ZeroProgID",
+			progID: 0,
+			want:   false,
+		},
+		{
+			// A non-zero ID that doesn't correspond to any program loaded in
+			// the kernel: ebpf.NewProgramFromID fails and IsLoaded reports
+			// false without ever reaching the interface-attachment check.
+			name:   "InvalidNonZeroProgID",
+			progID: 0x7fffffff,
+			want:   false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := &BPF{Program: models.BPFProgram{Name: "testprog"}}
+			b.ProgID.Store(tt.progID)
+			if got := b.IsLoaded(); got != tt.want {
+				t.Errorf("BPF.IsLoaded() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestBPF_Start_SetsIfaceName verifies that Start records the interface it
+// was asked to attach to, since IsLoaded's interface-attachment check
+// depends on b.IfaceName being populated.
+func TestBPF_Start_SetsIfaceName(t *testing.T) {
+	b := &BPF{
+		Program: models.BPFProgram{
+			Name:        "nfprogram",
+			AdminStatus: "enabled",
+		},
+		FilePath:   GetTestExecutablePath(),
+		HostConfig: &config.Config{},
+	}
+	// No ObjectFile/CmdStart is set, so Start skips the real attach/exec
+	// paths; isRunning -> IsLoaded sees ProgID 0 and b.Link == nil, both of
+	// which short-circuit to "not attached" without touching the kernel, so
+	// this can't false-negative on the feature under test.
+	if err := b.Start("eth7", "", models.IngressType, true); err != nil {
+		t.Fatalf("BPF.Start() unexpected error = %v", err)
+	}
+	if b.IfaceName != "eth7" {
+		t.Errorf("BPF.Start() IfaceName = %q, want %q", b.IfaceName, "eth7")
 	}
 }

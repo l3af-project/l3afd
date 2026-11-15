@@ -87,3 +87,12 @@ func (b *BPF) LoadBPFProgramProbeTypes(objSpec *ebpf.CollectionSpec) error {
 	// not implement nothing todo
 	return fmt.Errorf("LoadBPFProgramProbeTypes - Probes are Unsupported on windows")
 }
+
+// isAttachedToInterface - link-based attach verification (ifindex drift
+// detection) is not implemented on Windows, so this is treated as "can't
+// confirm detachment" (attached) rather than risking a false-positive
+// restart - matching the conservative fallback used by the unix
+// implementation (see bpf_unix.go) when a definitive answer isn't available.
+func (b *BPF) isAttachedToInterface() bool {
+	return true
+}
